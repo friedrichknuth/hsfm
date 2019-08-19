@@ -12,6 +12,9 @@ dependencies:
   - pip
   - gdal
   - scipy
+  - haversine
+  - utm
+  # - menpo::opencv
   - pip:
     - elevation
     # - "--editable=git+https://github.com/friedrichknuth/bare.git#egg=bare"
