@@ -1,0 +1,17 @@
+name: hsfm
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - matplotlib
+  - geopandas
+  - descartes
+  - shapely
+  - contextily
+  - xmltodict
+  - pip
+  - gdal
+  - scipy
+  - pip:
+    - elevation
+    # - "--editable=git+https://github.com/friedrichknuth/bare.git#egg=bare"
