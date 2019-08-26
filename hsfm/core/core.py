@@ -59,12 +59,17 @@ def rotate_camera(cropped_grayscale_unit8_image_array, side=None):
     return img
     
     
-def select_images_for_download(csv_file_name,image_index_range=None):
+def select_images_for_download(csv_file_name,subset=None):
+    
+    """
+    Function to convert input csv to dataframe.
+    """
+    # - Add option to subset with list if range not suitable
     df = pd.read_csv(csv_file_name)
     df = df.drop_duplicates()
-    if image_index_range != None:
+    if subset != None:
         df['image_index_number'] = df['fileName'].str[11:].apply(int)
-        df = df[df['image_index_number'].between(image_index_range[0],image_index_range[1])]
+        df = df[df['image_index_number'].between(subset[0],subset[1])]
     return df
     
 def download_image(pid):
@@ -182,3 +187,48 @@ def crop_about_principal_point(grayscale_unit8_image_array, principal_point):
     cropped = hsfm.image.img_linear_stretch(cropped)
     
     return cropped
+    
+    
+def calculate_distance_principal_point_to_image_edge(focal_length_mm, 
+                                                     image_width_px, 
+                                                     image_height_px,
+                                                     altitude_above_ground_m=1500,
+                                                     pixel_pitch=0.02):
+                                                     
+    """
+    Function to calculate distance on ground from principal point to image edge.
+    """
+    # TODO
+    # - Sample elevation of reference DEM at camera center and subtract from
+    #   NAGAP altitude metadata to get altitude above ground. Assumes NAGAP
+    #   flights left from sea level. May not be necessary if 3000 meters (10,000 feet)
+    #   assumption is good enough for ASP bundle_adjust to correct from.
+        
+    # Divide image width in pixels by pixel pitch to get distance in millimeters.
+    image_width_mm = image_width_px * pixel_pitch
+    image_height_mm = image_height_px * pixel_pitch
+    
+    # Calculate angle between principal point and image edge.                      
+    angle_pp_img_edge_x = np.degrees(np.arctan((image_width_mm/2)/focal_length_mm))
+    angle_pp_img_edge_y = np.degrees(np.arctan((image_height_mm/2)/focal_length_mm))
+    
+    # In theory, the distance to the sensor should be added to get the true sensor altitude
+    # above ground. Likely does not make a difference here.
+    sensor_altitude_above_ground_m = focal_length_mm/1000 + altitude_above_ground_m
+    
+    # Calculate x and y distances seperately in case images are not square. 
+    # This is needed for hsfm.trig.calculate_corner()
+    distance_pp_img_edge_x_m = np.tan(np.deg2rad(angle_pp_img_edge_x)) * sensor_altitude_above_ground_m
+    distance_pp_img_edge_y_m = np.tan(np.deg2rad(angle_pp_img_edge_y)) * sensor_altitude_above_ground_m
+    
+    # Calculate ground sample distance. (Not needed at this time.)
+    # gsd_x = distance_pp_img_edge_x_m/(image_width_px/2)
+    # gsd_y = distance_pp_img_edge_y_m/(image_height_px/2)
+    
+    return distance_pp_img_edge_x_m, distance_pp_img_edge_y_m
+    
+    
+    
+    
+    
+    

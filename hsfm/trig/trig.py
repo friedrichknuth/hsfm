@@ -129,16 +129,16 @@ def calculate_corner(x,y,w,h,heading):
 
         ULLON = 2*x - LRLON
         ULLAT = 2*y - LRLAT
-        
-    LR = (LRLON, LRLAT)
-    UR = (URLON, URLAT)
-    LL = (LLLON, LLLAT)
-    UL = (ULLON, ULLAT)
+
+    LR = (LRLAT, LRLON)
+    UR = (URLAT, URLON)
+    LL = (LLLAT, LLLON)
+    UL = (ULLAT, ULLON)
     
 
     return UL, UR, LR, LL
     
-def check_angle(point1,point2, point3):
+def check_angle(point1,point2,point3):
     vector21 = np.array(point2) - np.array(point1)
     vector31 = np.array(point3) - np.array(point1)
     angle = np.dot(vector21, vector31)/(np.linalg.norm(vector21) * np.linalg.norm(vector31))

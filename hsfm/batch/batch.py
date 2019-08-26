@@ -1,12 +1,74 @@
 import os
 import cv2
+import sys
+import glob
 
 import hsfm.io
 import hsfm.core
 import hsfm.image
 
+def batch_generate_cameras(image_directory,
+                           camera_positions_file_name,
+                           reference_dem_file_name,
+                           focal_length_mm,
+                           out_dir='./data/cameras',
+                           subset=None):
+                           
+                           
+    
+    image_list = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
+    df = calculate_heading_from_metadata(camera_positions_file_name,subset=subset)
+    
+    
+    if len(image_list) != len(df):
+        print('Mismatch between metadata entries in camera position file and available images.')
+        sys.exit(1)
+    
+    for i,v in enumerate(image_list):
+        image_file_name = v
+        camera_lat_lon_center_coordinates = (df['Latitude'].iloc[0], df['Longitude'].iloc[0])
+        heading = df['heading'].iloc[i]
+        
+        hsfm.asp.generate_camera(image_file_name,
+                                 camera_lat_lon_center_coordinates,
+                                 reference_dem_file_name,
+                                 focal_length_mm,
+                                 heading,
+                                 out_dir=out_dir)
+        
+    pass
+    
+    
+def calculate_heading_from_metadata(camera_positions_file_name, subset=None):
+    df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
+    lons = df['Longitude'].values
+    lats = df['Latitude'].values
+    
+    headings = []
+    for i, v in enumerate(lats):
+        try:
+            p0_lon = lons[i]
+            p0_lat = lats[i]
 
-def preprocess_images(csv_file_name, 
+            p1_lon = lons[i+1]
+            p1_lat = lats[i+1]
+        
+            heading = hsfm.geospatial.calculate_heading(p0_lon,p0_lat,p1_lon,p1_lat)
+            headings.append(heading)
+    
+        except:
+            # When the loop reaches the last element, 
+            # assume that the final image is oriented 
+            # the same as the previous, i.e. the flight 
+            # direction did not change
+            headings.append(heading)
+        
+    df['heading'] = headings
+    
+    return df
+    
+    
+def preprocess_images(camera_positions_file_name, 
                       template_directory,
                       image_type='pid_tiff', 
                       out_dir='data/images',
@@ -32,7 +94,7 @@ def preprocess_images(csv_file_name,
     window_top = [0,500,6000,7200]
     window_bottom = [11000,11509,6000,7200]
     
-    df = hsfm.core.select_images_for_download(csv_file_name, subset)
+    df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
     targets = dict(zip(df[image_type], df['fileName']))
     
     for pid, file_name in targets.items():

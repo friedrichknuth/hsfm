@@ -16,9 +16,8 @@ def df_xyz_coords_to_gdf(df,
     Function to convert pandas dataframe containing lat, lon, elevation coordinates to geopandas dataframe.
     Use df_xy_coords_to_gdf() if elevation data not available.
     """
-    geometry = [Point(xyz) for xyz in zip(df[lon], df[lat], df[z])]      
-    df['geometry'] = geometry   
-    gdf = gpd.GeoDataFrame(df, crs={'init':'epsg:'+crs})
+    geometry = [Point(xyz) for xyz in zip(df[lon], df[lat], df[z])]        
+    gdf = gpd.GeoDataFrame(df, geometry=geometry, crs={'init':'epsg:'+crs})
     
     return gdf
     
@@ -30,8 +29,7 @@ def df_xy_coords_to_gdf(df,
     Function to convert pandas dataframe containing lat, lon coordinates to geopandas dataframe.
     """
     geometry = [Point(xy) for xy in zip(df[lon], df[lat])]
-    df['geometry'] = geometry   
-    gdf = gpd.GeoDataFrame(df, crs={'init':'epsg:'+crs})
+    gdf = gpd.GeoDataFrame(df,geometry=geometry, crs={'init':'epsg:'+crs})
     
     return gdf
     
