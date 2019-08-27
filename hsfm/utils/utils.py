@@ -23,11 +23,13 @@ def run_command(command, verbose=False):
 
 
 def download_srtm(LLLON,LLLAT,URLON,URLAT,
-                  out_dir='./data/reference_dem/',
-                  verbose=True):
+                  output_dir='./data/reference_dem/',
+                  verbose=True,
+                  cleanup=False):
     # TODO
     # - Add function to determine extent automatically from input cameras
     # - Make geoid adjustment and converstion to UTM optional
+    # - Preserve wgs84 dem
     import elevation
     
     run_command(['eio', 'selfcheck'], verbose=verbose)
@@ -78,10 +80,14 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
     run_command(call, verbose=verbose)
     
     # Cleanup
-    prtin('Cleaning up...','Reference DEM available at', out)
-    out = os.path.join(output_dir,os.path.split(utm_vrt_subset_file_name)[-1])
-    os.rename(utm_vrt_subset_file_name, out)
-    shutil.rmtree(os.path.join(output_dir,'SRTM3/'))
+    if cleanup == True:
+        print('Cleaning up...','Reference DEM available at', out)
+        out = os.path.join(output_dir,os.path.split(utm_vrt_subset_file_name)[-1])
+        os.rename(utm_vrt_subset_file_name, out)
+        shutil.rmtree(os.path.join(output_dir,'SRTM3/'))
     
-    return out
+        return out
+        
+    else:
+        return utm_vrt_subset_file_name
     

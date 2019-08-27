@@ -26,8 +26,10 @@ def batch_generate_cameras(image_directory,
     
     for i,v in enumerate(image_list):
         image_file_name = v
-        camera_lat_lon_center_coordinates = (df['Latitude'].iloc[0], df['Longitude'].iloc[0])
+        camera_lat_lon_center_coordinates = (df['Latitude'].iloc[i], df['Longitude'].iloc[i])
         heading = df['heading'].iloc[i]
+        
+        print(camera_lat_lon_center_coordinates)
         
         hsfm.asp.generate_camera(image_file_name,
                                  camera_lat_lon_center_coordinates,

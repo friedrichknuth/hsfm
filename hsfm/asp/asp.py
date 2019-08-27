@@ -19,6 +19,11 @@ def calculate_corner_coordinates(camera_lat_lon_wgs84_center_coordinates,
                                  image_width_px,
                                  image_height_px,
                                  heading):
+                                 
+    # TODO
+    # - Investigate why the order of UL, UR, LR, LL does not match the way
+    #   cam_gen traverses the iamge 0,0 w,0, w,h, 0,h
+    
     # This assumes the principal point is at the image center 
     # i.e. half the image width and height                             
     half_width_m, half_height_m = hsfm.core.calculate_distance_principal_point_to_image_edge(focal_length_mm,
@@ -31,11 +36,11 @@ def calculate_corner_coordinates(camera_lat_lon_wgs84_center_coordinates,
     camera_utm_lat = u[1]
     camera_utm_lon = u[0]
     # Calculate upper left, upper right, lower right, lower left corner coordinates as (lat,lon)
-    print(camera_utm_lat,camera_utm_lon,half_width_m, half_height_m, heading)
     UL, UR, LR, LL = hsfm.trig.calculate_corner(camera_utm_lat,camera_utm_lon,half_width_m, half_height_m, heading)
 
     # Calculate corner coordinates in UTM
-    corners = [UL, UR, LR, LL]
+    # corners = [UL, UR, LR, LL] # this should be right
+    corners = [LR, UR, UL, LL]
     corner_points_wgs84 = []
     for coordinate in corners:
         coordinate_wgs84 = utm.to_latlon(coordinate[0],coordinate[1],u[2],u[3])
@@ -75,7 +80,7 @@ def generate_camera(image_file_name,
                                                       image_width_px,
                                                       image_height_px,
                                                       heading)
-    
+    print(corner_coordinates)
     out = os.path.join(out_dir,image_base_name+'.tsai')
     
     call =[
@@ -88,6 +93,8 @@ def generate_camera(image_file_name,
         '-o', out,
         '--lon-lat-values',corner_coordinates
     ]
+    
+    print(*call)
     
     hsfm.utils.run_command(call, verbose=verbose)
     
