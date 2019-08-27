@@ -16,3 +16,14 @@ def split_file(file_path_and_name):
     file_extension = '.'+os.path.split(file_path_and_name)[-1].split('.')[-1]
     
     return file_path, file_name, file_extension
+    
+    
+def replace_string_in_file(input_file, output_file, string, new_string):
+    
+    file_in = open(input_file).read()
+    file_in = file_in.replace(string, new_string)
+    
+    file_out = open(output_file, 'w')
+    file_out.write(file_in)
+    
+    file_out.close()

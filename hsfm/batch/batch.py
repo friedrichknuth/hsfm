@@ -7,6 +7,50 @@ import hsfm.io
 import hsfm.core
 import hsfm.image
 
+def rescale_images(image_directory, 
+                   extension='.tif',
+                   scale_factor=8):
+    
+    image_files  = sorted(glob.glob(os.path.join(image_directory,'*'+ extension)))
+    
+    for image_file in image_files:
+        
+        file_path, file_name, file_extension = hsfm.io.split_file(image_file)
+        output_dir = hsfm.io.create_dir(file_path+'_sub'+str(scale_factor))
+        output_file = os.path.join(output_dir, 
+                                   file_name +'_sub'+str(scale_factor)+file_extension)
+        
+        rescaled_img = hsfm.image.rescale_image(image_file, scale_factor)
+        
+        rescaled_img.save(output_file)
+    
+    print("Rescaled images available at ", output_dir)
+    
+    return sorted(glob.glob(os.path.join(output_dir,'*'+ extension)))
+
+def rescale_tsai_cameras(camera_directory,
+                         extension='.tsai',
+                         scale_factor=8):
+                         
+    pitch = "pitch = 1"
+    new_pitch = "pitch = "+str(scale_factor)
+    
+    camera_files  = sorted(glob.glob(os.path.join(camera_directory,'*'+ extension)))
+                 
+    for camera_file in camera_files:
+        
+        file_path, file_name, file_extension = hsfm.io.split_file(camera_file)
+        output_dir = hsfm.io.create_dir(file_path+'_sub'+str(scale_factor))
+        output_file = os.path.join(output_dir, 
+                                   file_name +'_sub'+str(scale_factor)+file_extension)
+                                   
+        
+        hsfm.io.replace_string_in_file(camera_file, output_file, pitch, new_pitch)
+        
+    print("Rescaled cameras available at ", output_dir)
+    
+    return sorted(glob.glob(os.path.join(output_dir,'*'+ extension)))
+
 def batch_generate_cameras(image_directory,
                            camera_positions_file_name,
                            reference_dem_file_name,

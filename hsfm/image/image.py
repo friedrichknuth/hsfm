@@ -6,17 +6,18 @@ from skimage import exposure
 
 import hsfm.io
 
+# Adjust max pixel count to avoid decompression bomb warning
+# PIL.Image.warnings.simplefilter("ignore", PIL.Image.DecompressionBombWarning)
+PIL.Image.MAX_IMAGE_PIXELS = 1000000000
+
 def rescale_image(image_file_name, scale_factor):
-    img = PIL.Image.open(img_fn)
+    img = PIL.Image.open(image_file_name)
 
     width = int(img.width / scale_factor)
     height = int(img.height / scale_factor)
 
-    rescaled_img = img.resize((width, height), resample=Image.BICUBIC)
-    
-    file_path, file_name, file_extension = hsfm.io.split_file(image_file_name)
-    out_fn = os.path.join(file_path, file_name +'_sub'+str(scale_factor)+file_extension)
-    rescaled_img.save(out_fn)
+    rescaled_img = img.resize((width, height), resample=PIL.Image.BICUBIC)
+    return rescaled_img
     
     
 def clahe_equalize_image(img_gray):

@@ -123,4 +123,34 @@ def calculate_heading(point1_lon, point1_lat, point2_lon, point2_lat):
     final_heading = (initial_heading + 360) % 360
 
     return final_heading
+
+def rescale_geotif_to_file(geotif_file_name, scale_factor):
     
+    # TODO
+    # - Get no data value instead of hard code -9999
+    
+    # create output file name
+    file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
+    output_file = os.path.join(file_path, file_name +'_sub'+str(scale_factor)+'.tif')
+    
+    # downsample array
+    img = downsample_geotif_to_array(geotif_file_name, scale_factor)
+
+    # get new shape
+    [cols,rows] = img.shape
+
+    # preserve information about original file
+    transform = img_ds.GetGeoTransform()
+    projection = img_ds.GetProjection()
+    nodatavalue = -9999
+    # nodatavalue = img_ds.GetNoDataValue() # get attributes property broken in gdal 2.4
+
+    # set gdal GTiff driver
+    outdriver = gdal.GetDriverByName("GTiff")
+
+    # create output file, write data and add metadata
+    outdata = outdriver.Create(output_file, rows, cols, 1, gdal.GDT_Byte)
+    outdata.GetRasterBand(1).WriteArray(img)
+    outdata.GetRasterBand(1).SetNoDataValue(nodatavalue)
+    outdata.SetGeoTransform(transform)
+    outdata.SetProjection(projection)
