@@ -9,17 +9,30 @@ import hsfm.io
 import hsfm.geospatial
 
 
-def run_command(command, verbose=False):
+def run_command(command, verbose=False, log_directory=None):
     
     p = Popen(command,
               stdout=PIPE,
               stderr=STDOUT,
               shell=False)
     
-    while p.poll() is None:
-        line = (p.stdout.readline()).decode('ASCII').rstrip('\n')
-        if verbose == True:
-            print(line)
+    if log_directory != None:
+        log_file_name = os.path.join(log_directory,command[0]+'_log.txt')
+    
+        with open(log_file_name, "w") as log_file:
+            
+            while p.poll() is None:
+                line = (p.stdout.readline()).decode('ASCII').rstrip('\n')
+                if verbose == True:
+                    print(line)
+                log_file.write(line)
+    else:
+        while p.poll() is None:
+            line = (p.stdout.readline()).decode('ASCII').rstrip('\n')
+            if verbose == True:
+                print(line)
+        
+        
 
 
 def download_srtm(LLLON,LLLAT,URLON,URLAT,

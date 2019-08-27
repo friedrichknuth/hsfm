@@ -1,9 +1,12 @@
 from osgeo import gdal
 import os
+import glob
 import utm
 
-import hsfm.core
 import hsfm.io
+import hsfm.core
+import hsfm.utils
+
 
 def generate_cam_gem_corner_coordinates_string(corners_gdf):
     for n,p in enumerate(corner_points.geometry):
@@ -80,7 +83,6 @@ def generate_camera(image_file_name,
                                                       image_width_px,
                                                       image_height_px,
                                                       heading)
-    print(corner_coordinates)
     out = os.path.join(out_dir,image_base_name+'.tsai')
     
     call =[
@@ -100,3 +102,71 @@ def generate_camera(image_file_name,
     
     return out
 
+def bundle_adjust_custom(image_files_directory, 
+                         camera_files_directory, 
+                         output_directory_prefix):
+    
+    input_image_files  = sorted(glob.glob(os.path.join(image_files_directory,'*.tif')))
+    input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*.tsai')))
+    
+    ba_dir = os.path.split(output_directory_prefix)[0]
+    
+    log_directory = os.path.join(ba_dir,'log')
+    hsfm.io.create_dir(log_directory)
+    
+    call =['bundle_adjust',
+           '--threads', '1',
+           '--disable-tri-ip-filter',
+           '--force-reuse-match-files',
+           '--skip-rough-homography',
+           '-t', 'nadirpinhole',
+           '--ip-inlier-factor', '1',
+           '--ip-uniqueness-threshold', '0.9',
+           '--ip-per-tile','4000',
+           '--datum', 'wgs84',
+           '--inline-adjustments',
+           '--camera-weight', '0.0',
+           '--num-iterations', '500',
+           '--num-passes', '3']
+           
+    call.extend(input_image_files)
+    call.extend(input_camera_files)
+    call.extend(['-o', output_directory_prefix])
+    
+    hsfm.utils.run_command(call, 
+                           verbose=False, 
+                           log_directory=log_directory)
+                           
+    print('Bundle adjust results saved in', ba_dir)
+    return ba_dir
+
+
+def parallel_stereo_custom(image_files_directory, 
+                           camera_files_directory, 
+                           stereo_output_directory):
+    
+    input_image_files  = sorted(glob.glob(os.path.join(image_files_directory,'*.tif')))
+    input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*.tsai')))
+    
+    log_directory = os.path.join(stereo_output_directory,'log')
+    hsfm.io.create_dir(log_directory)
+    
+    call =['parallel_stereo',
+           '--force-reuse-match-files',
+           '--stereo-algorithm', '2',
+           '-t', 'nadirpinhole',
+           '--skip-rough-homography',
+           '--ip-inlier-factor', '1',
+           '--ip-per-tile','2000',
+           '--ip-uniqueness-threshold', '0.9']
+           
+    call.extend(input_image_files)
+    call.extend(input_camera_files)
+    call.extend([stereo_output_directory])
+    
+    hsfm.utils.run_command(call, 
+                           verbose=False, 
+                           log_directory=log_directory)
+                           
+    print('Bundle adjust results saved in', stereo_output_directory)
+    return stereo_output_directory

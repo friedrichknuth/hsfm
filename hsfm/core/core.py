@@ -1,8 +1,11 @@
+import shutil
 import numpy as np
 import pandas as pd
 from urllib.request import urlopen
 import cv2
 from skimage import exposure
+import glob
+import os
 
 import hsfm.image
 
@@ -229,6 +232,53 @@ def calculate_distance_principal_point_to_image_edge(focal_length_mm,
     
     
     
+def move_match_files_in_sequence(bundle_adjust_directory,
+                                 image_prefix,
+                                 stereo_directory,
+                                 sequence):
+    i = sequence[0]
+    j = i+1
     
+    hsfm.io.create_dir(stereo_directory)
+    
+    match_files = sorted(glob.glob(os.path.join(bundle_adjust_directory,'*-clean.match')))
+    
+    for match_file in match_files:
+        if image_prefix + str(i) in match_file and image_prefix + str(j) in match_file:
+        
+            path, name, extension = hsfm.io.split_file(match_file)
+            out = os.path.join(stereo_directory, name+ extension)
+            shutil.copyfile(match_file, out)
+        
+            i = i+1
+            j = i+1
+    
+    print('Match files copied to',stereo_directory)
+    new_match_files = sorted(glob.glob(os.path.join(stereo_directory,'*.match')))
+    
+    return new_match_files
+
+
+def move_camera_files_in_sequence(bundle_adjust_directory,
+                                  image_prefix,
+                                  stereo_directory,
+                                  sequence,
+                                  extension='.tsai'):
+    i = sequence[0]
+    j = i+1
+    
+    hsfm.io.create_dir(stereo_directory)
+    
+    camera_files = sorted(glob.glob(os.path.join(bundle_adjust_directory,'*'+ extension)))
+    
+    for camera_file in camera_files:
+        path, name, extension = hsfm.io.split_file(camera_file)
+        out = os.path.join(stereo_directory, name + extension)
+        shutil.copyfile(camera_file, out)
+    
+    print('Camera files copied to', stereo_directory)
+    new_camera_files = sorted(glob.glob(os.path.join(stereo_directory,'*'+ extension)))
+    
+    return new_camera_files
     
     
