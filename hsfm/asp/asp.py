@@ -141,12 +141,14 @@ def bundle_adjust_custom(image_files_directory,
     return ba_dir
 
 
-def parallel_stereo_custom(image_files_directory, 
-                           camera_files_directory, 
-                           stereo_output_directory):
+def parallel_stereo_custom(first_image, 
+                           second_image,
+                           first_camera,
+                           second_camera, 
+                           stereo_output_directory_prefix):
     
-    input_image_files  = sorted(glob.glob(os.path.join(image_files_directory,'*.tif')))
-    input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*.tsai')))
+
+    stereo_output_directory = os.path.split(stereo_output_directory_prefix)[0]
     
     log_directory = os.path.join(stereo_output_directory,'log')
     hsfm.io.create_dir(log_directory)
@@ -160,9 +162,9 @@ def parallel_stereo_custom(image_files_directory,
            '--ip-per-tile','2000',
            '--ip-uniqueness-threshold', '0.9']
            
-    call.extend(input_image_files)
-    call.extend(input_camera_files)
-    call.extend([stereo_output_directory])
+    call.extend([first_image,second_image])
+    call.extend([first_camera,second_camera])
+    call.extend([stereo_output_directory_prefix])
     
     hsfm.utils.run_command(call, 
                            verbose=False, 
