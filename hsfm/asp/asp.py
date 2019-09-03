@@ -175,7 +175,7 @@ def parallel_stereo_custom(first_image,
     
 def dem_mosaic_custom(stereo_output_directories_parent, 
                       output_file_name,
-                      verbose=True):
+                      verbose=False):
     """
     Function to run ASP dem_mosaic.
     """
@@ -191,7 +191,7 @@ def dem_mosaic_custom(stereo_output_directories_parent,
 
 def point2dem_custom(point_cloud_file_name, 
                      proj_string='"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs"',
-                     verbose=True):
+                     verbose=False):
     # TODO
     # - build proj string upstream
     
@@ -218,7 +218,8 @@ def pc_align_custom(input_dem_file_name,
     Function to run ASP pc_align.                
     """
     
-    log_directory = os.path.join(output_directory,'log')
+#     log_directory = os.path.join(output_directory,'log')
+    log_directory = None
     
     call = ['pc_align',
             '--save-transformed-source-points',
@@ -226,7 +227,7 @@ def pc_align_custom(input_dem_file_name,
             reference_dem_file_name,
             input_dem_file_name,
             '--alignment-method', 'similarity-point-to-point',
-            '-o', output_folder
+            '-o', output_directory
     ]
 
     hsfm.utils.run_command(call, 
@@ -251,9 +252,9 @@ def iter_stereo_pairs(stereo_input_directory,
 
     for match_file in match_files:
     
-        print('Running parallel stereo on', image_a, 'and', image_b)
-        match_file_a = os.path.split(match_files[0])[-1].split('-')[-2].split('__')[0]
-        match_file_b = os.path.split(match_files[0])[-1].split('-')[-2].split('__')[1]
+        
+        match_file_a = os.path.split(match_file)[-1].split('-')[-2].split('__')[0]
+        match_file_b = os.path.split(match_file)[-1].split('-')[-2].split('__')[1]
     
         image_a = os.path.join(image_files_directory, match_file_a + image_extension)
         image_b = os.path.join(image_files_directory, match_file_b + image_extension)
@@ -268,6 +269,8 @@ def iter_stereo_pairs(stereo_input_directory,
         output_folder = match_file_a + '__' + match_file_b
             
         output_directory = os.path.join(stereo_output_directory_prefix,output_folder+'/run')
+        
+        print('Running parallel stereo on', image_a, 'and', image_b)
     
         stereo_output_directory = parallel_stereo_custom(image_a, 
                                                          image_b,

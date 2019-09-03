@@ -20,4 +20,4 @@ dependencies:
   # - menpo::opencv
   - pip:
     - elevation
-    # - "--editable=git+https://github.com/friedrichknuth/bare.git#egg=bare"
+    - "--editable=git+https://github.com/friedrichknuth/bare.git#egg=bare"
