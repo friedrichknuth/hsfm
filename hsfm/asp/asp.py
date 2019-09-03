@@ -170,5 +170,113 @@ def parallel_stereo_custom(first_image,
                            verbose=False, 
                            log_directory=log_directory)
                            
-    print('Bundle adjust results saved in', stereo_output_directory)
+    print('Parallel stereo results saved in', stereo_output_directory)
     return stereo_output_directory
+    
+def dem_mosaic_custom(stereo_output_directories_parent, 
+                      output_file_name,
+                      verbose=True):
+    """
+    Function to run ASP dem_mosaic.
+    """
+    dems = glob.glob(os.path.join(stereo_output_directories_parent,'*','run-DEM.tif'))
+    
+    call = ['dem_mosaic']
+    call.extend(dems)
+    call.extend(['-o', output_file_name])
+    
+    hsfm.utils.run_command(call, verbose=verbose)
+
+
+
+def point2dem_custom(point_cloud_file_name, 
+                     proj_string='"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs"',
+                     verbose=True):
+    # TODO
+    # - build proj string upstream
+    
+    """
+    Function to run ASP point2dem.
+    """
+    
+    call =['point2dem',
+           '--t_srs',
+           proj_string,
+           '--errorimage']
+       
+    call.extend([point_cloud_file_name])
+    call = ' '.join(call)
+    
+    hsfm.utils.run_command(call, verbose=verbose, shell=True)
+    
+    
+def pc_align_custom(input_dem_file_name,
+                    reference_dem_file_name,
+                    output_directory,
+                    verbose=False):
+    """
+    Function to run ASP pc_align.                
+    """
+    
+    log_directory = os.path.join(output_directory,'log')
+    
+    call = ['pc_align',
+            '--save-transformed-source-points',
+            '--max-displacement', '-1',
+            reference_dem_file_name,
+            input_dem_file_name,
+            '--alignment-method', 'similarity-point-to-point',
+            '-o', output_folder
+    ]
+
+    hsfm.utils.run_command(call, 
+                           log_directory=log_directory, 
+                           verbose=verbose)
+    
+    point_cloud_file_name = os.path.join(output_directory,'run-trans_source.tif')
+    point2dem_custom(point_cloud_file_name)
+    
+def iter_stereo_pairs(stereo_input_directory,
+                      image_files_directory,
+                      camera_files_directory,
+                      stereo_output_directory_prefix,
+                      image_extension = '.tif',
+                      camera_extension = '.tsai'):
+    """
+    Function to run pairwise bundle_adjust based on match files.
+    """
+                       
+    match_files = sorted(glob.glob(os.path.join(stereo_input_directory,'*.match')))
+    input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*'+camera_extension)))
+
+    for match_file in match_files:
+    
+        print('Running parallel stereo on', image_a, 'and', image_b)
+        match_file_a = os.path.split(match_files[0])[-1].split('-')[-2].split('__')[0]
+        match_file_b = os.path.split(match_files[0])[-1].split('-')[-2].split('__')[1]
+    
+        image_a = os.path.join(image_files_directory, match_file_a + image_extension)
+        image_b = os.path.join(image_files_directory, match_file_b + image_extension)
+    
+        for camera_file in input_camera_files:
+            if match_file_a in camera_file:
+                camera_a = camera_file
+        
+            if match_file_b in camera_file:
+                camera_b = camera_file
+            
+        output_folder = match_file_a + '__' + match_file_b
+            
+        output_directory = os.path.join(stereo_output_directory_prefix,output_folder+'/run')
+    
+        stereo_output_directory = parallel_stereo_custom(image_a, 
+                                                         image_b,
+                                                         camera_a,
+                                                         camera_b,
+                                                         output_directory)
+                               
+        point_cloud_file_name = glob.glob(os.path.join(stereo_output_directory,'*PC.tif'))[0]
+        point2dem_custom(point_cloud_file_name)
+                               
+                                        
+                                        

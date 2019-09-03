@@ -9,12 +9,12 @@ import hsfm.io
 import hsfm.geospatial
 
 
-def run_command(command, verbose=False, log_directory=None):
+def run_command(command, verbose=False, log_directory=None, shell=False):
     
     p = Popen(command,
               stdout=PIPE,
               stderr=STDOUT,
-              shell=False)
+              shell=shell)
     
     if log_directory != None:
         log_file_name = os.path.join(log_directory,command[0]+'_log.txt')
@@ -77,7 +77,11 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
     
     # Adjust from EGM96 geoid to WGS84 ellipsoid
     adjusted_vrt_subset_file_name_prefix = os.path.join(output_dir,'SRTM3/cache/srtm_subset')
-    call = ['dem_geoid','--reverse-adjustment', vrt_subset_file_name, '-o', adjusted_vrt_subset_file_name_prefix]
+    call = ['dem_geoid',
+            '--reverse-adjustment',
+            vrt_subset_file_name, 
+            '-o', 
+            adjusted_vrt_subset_file_name_prefix]
     run_command(call, verbose=verbose)
     
     adjusted_vrt_subset_file_name = adjusted_vrt_subset_file_name_prefix+'-adj.tif'

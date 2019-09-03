@@ -14,6 +14,9 @@ dependencies:
   - scipy
   - haversine
   - utm
+  - panel
+  - holoviews
+  - geoviews
   # - menpo::opencv
   - pip:
     - elevation

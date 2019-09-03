@@ -282,3 +282,5 @@ def move_camera_files_in_sequence(bundle_adjust_directory,
     return new_camera_files
     
     
+
+
