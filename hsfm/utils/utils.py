@@ -198,7 +198,7 @@ def iter_image_corner_coordinate_picker(camera_locations_csv,
     
     image_files  = sorted(glob.glob(os.path.join(image_directory,'*'+ extension)))
     
-    df = pd.read_csv(camera_locations_csv)[:1]
+    df = pd.read_csv(camera_locations_csv)
     
     list_of_corner_coordinates_strings = []
     

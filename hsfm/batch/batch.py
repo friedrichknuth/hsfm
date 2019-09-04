@@ -2,10 +2,14 @@ import os
 import cv2
 import sys
 import glob
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 import hsfm.io
 import hsfm.core
 import hsfm.image
+import hsfm.plot
 
 def rescale_images(image_directory, 
                    extension='.tif',
@@ -119,7 +123,8 @@ def preprocess_images(camera_positions_file_name,
                       image_type='pid_tiff', 
                       output_directory='data/images',
                       subset=None, 
-                      scale=None):
+                      scale=None,
+                      qc=True):
                       
     """
     Function to preprocess images from NAGAP archive in batch.
@@ -140,20 +145,24 @@ def preprocess_images(camera_positions_file_name,
     window_top = [0,500,6000,7200]
     window_bottom = [11000,11509,6000,7200]
     
+    intersections =[]
+    file_names = []
+    
     df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
     targets = dict(zip(df[image_type], df['fileName']))
     
     for pid, file_name in targets.items():
         img = hsfm.core.download_image(pid)
+        img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         
         side = hsfm.core.evaluate_image_frame(img)
         
-        img_gray = hsfm.core.convert_image_to_grayscale(img)
         img_gray_clahe = hsfm.image.clahe_equalize_image(img_gray)
         
         left_slice, top_slice, right_slice, bottom_slice = hsfm.core.slice_image_frame(img_gray_clahe)
         
-        left_slice_padded = hsfm.core.pad_image(left_slice)
+        # left_slice_padded = hsfm.core.pad_image(left_slice)
+        left_slice_padded = hsfm.core.noisify_template(hsfm.core.pad_image(left_slice))
         top_slice_padded = hsfm.core.pad_image(top_slice)
         right_slice_padded = hsfm.core.pad_image(right_slice)
         bottom_slice_padded = hsfm.core.pad_image(bottom_slice)
@@ -174,18 +183,51 @@ def preprocess_images(camera_positions_file_name,
                                                   bottom_template, 
                                                   window_bottom, 
                                                   position = 'bottom')
-                                                  
+        
+        
         principal_point = hsfm.core.principal_point(left_fiducial,
                                                     top_fiducial,
                                                     right_fiducial,
                                                     bottom_fiducial)
                                                     
                                                     
-        cropped = hsfm.core.crop_about_principal_point(img, principal_point)
-        img_rot = hsfm.core.rotate_camera(cropped, side=side)
+        # QC routine
+        arc1 = np.rad2deg(np.arctan2(bottom_fiducial[1] - top_fiducial[1],
+                      bottom_fiducial[0] - top_fiducial[0]))
+        arc2 = np.rad2deg(np.arctan2(right_fiducial[1] - left_fiducial[1],
+                      right_fiducial[0] - left_fiducial[0]))
+        intersection_angle = arc1-arc2
         
-        out = os.path.join(output_directory, file_name+'.tif')
+        intersections.append(intersection_angle)
+        file_names.append(file_name)
         
-        cv2.imwrite(out,img_rot)
+        if intersection_angle > 90.1 or intersection_angle < 89.9:
+            print("Warning: intersection at principle point is not within orthogonality limits.")
+            print("Skipping", file_name)
+            
+        else:                                                    
+            cropped = hsfm.core.crop_about_principal_point(img, principal_point)
+            img_rot = hsfm.core.rotate_camera(cropped, side=side)
+            out = os.path.join(output_directory, file_name+'.tif')
+            cv2.imwrite(out,img_rot)
+            
+        if qc == True:
+            hsfm.plot.plot_principal_point_and_fiducial_locations(img,
+                                                                  left_fiducial,
+                                                                  top_fiducial,
+                                                                  right_fiducial,
+                                                                  bottom_fiducial,
+                                                                  principal_point,
+                                                                  file_name,
+                                                                  output_directory='qc/image_preprocessing/')
+            
+    if qc == True:
+        df = pd.DataFrame({"angle off mean":intersections,"filename":file_names}).set_index("filename")
+        df_mean = df - df.mean()
+        fig, ax = plt.subplots(1, figsize=(10, 10))
+        df_mean.plot.bar(grid=True,ax=ax)
+        fig.savefig('qc/image_preprocessing/princcipal_point_intersection_angle_off_mean.png')
+        print("Mean rotation off 90 degree intersection at principal point: ",(df.mean() - 90).values[0])
+        
     
     return output_directory

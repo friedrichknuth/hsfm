@@ -88,9 +88,9 @@ def slice_image_frame(grayscale_unit8_image_array):
     img_gray = grayscale_unit8_image_array
     
     window_left = [5000,7000,250,1500]
-    window_right = [5000,6500,12000,12391]
+    window_right = [5000,6500,12000,img_gray.shape[1]]
     window_top = [0,500,6000,7200]
-    window_bottom = [11000,11509,6000,7200]
+    window_bottom = [11000,img_gray.shape[0],6000,7200]
     
     left_slice = img_gray[window_left[0]:window_left[1],window_left[2]:window_left[3]]
     top_slice = img_gray[window_top[0]:window_top[1],window_top[2]:window_top[3]]
@@ -98,11 +98,6 @@ def slice_image_frame(grayscale_unit8_image_array):
     bottom_slice = img_gray[window_bottom[0]:window_bottom[1],window_bottom[2]:window_bottom[3]]
     
     return left_slice, top_slice, right_slice, bottom_slice
-    
-def convert_image_to_grayscale(unit8_multiband_image):
-    img = unit8_multiband_image
-    img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    return img_gray
     
 def pad_image_frame_slices(left_slice, top_slice, right_slice, bottom_slice):
     

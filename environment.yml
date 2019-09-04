@@ -17,7 +17,8 @@ dependencies:
   - panel
   - holoviews
   - geoviews
-  # - menpo::opencv
+  - seaborn
+  - menpo::opencv
   - pip:
     - elevation
     - "--editable=git+https://github.com/friedrichknuth/bare.git#egg=bare"

@@ -6,3 +6,4 @@ import hsfm.core
 import hsfm.batch
 import hsfm.asp
 import hsfm.utils
+import hsfm.plot
