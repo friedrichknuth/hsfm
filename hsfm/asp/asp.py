@@ -60,10 +60,11 @@ def generate_camera(image_file_name,
                     reference_dem,
                     focal_length_mm,
                     heading,
-                    out_dir = './data/cameras',
+                    output_directory = './data/cameras',
                     pixel_pitch=0.02,
                     scale = 1,
-                    verbose=True):
+                    verbose=True,
+                    corner_coordinates_string=None):
     
     # Get the image base name to name the output camera
     image_base_name = os.path.splitext(os.path.split(image_file_name)[-1])[0]
@@ -78,12 +79,14 @@ def generate_camera(image_file_name,
     focal_length_px = focal_length_mm / pixel_pitch
     
     # Calculate corner coordinates string
-    corner_coordinates = calculate_corner_coordinates(camera_lat_lon_center_coordinates,
-                                                      focal_length_mm,
-                                                      image_width_px,
-                                                      image_height_px,
-                                                      heading)
-    out = os.path.join(out_dir,image_base_name+'.tsai')
+    if corner_coordinates_string == None:
+        corner_coordinates_string = calculate_corner_coordinates(camera_lat_lon_center_coordinates,
+                                                          focal_length_mm,
+                                                          image_width_px,
+                                                          image_height_px,
+                                                          heading)
+                                                          
+    out = os.path.join(output_directory,image_base_name+'.tsai')
     
     call =[
         'cam_gen', image_file_name,
@@ -93,7 +96,7 @@ def generate_camera(image_file_name,
         '--pixel-pitch', str(scale),
         '--refine-camera',
         '-o', out,
-        '--lon-lat-values',corner_coordinates
+        '--lon-lat-values',corner_coordinates_string
     ]
     
     print(*call)

@@ -16,17 +16,17 @@ def rescale_images(image_directory,
     for image_file in image_files:
         
         file_path, file_name, file_extension = hsfm.io.split_file(image_file)
-        output_dir = hsfm.io.create_dir(file_path+'_sub'+str(scale_factor))
-        output_file = os.path.join(output_dir, 
+        output_directory = hsfm.io.create_dir(file_path+'_sub'+str(scale_factor))
+        output_file = os.path.join(output_directory, 
                                    file_name +'_sub'+str(scale_factor)+file_extension)
         
         rescaled_img = hsfm.image.rescale_image(image_file, scale_factor)
         
         rescaled_img.save(output_file)
     
-    print("Rescaled images available at ", output_dir)
+    print("Rescaled images available at ", output_directory)
     
-    return sorted(glob.glob(os.path.join(output_dir,'*'+ extension)))
+    return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
 
 def rescale_tsai_cameras(camera_directory,
                          extension='.tsai',
@@ -40,28 +40,28 @@ def rescale_tsai_cameras(camera_directory,
     for camera_file in camera_files:
         
         file_path, file_name, file_extension = hsfm.io.split_file(camera_file)
-        output_dir = hsfm.io.create_dir(file_path+'_sub'+str(scale_factor))
-        output_file = os.path.join(output_dir, 
+        output_directory = hsfm.io.create_dir(file_path+'_sub'+str(scale_factor))
+        output_file = os.path.join(output_directory, 
                                    file_name +'_sub'+str(scale_factor)+file_extension)
                                    
         
         hsfm.io.replace_string_in_file(camera_file, output_file, pitch, new_pitch)
         
-    print("Rescaled cameras available at ", output_dir)
+    print("Rescaled cameras available at ", output_directory)
     
-    return sorted(glob.glob(os.path.join(output_dir,'*'+ extension)))
+    return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
 
 def batch_generate_cameras(image_directory,
                            camera_positions_file_name,
                            reference_dem_file_name,
                            focal_length_mm,
-                           out_dir='./data/cameras',
+                           output_directory='./data/cameras',
                            subset=None):
                            
                            
     
     image_list = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
-    df = calculate_heading_from_metadata(camera_positions_file_name,subset=subset)
+    df = calculate_heading_from_metadata(camera_positions_file_name, subset=subset)
     
     
     if len(image_list) != len(df):
@@ -80,7 +80,7 @@ def batch_generate_cameras(image_directory,
                                  reference_dem_file_name,
                                  focal_length_mm,
                                  heading,
-                                 out_dir=out_dir)
+                                 output_directory=output_directory)
         
     pass
     
@@ -117,7 +117,7 @@ def calculate_heading_from_metadata(camera_positions_file_name, subset=None):
 def preprocess_images(camera_positions_file_name, 
                       template_directory,
                       image_type='pid_tiff', 
-                      out_dir='data/images',
+                      output_directory='data/images',
                       subset=None, 
                       scale=None):
                       
@@ -128,7 +128,7 @@ def preprocess_images(camera_positions_file_name,
     # - Add qc output functions to evaluate how well the principle
     #   point was detected and image cropped accordingly.
                       
-    hsfm.io.create_dir(out_dir)             
+    hsfm.io.create_dir(output_directory)             
                       
     left_template = os.path.join(template_directory,'L.jpg')
     top_template = os.path.join(template_directory,'T.jpg')
@@ -184,8 +184,8 @@ def preprocess_images(camera_positions_file_name,
         cropped = hsfm.core.crop_about_principal_point(img, principal_point)
         img_rot = hsfm.core.rotate_camera(cropped, side=side)
         
-        out = os.path.join(out_dir, file_name+'.tif')
+        out = os.path.join(output_directory, file_name+'.tif')
         
         cv2.imwrite(out,img_rot)
     
-    return out_dir
+    return output_directory
