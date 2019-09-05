@@ -195,6 +195,12 @@ def iter_image_corner_coordinate_picker(camera_locations_csv,
                                         longtiude_field='lon',
                                         latitude_field='lat',
                                         extension='.tif'):
+    """
+    Function to pick corner coordinates for an unprojected image from a basemap.
+    """
+                                        
+    # TODO
+    # - Simplify by using functions from hsfm.geospatial
     
     image_files  = sorted(glob.glob(os.path.join(image_directory,'*'+ extension)))
     
