@@ -1,12 +1,19 @@
-import rasterio
-from shapely.geometry import Point, Polygon, LineString, mapping
+import cartopy.crs as ccrs
+import contextily as ctx
 import geopandas as gpd
+import geoviews as gv
+from geoviews import opts
+import haversine
+import holoviews as hv
+from holoviews.streams import PointDraw
+import math
 import os
 from osgeo import gdal
-import math
 import pyproj
+import panel as pn
+import rasterio
+from shapely.geometry import Point, Polygon, LineString, mapping
 import utm
-import haversine
 
 import hsfm.io
 import hsfm.utils
@@ -100,7 +107,7 @@ def extract_gpd_geometry(point_gdf):
         
 def wgs_lon_lat_to_epsg_code(lon, lat):
     """
-    Function to retreive local UTM EPSG code from WGS84 geographic coordinates.
+    Function to retrieve local UTM EPSG code from WGS84 geographic coordinates.
     """
     utm_band = str((math.floor((lon + 180) / 6 ) % 60) + 1)
     if len(utm_band) == 1:
@@ -189,3 +196,73 @@ def rescale_geotif_to_file(geotif_file_name, scale_factor):
     outdata.GetRasterBand(1).SetNoDataValue(nodatavalue)
     outdata.SetGeoTransform(transform)
     outdata.SetProjection(projection)
+    
+    
+def request_basemap_tiles(lon, lat, dx, dy, 
+                          url='https://mt1.google.com/vt/lyrs=s&x={X}&y={Y}&z={Z}',
+                          utm=False):
+                            
+    if utm == False:
+        extents = (lon-dx, lat-dy, lon+dx, lat+dy)
+        tiles = gv.WMTS(url, extents=extents)
+        location = gv.Points([], vdims="vertices")                   
+        point_stream = PointDraw(source=location)
+        tiles = gv.WMTS(url, extents=extents)
+        
+        return tiles
+    
+    else:
+        u = utm.from_latlon(lat,lon)
+        utm_lon           = u[0]
+        utm_lat           = u[1]
+        utm_zone          = u[2]
+        utm_zone_code     = u[3]
+        
+        extents = utm_lon-dx, utm_lat-dy, utm_lon+dx, utm_lat+dy
+        tiles = gv.WMTS(url, extents=extents, crs=ccrs.UTM(utm_zone))
+        
+        return tiles, utm_zone
+    
+    
+    
+def pick_points_from_basemap_tiles(tiles, utm_zone=None):
+    
+    if utm_zone == None:
+        location = gv.Points([], vdims="vertices")
+    
+    else:
+        location = gv.Points([], vdims="vertices", crs=ccrs.UTM(utm_zone))
+    
+    point_stream = PointDraw(source=location)
+    base_map = (tiles * location).opts(opts.Points(width=500, 
+                                                   height=500, 
+                                                   size=12, 
+                                                   color='black', 
+                                                   tools=["hover"]))
+    app = pn.panel(base_map)
+    return app, point_stream
+    
+    
+def basemap_points_to_dataframe(point_stream):
+    
+    df = gv.operation.project_points(point_stream.element).dframe()
+    return df
+    
+def download_basemap_tiles_as_geotif(lon, lat, dx, dy,
+                                     output_file_name='output.tif',
+                                     url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"):
+                                     
+    west, south, east, north = (lon-dx, lat-dy, lon+dx, lat+dy)
+    
+    img = ctx.tile.bounds2raster(west,
+                                 south,
+                                 east,
+                                 north,
+                                 output_file_name,
+                                 zoom="auto",
+                                 url=url,
+                                 ll=True,
+                                 wait=0,
+                                 max_retries=100)
+                                 
+    return output_file_name
