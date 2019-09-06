@@ -274,7 +274,7 @@ def get_raster_statistics(rasterio_dataset):
     
     # mask out no data values
     mask = (array == rasterio_dataset.nodata)
-    masked_array = np.ma.masked_array(img, mask=mask)
+    masked_array = np.ma.masked_array(array, mask=mask)
     
     stats = []
     for band in masked_array:
