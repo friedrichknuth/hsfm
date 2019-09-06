@@ -7,9 +7,11 @@ import haversine
 import holoviews as hv
 from holoviews.streams import PointDraw
 import math
+import numpy as np
 import os
 from osgeo import gdal
 import pyproj
+import pandas as pd
 import panel as pn
 import rasterio
 from shapely.geometry import Point, Polygon, LineString, mapping
@@ -266,3 +268,34 @@ def download_basemap_tiles_as_geotif(lon, lat, dx, dy,
                                  max_retries=100)
                                  
     return output_file_name
+    
+def get_raster_statistics(rasterio_dataset):
+    array = rasterio_dataset.read()
+    
+    # mask out no data values
+    mask = (array == rasterio_dataset.nodata)
+    masked_array = np.ma.masked_array(img, mask=mask)
+    
+    stats = []
+    for band in masked_array:
+        stats.append({
+            'min'    : band.min(),
+            'max'    : band.max(),
+            'median' : np.median(band),
+            'mean'   : band.mean(),
+            'no_data':rasterio_dataset.nodata,
+        })
+    return stats
+
+def mask_raster_with_nan(rasterio_dataset):
+    """
+    Function to return an array in which the fill value has been replaced with np.nan.
+    This is useful for calculating and plotting clim=np.nanpercentile(masked_array,[1,99])
+    """
+    array = rasterio_dataset.read()
+    mask = (array == rasterio_dataset.nodata)
+    masked_array = np.ma.masked_array(array, mask=mask)
+    masked_array = np.ma.filled(masked_array, fill_value=np.nan)
+    
+    return masked_array
+    

@@ -212,6 +212,10 @@ def point2dem_custom(point_cloud_file_name,
     
     hsfm.utils.run_command(call, verbose=verbose, shell=True)
     
+    file_path, file_name, file_extension = split_file(point_cloud_file_name)
+    dem_file_name = os.path.join(file_path,file_name+'-DEM'+file_extension)
+    return dem_file_name
+    
     
 def pc_align_custom(input_dem_file_name,
                     reference_dem_file_name,
@@ -239,6 +243,7 @@ def pc_align_custom(input_dem_file_name,
     
     point_cloud_file_name = os.path.join(output_directory,'run-trans_source.tif')
     point2dem_custom(point_cloud_file_name)
+    return point_cloud_file_name
     
 def iter_stereo_pairs(stereo_input_directory,
                       image_files_directory,

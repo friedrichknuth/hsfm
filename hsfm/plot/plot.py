@@ -77,3 +77,29 @@ def plot_principal_point_and_fiducial_locations(image_array,
         fig.savefig(output_file_name,dpi=300)
     
     plt.close()
+    
+def plot_masked_array(masked_array,
+                      output_file_name=None,
+                      cmap='gray',
+                      percentile_min=1,
+                      percentile_max=99,
+                      extent=None):
+                      
+    """
+    Function to plot masked array with nans as fill value.
+    """
+    
+    lowerbound, upperbound = np.nanpercentile(masked_array,[percentile_min,percentile_max])
+    
+    fig, ax = plt.subplots(1,figsize=(10,10))
+    im = ax.imshow(masked_array[0],
+                   cmap='gray',
+                   clim=(lowerbound, upperbound),
+                   extent=extent)
+    fig.colorbar(im,extend='both')
+    
+    if output_file_name == None:
+        plt.show()
+    
+    else:
+        fig.savefig(output_file_name, dpi=300)
