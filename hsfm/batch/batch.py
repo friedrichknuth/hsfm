@@ -130,8 +130,10 @@ def preprocess_images(camera_positions_file_name,
     Function to preprocess images from NAGAP archive in batch.
     """
     # TODO
+    # - Generalize for other types of images
     # - Add qc output functions to evaluate how well the principle
     #   point was detected and image cropped accordingly.
+    # - Add affine transformation
                       
     hsfm.io.create_dir(output_directory)             
                       
@@ -140,11 +142,6 @@ def preprocess_images(camera_positions_file_name,
     right_template = os.path.join(template_directory,'R.jpg')
     bottom_template = os.path.join(template_directory,'B.jpg')
     
-    window_left = [5000,7000,250,1500]
-    window_right = [5000,6500,12000,12391]
-    window_top = [0,500,6000,7200]
-    window_bottom = [11000,11509,6000,7200]
-    
     intersections =[]
     file_names = []
     
@@ -152,8 +149,14 @@ def preprocess_images(camera_positions_file_name,
     targets = dict(zip(df[image_type], df['fileName']))
     
     for pid, file_name in targets.items():
+        print('Processing',file_name)
         img = hsfm.core.download_image(pid)
         img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+        
+        window_left = [5000,7000,250,1500]
+        window_right = [5000,6500,12000,img_gray.shape[1]]
+        window_top = [0,500,6000,7200]
+        window_bottom = [11000,img_gray.shape[0],6000,7200]
         
         side = hsfm.core.evaluate_image_frame(img)
         
@@ -197,6 +200,7 @@ def preprocess_images(camera_positions_file_name,
         arc2 = np.rad2deg(np.arctan2(right_fiducial[1] - left_fiducial[1],
                       right_fiducial[0] - left_fiducial[0]))
         intersection_angle = arc1-arc2
+        print('Principal point intersection angle:',intersection_angle)
         
         intersections.append(intersection_angle)
         file_names.append(file_name)
@@ -222,11 +226,13 @@ def preprocess_images(camera_positions_file_name,
                                                                   output_directory='qc/image_preprocessing/')
             
     if qc == True:
-        df = pd.DataFrame({"angle off mean":intersections,"filename":file_names}).set_index("filename")
+        df = pd.DataFrame({"Angle off mean:":intersections,"filename":file_names}).set_index("filename")
         df_mean = df - df.mean()
         fig, ax = plt.subplots(1, figsize=(10, 10))
         df_mean.plot.bar(grid=True,ax=ax)
-        fig.savefig('qc/image_preprocessing/princcipal_point_intersection_angle_off_mean.png')
+        plt.show()
+        fig.savefig('qc/image_preprocessing/principal_point_intersection_angle_off_mean.png')
+        plt.close()
         print("Mean rotation off 90 degree intersection at principal point: ",(df.mean() - 90).values[0])
         
     
