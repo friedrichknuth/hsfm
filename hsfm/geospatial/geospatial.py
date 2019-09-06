@@ -299,7 +299,7 @@ def mask_array_with_nan(array,nodata_value):
     
     return masked_array
 
-def calcualte_hillshade(array,
+def calculate_hillshade(array,
                         azimuth=315,
                         angle_altitude=45):
     

@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import rasterio
 
 import hsfm.io
 import hsfm.geospatial
@@ -139,5 +140,17 @@ def plot_dem_with_hillshade(masked_array,
     
     else:
         fig.savefig(output_file_name, dpi=300)
+
+def plot_dem_from_file(dem_file_name,
+                       output_file_name=None,
+                       cmap='inferno'):
     
-    pass
+    rasterio_dataset = rasterio.open(dem_file_name)
+    array = rasterio_dataset.read(1)
+    nodata_value = rasterio_dataset.nodata
+    masked_array = hsfm.geospatial.mask_array_with_nan(array,
+                                                       nodata_value)
+    
+    plot_dem_with_hillshade(masked_array,
+                            output_file_name=output_file_name,
+                            cmap=cmap)
