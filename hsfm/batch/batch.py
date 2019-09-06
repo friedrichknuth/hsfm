@@ -60,6 +60,8 @@ def batch_generate_cameras(image_directory,
                            reference_dem_file_name,
                            focal_length_mm,
                            output_directory='./data/cameras',
+                           print_asp_call=False,
+                           verbose=False,
                            subset=None):
                            
                            
@@ -84,6 +86,8 @@ def batch_generate_cameras(image_directory,
                                  reference_dem_file_name,
                                  focal_length_mm,
                                  heading,
+                                 print_asp_call=print_asp_call,
+                                 verbose=verbose,
                                  output_directory=output_directory)
         
     pass
@@ -124,15 +128,13 @@ def preprocess_images(camera_positions_file_name,
                       output_directory='data/images',
                       subset=None, 
                       scale=None,
-                      qc=True):
+                      qc=False):
                       
     """
     Function to preprocess images from NAGAP archive in batch.
     """
     # TODO
     # - Generalize for other types of images
-    # - Add qc output functions to evaluate how well the principle
-    #   point was detected and image cropped accordingly.
     # - Add affine transformation
                       
     hsfm.io.create_dir(output_directory)             
@@ -226,14 +228,15 @@ def preprocess_images(camera_positions_file_name,
                                                                   output_directory='qc/image_preprocessing/')
             
     if qc == True:
-        df = pd.DataFrame({"Angle off mean:":intersections,"filename":file_names}).set_index("filename")
+        df = pd.DataFrame({"Angle off mean":intersections,"filename":file_names}).set_index("filename")
         df_mean = df - df.mean()
         fig, ax = plt.subplots(1, figsize=(10, 10))
         df_mean.plot.bar(grid=True,ax=ax)
         plt.show()
         fig.savefig('qc/image_preprocessing/principal_point_intersection_angle_off_mean.png')
         plt.close()
-        print("Mean rotation off 90 degree intersection at principal point: ",(df.mean() - 90).values[0])
+        print("Mean rotation off 90 degree intersection at principal point:",(df.mean() - 90).values[0])
+        print("Further QC plots for principal point and fiducial marker detection available under qc/image_preprocessing/")
         
     
     return output_directory

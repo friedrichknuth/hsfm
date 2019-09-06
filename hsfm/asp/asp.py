@@ -63,7 +63,8 @@ def generate_camera(image_file_name,
                     output_directory = './data/cameras',
                     pixel_pitch=0.02,
                     scale = 1,
-                    verbose=True,
+                    verbose=False,
+                    print_asp_call=False,
                     corner_coordinates_string=None):
     
     # Get the image base name to name the output camera
@@ -99,7 +100,8 @@ def generate_camera(image_file_name,
         '--lon-lat-values',corner_coordinates_string
     ]
     
-    print(*call)
+    if print_asp_call==True:
+        print(*call)
     
     hsfm.utils.run_command(call, verbose=verbose)
     
