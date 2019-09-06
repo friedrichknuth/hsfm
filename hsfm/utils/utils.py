@@ -298,4 +298,6 @@ def difference_dems(dem_file_name_a,
             
     run_command(call, verbose=verbose)
     
-    return output_directory_and_prefix
+    output_file_name = output_directory_and_prefix+'-diff.tif'
+    
+    return output_file_name
