@@ -94,7 +94,7 @@ def plot_difference_map_from_masked_array(masked_array,
     spread = max([abs(lowerbound), abs(upperbound)])
     
     fig, ax = plt.subplots(1,figsize=(10,10))
-    im = ax.imshow(masked_array[0],
+    im = ax.imshow(masked_array,
                    cmap=cmap,
                    clim=(-spread, spread),
                    extent=extent)

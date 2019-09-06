@@ -287,13 +287,13 @@ def get_raster_statistics(rasterio_dataset):
         })
     return stats
 
-def mask_raster_with_nan(rasterio_dataset):
+def mask_array_with_nan(array,nodata_value):
     """
-    Function to return an array in which the fill value has been replaced with np.nan.
-    This is useful for calculating and plotting clim=np.nanpercentile(masked_array,[1,99])
+    Function to return a masked array in which the fill value has also 
+    been replaced with np.nan. This can be used for calculating and 
+    plotting clim=np.nanpercentile(masked_array,[lower_bound,upper_bound])
     """
-    array = rasterio_dataset.read()
-    mask = (array == rasterio_dataset.nodata)
+    mask = (array == nodata_value)
     masked_array = np.ma.masked_array(array, mask=mask)
     masked_array = np.ma.filled(masked_array, fill_value=np.nan)
     
