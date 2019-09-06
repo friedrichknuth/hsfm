@@ -163,7 +163,8 @@ def parallel_stereo_custom(first_image,
            '--skip-rough-homography',
            '--ip-inlier-factor', '1',
            '--ip-per-tile','2000',
-           '--ip-uniqueness-threshold', '0.9']
+           '--ip-uniqueness-threshold', '0.9',
+           '--ip-debug-images']
            
     call.extend([first_image,second_image])
     call.extend([first_camera,second_camera])
