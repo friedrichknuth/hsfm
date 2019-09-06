@@ -84,14 +84,16 @@ def plot_difference_map_from_masked_array(masked_array,
                                           cmap='RdBu',
                                           percentile_min=1,
                                           percentile_max=99,
+                                          spread=None,
                                           extent=None):
                       
     """
     Function to plot masked array with nans as fill value.
     """
-    
-    lowerbound, upperbound = np.nanpercentile(masked_array,[percentile_min,percentile_max])
-    spread = max([abs(lowerbound), abs(upperbound)])
+                                          
+    if spread == None:
+        lowerbound, upperbound = np.nanpercentile(masked_array,[percentile_min,percentile_max])
+        spread = max([abs(lowerbound), abs(upperbound)])
     
     fig, ax = plt.subplots(1,figsize=(10,10))
     im = ax.imshow(masked_array,
