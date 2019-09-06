@@ -281,3 +281,21 @@ def generate_cameras_from_picker_corner_coordinate_df(corner_coordinate_df,
                                  scale = scale,
                                  verbose = verbose,
                                  corner_coordinates_string = corner_coordinates_string)
+                                 
+def difference_dems(dem_file_name_a,
+                    dem_file_name_b,
+                    verbose=False):
+    
+    file_path, file_name, file_extension = hsfm.io.split_file(dem_file_name_a)
+    
+    output_directory_and_prefix = os.path.join(file_path,file_name)
+    
+    call = ['geodiff',
+            '--absolute',
+            dem_file_name_a,
+            dem_file_name_b,
+            '-o', output_directory_and_prefix]
+            
+    run_command(call, verbose=verbose)
+    
+    return output_directory_and_prefix
