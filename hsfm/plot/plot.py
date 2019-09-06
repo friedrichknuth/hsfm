@@ -3,6 +3,7 @@ import numpy as np
 import os
 
 import hsfm.io
+import hsfm.geospatial
 
 def plot_image_histogram(image_array, 
                          image_base_name,
@@ -79,16 +80,18 @@ def plot_principal_point_and_fiducial_locations(image_array,
     
     plt.close()
     
-def plot_difference_map_from_masked_array(masked_array,
-                                          output_file_name=None,
-                                          cmap='RdBu',
-                                          percentile_min=1,
-                                          percentile_max=99,
-                                          spread=None,
-                                          extent=None):
+def plot_dem_difference_map(masked_array,
+                            output_file_name=None,
+                            cmap='RdBu',
+                            percentile_min=1,
+                            percentile_max=99,
+                            spread=None,
+                            extent=None):
                       
     """
-    Function to plot masked array with nans as fill value.
+    Function to plot difference map between two DEMs. Uses a masked array with nans as fill value.
+    Use hsfm.geospatial.mask_array_with_nan(array,nodata_value) to create an appropriate
+    masked array as input.
     """
                                           
     if spread == None:
@@ -96,10 +99,12 @@ def plot_difference_map_from_masked_array(masked_array,
         spread = max([abs(lowerbound), abs(upperbound)])
     
     fig, ax = plt.subplots(1,figsize=(10,10))
+    
     im = ax.imshow(masked_array,
                    cmap=cmap,
                    clim=(-spread, spread),
                    extent=extent)
+    
     fig.colorbar(im,extend='both')
     
     if output_file_name == None:
@@ -107,3 +112,32 @@ def plot_difference_map_from_masked_array(masked_array,
     
     else:
         fig.savefig(output_file_name, dpi=300)
+        
+def plot_dem_with_hillshade(masked_array,
+                            output_file_name=None,
+                            cmap='inferno'):
+    """
+    Function to plot DEM with hillshade. Uses a masked array with nans as fill value.
+    Use hsfm.geospatial.mask_array_with_nan(array,nodata_value) to create an appropriate
+    masked array as input.
+    """
+    hillshade = hsfm.geospatial.calculate_hillshade(masked_array)
+    
+    fig, ax = plt.subplots(1,figsize=(10,10))
+    
+    im = ax.imshow(masked_array, 
+                   cmap=cmap)
+    
+    ax.imshow(hillshade, 
+              cmap='gray',
+              alpha=0.5)
+    
+    fig.colorbar(im,extend='both')
+
+    if output_file_name == None:
+        plt.show()
+    
+    else:
+        fig.savefig(output_file_name, dpi=300)
+    
+    pass
