@@ -251,7 +251,7 @@ def move_match_files_in_sequence(bundle_adjust_directory,
     print('Match files copied to',stereo_directory)
     new_match_files = sorted(glob.glob(os.path.join(stereo_directory,'*.match')))
     
-    return new_match_files
+#     return new_match_files
 
 
 def move_camera_files_in_sequence(bundle_adjust_directory,
@@ -274,7 +274,7 @@ def move_camera_files_in_sequence(bundle_adjust_directory,
     print('Camera files copied to', stereo_directory)
     new_camera_files = sorted(glob.glob(os.path.join(stereo_directory,'*'+ extension)))
     
-    return new_camera_files
+#     return new_camera_files
     
     
 

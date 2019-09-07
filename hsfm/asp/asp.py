@@ -215,14 +215,14 @@ def point2dem_custom(point_cloud_file_name,
     
     hsfm.utils.run_command(call, verbose=verbose, shell=True)
     
-    file_path, file_name, file_extension = split_file(point_cloud_file_name)
+    file_path, file_name, file_extension = hsfm.io.split_file(point_cloud_file_name)
     dem_file_name = os.path.join(file_path,file_name+'-DEM'+file_extension)
     return dem_file_name
     
     
 def pc_align_custom(input_dem_file_name,
                     reference_dem_file_name,
-                    output_directory,
+                    output_directory_prefix,
                     verbose=False):
     """
     Function to run ASP pc_align.                
@@ -237,16 +237,17 @@ def pc_align_custom(input_dem_file_name,
             reference_dem_file_name,
             input_dem_file_name,
             '--alignment-method', 'similarity-point-to-point',
-            '-o', output_directory
+            '-o', output_directory_prefix
     ]
 
     hsfm.utils.run_command(call, 
                            log_directory=log_directory, 
                            verbose=verbose)
     
+    output_directory = os.path.split(output_directory_prefix)[0]
     point_cloud_file_name = os.path.join(output_directory,'run-trans_source.tif')
-    point2dem_custom(point_cloud_file_name)
-    return point_cloud_file_name
+    dem_file_name = point2dem_custom(point_cloud_file_name)
+    return dem_file_name
     
 def iter_stereo_pairs(stereo_input_directory,
                       image_files_directory,

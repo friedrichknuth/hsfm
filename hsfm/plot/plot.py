@@ -1,6 +1,8 @@
+from demcoreg import dem_mask
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from osgeo import gdal
 import rasterio
 
 import hsfm.io
@@ -90,7 +92,8 @@ def plot_dem_difference_map(masked_array,
                             extent=None):
                       
     """
-    Function to plot difference map between two DEMs. Uses a masked array with nans as fill value.
+    Function to plot difference map between two DEMs from masked array. 
+    Replaces fill values with nan. 
     Use hsfm.geospatial.mask_array_with_nan(array,nodata_value) to create an appropriate
     masked array as input.
     """
@@ -113,6 +116,37 @@ def plot_dem_difference_map(masked_array,
     
     else:
         fig.savefig(output_file_name, dpi=300)
+        
+def plot_dem_difference_from_file_name(dem_difference_file_name,
+                                       output_file_name=None,
+                                       cmap='RdBu',
+                                       percentile_min=1,
+                                       percentile_max=99,
+                                       spread=None,
+                                       extent=None,
+                                       mask_glacier=False):
+                      
+    """
+    Function to plot difference map between two DEMs from file.
+    """
+    rasterio_dataset = rasterio.open(dem_difference_file_name)
+    array = rasterio_dataset.read(1)
+    nodata_value = rasterio_dataset.nodata
+    masked_array = hsfm.geospatial.mask_array_with_nan(array,
+                                                       nodata_value)
+    
+    if mask_glacier == True:
+        ds = gdal.Open(dem_difference_file_name)
+        mask = dem_mask.get_icemask(ds)
+        masked_array = np.ma.array(masked_array,mask=~mask)
+        
+    plot_dem_difference_map(masked_array,
+                            output_file_name=output_file_name,
+                            cmap=cmap,
+                            percentile_min=percentile_min,
+                            percentile_max=percentile_max,
+                            spread=spread,
+                            extent=extent)
         
 def plot_dem_with_hillshade(masked_array,
                             output_file_name=None,
@@ -154,3 +188,5 @@ def plot_dem_from_file(dem_file_name,
     plot_dem_with_hillshade(masked_array,
                             output_file_name=output_file_name,
                             cmap=cmap)
+    
+    

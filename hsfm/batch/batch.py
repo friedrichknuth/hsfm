@@ -28,9 +28,8 @@ def rescale_images(image_directory,
         
         rescaled_img.save(output_file)
     
-    print("Rescaled images available at ", output_directory)
-    
-    return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
+#     return output_directory
+#     return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
 
 def rescale_tsai_cameras(camera_directory,
                          extension='.tsai',
@@ -51,15 +50,14 @@ def rescale_tsai_cameras(camera_directory,
         
         hsfm.io.replace_string_in_file(camera_file, output_file, pitch, new_pitch)
         
-    print("Rescaled cameras available at ", output_directory)
-    
-    return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
+#     return output_directory
+#     return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
 
 def batch_generate_cameras(image_directory,
                            camera_positions_file_name,
                            reference_dem_file_name,
                            focal_length_mm,
-                           output_directory='./data/cameras',
+                           output_directory='data/cameras',
                            print_asp_call=False,
                            verbose=False,
                            subset=None):
@@ -78,8 +76,6 @@ def batch_generate_cameras(image_directory,
         image_file_name = v
         camera_lat_lon_center_coordinates = (df['Latitude'].iloc[i], df['Longitude'].iloc[i])
         heading = df['heading'].iloc[i]
-        
-        print(camera_lat_lon_center_coordinates)
         
         hsfm.asp.generate_camera(image_file_name,
                                  camera_lat_lon_center_coordinates,
