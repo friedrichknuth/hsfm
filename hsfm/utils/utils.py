@@ -327,3 +327,29 @@ def dem_align_custom(reference_dem,
     
     return dem_difference_file_name , aligned_dem_file_name
     
+
+def rescale_geotif(geotif_file_name,
+                   output_file_name=None,
+                   scale=1):
+                   
+    percent = str(100/scale) +'%'
+    
+    if output_file_name is None:
+        file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
+        output_file_name = os.path.join(file_path, 
+                                        file_name+'rescaled_sub'+str(scale)+file_extension)
+    
+    call = ['gdal_translate',
+            '-of','GTiff',
+            '-co','TILED=YES',
+            '-co','COMPRESS=LZW',
+            '-co','BIGTIFF=IF_SAFER',
+            '-outsize',percent,percent,
+            geotif_file_name,
+            output_file_name]
+            
+    run_command(call, verbose=False)
+    
+    return output_file_name
+    
+    
