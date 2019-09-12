@@ -10,6 +10,7 @@ import hsfm.io
 import hsfm.core
 import hsfm.image
 import hsfm.plot
+import hsfm.utils
 
 def rescale_images(image_directory, 
                    extension='.tif',
@@ -60,12 +61,16 @@ def batch_generate_cameras(image_directory,
                            output_directory='data/cameras',
                            print_asp_call=False,
                            verbose=False,
-                           subset=None):
-                           
-                           
+                           subset=None,
+                           manual_heading_selection=False):
+    # TODO
+    # Embed hsfm.utils.pick_headings() within calculate_heading_from_metadata() and launch only for images where the heading could not be determined.  
     
     image_list = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
-    df = calculate_heading_from_metadata(camera_positions_file_name, subset=subset)
+    if manual_heading_selection == False:
+        df = calculate_heading_from_metadata(camera_positions_file_name, subset=subset)
+    else:
+        df = hsfm.utils.pick_headings(image_directory, camera_positions_file_name, subset, delta=0.01)
     
     
     if len(image_list) != len(df):

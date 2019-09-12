@@ -1,3 +1,8 @@
+import hvplot
+import hvplot.xarray
+import hvplot.pandas
+import rasterio
+import xarray as xr
 import cartopy.crs as ccrs
 import geoviews as gv
 from geoviews import opts
@@ -123,167 +128,278 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
         
     else:
         return utm_vrt_subset_file_name
+        
+def pick_headings(image_directory, camera_positions_file_name, subset,delta=0.015):
+    df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
     
+    image_file_paths = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
+    lons = df['Longitude'].values
+    lats = df['Latitude'].values
     
-def image_corner_coordinate_picker(image_file_name,
-                                   camera_center_lon,
-                                   camera_center_lat,
-                                   utm_zone,
-                                   dx = 1200,
-                                   dy = 1200):
+    headings = []
+    for i, v in enumerate(lats):
+        image_file_name = image_file_paths[i]
+        camera_center_lon = lons[i]
+        camera_center_lat = lats[i]
+
+        heading = pick_heading_from_map(image_file_name,
+                                        camera_center_lon,
+                                        camera_center_lat,
+                                        dx= delta,
+                                        dy= delta)
+        headings.append(heading)
+
+    df['heading'] = headings
     
+    return df
+
+def scale_down_number(number, threshold=1000):
+    while number > threshold:
+        number = number / 2
+    number = int(number)
+    return number
+    
+def pick_heading_from_map(image_file_name,
+                          camera_center_lon,
+                          camera_center_lat,
+                          dx = 0.015,
+                          dy = 0.015):
+                          
+
     # Google Satellite tiled basemap imagery url
     url = 'https://mt1.google.com/vt/lyrs=s&x={X}&y={Y}&z={Z}'
     
-    # load the image
+    # TODO
+    # # allow large images to be plotted or force resampling to thumbnail
+    # # load the image with xarray and plot with hvplot to handle larger images
+    # src = rasterio.open(image_file_name)
+    #
+    # a = scale_down_number(src.shape[0])
+    # b = scale_down_number(src.shape[1])
+    a = 500
+    b = 500
+    #
+    # da = xr.open_rasterio(src)
+    # img = da.sel(band=1).hvplot.image(rasterize=True,
+    #                                   width=b,
+    #                                   height=a,
+    #                                   flip_yaxis=True).opts(hv.opts.Image(cmap='gray'))
+    
+    # load the image with PIL
     img = np.array(PIL.Image.open(image_file_name))
     img = hv.Image(img)
     img = hv.RGB(img).opts(width=500, height=500)
-    
+
     # create the extent of the bounding box
     extents = (camera_center_lon-dx, 
                camera_center_lat-dy, 
                camera_center_lon+dx, 
                camera_center_lat+dy)
-    
-    
+
+
     # run the tile server
-    tiles = gv.WMTS(url, extents=extents, crs=ccrs.UTM(utm_zone))
+    tiles = gv.WMTS(url, extents=extents)
 
     location = gv.Points([(camera_center_lon,
                            camera_center_lat,
-                           'camera_center')], vdims="location", crs=ccrs.UTM(utm_zone))
-    
+                           'camera_center')], vdims="location")
+
     point_stream = PointDraw(source=location)
 
-    base_map = (tiles * location).opts(opts.Points(width=500, 
-                                                     height=500, 
-                                                     size=12, 
-                                                     color='black', 
-                                                     tools=["hover"]))
+    base_map = (tiles * location).opts(opts.Points(width=a, 
+                                                   height=b, 
+                                                   size=12, 
+                                                   color='black', 
+                                                   tools=["hover"]))
 
     row = pn.Row(img, base_map)
 
     server = row.show(threaded=True)
-    time.sleep(1) 
 
     condition = True
-    while condition == True: 
-        if len(point_stream.data['x']) == 5:
-            server.stop()
-            condition = False
-            
-    projected = gv.operation.project_points(point_stream.element, projection=ccrs.UTM(utm_zone))
+    while condition == True:
+        try:
+            if len(point_stream.data['x']) == 2:
+                server.stop()
+                condition = False
+        except:
+            pass
+
+    projected = gv.operation.project_points(point_stream.element,
+                                            projection=ccrs.PlateCarree())
     df = projected.dframe()
-    df['location'] = ['camera_center', 'UL', 'UR', 'LR', 'LL']
-    return df
+    df['location'] = ['camera_center', 'flight_direction']
     
-def geoviews_corner_coordinates_df_to_string(corner_coordinate_df):
+    heading_lon = df.x[1]
+    heading_lat = df.y[1]
     
-    lat_lon_string = []
+    heading = hsfm.geospatial.calculate_heading(camera_center_lon,
+                                                camera_center_lat,
+                                                heading_lon,
+                                                heading_lat)
     
-    for i in range(len(corner_coordinate_df)):
-        lat = corner_coordinate_df.lat[i]
-        lon = corner_coordinate_df.lon[i]
-        lat_lon_string.append(lat)
-        lat_lon_string.append(lon)
-        
-    lat_lon_string = ','.join(map(str,lat_lon_string))
+    return heading
     
-    return lat_lon_string
+# def image_corner_coordinate_picker(image_file_name,
+#                                    camera_center_lon,
+#                                    camera_center_lat,
+#                                    utm_zone,
+#                                    dx = 1200,
+#                                    dy = 1200):
+#
+#     # Google Satellite tiled basemap imagery url
+#     url = 'https://mt1.google.com/vt/lyrs=s&x={X}&y={Y}&z={Z}'
+#
+#     # load the image
+#     img = np.array(PIL.Image.open(image_file_name))
+#     img = hv.Image(img)
+#     img = hv.RGB(img).opts(width=500, height=500)
+#
+#     # create the extent of the bounding box
+#     extents = (camera_center_lon-dx,
+#                camera_center_lat-dy,
+#                camera_center_lon+dx,
+#                camera_center_lat+dy)
+#
+#
+#     # run the tile server
+#     tiles = gv.WMTS(url, extents=extents, crs=ccrs.UTM(utm_zone))
+#
+#     location = gv.Points([(camera_center_lon,
+#                            camera_center_lat,
+#                            'camera_center')], vdims="location", crs=ccrs.UTM(utm_zone))
+#
+#     point_stream = PointDraw(source=location)
+#
+#     base_map = (tiles * location).opts(opts.Points(width=500,
+#                                                      height=500,
+#                                                      size=12,
+#                                                      color='black',
+#                                                      tools=["hover"]))
+#
+#     row = pn.Row(img, base_map)
+#
+#     server = row.show(threaded=True)
+#     condition = True
+#     while condition == True:
+#         try:
+#             if len(point_stream.data['x']) == 2:
+#                 server.stop()
+#                 condition = False
+#         except:
+#             pass
+#
+#     projected = gv.operation.project_points(point_stream.element, projection=ccrs.UTM(utm_zone))
+#     df = projected.dframe()
+#     df['location'] = ['camera_center', 'UL', 'UR', 'LR', 'LL']
+#     return df
     
-def iter_image_corner_coordinate_picker(camera_locations_csv,
-                                        image_directory,
-                                        camera_name_field='# label',
-                                        longtiude_field='lon',
-                                        latitude_field='lat',
-                                        extension='.tif'):
-    """
-    Function to pick corner coordinates for an unprojected image from a basemap.
-    """
-                                        
-    # TODO
-    # - Simplify by using functions from hsfm.geospatial
+# def geoviews_corner_coordinates_df_to_string(corner_coordinate_df):
+#
+#     lat_lon_string = []
+#
+#     for i in range(len(corner_coordinate_df)):
+#         lat = corner_coordinate_df.lat[i]
+#         lon = corner_coordinate_df.lon[i]
+#         lat_lon_string.append(lat)
+#         lat_lon_string.append(lon)
+#
+#     lat_lon_string = ','.join(map(str,lat_lon_string))
+#
+#     return lat_lon_string
     
-    image_files  = sorted(glob.glob(os.path.join(image_directory,'*'+ extension)))
+# def iter_image_corner_coordinate_picker(camera_locations_csv,
+#                                         image_directory,
+#                                         camera_name_field='# label',
+#                                         longtiude_field='lon',
+#                                         latitude_field='lat',
+#                                         extension='.tif'):
+#     """
+#     Function to pick corner coordinates for an unprojected image from a basemap.
+#     """
+#
+#     # TODO
+#     # - Simplify by using functions from hsfm.geospatial
+#
+#     image_files  = sorted(glob.glob(os.path.join(image_directory,'*'+ extension)))
+#
+#     df = pd.read_csv(camera_locations_csv)
+#
+#     list_of_corner_coordinates_strings = []
+#
+#     image_paths = []
+#     for i in range(len(df)):
+#         lon               = df[longtiude_field].iloc[i]
+#         lat               = df[latitude_field].iloc[i]
+#         u                 = utm.from_latlon(lat,lon)
+#         camera_center_lon = u[0]
+#         camera_center_lat = u[1]
+#         utm_zone          = u[2]
+#         utm_zone_code     = u[3]
+#
+#
+#
+#         # Select image file path corresponding to entry in dataframe.
+#         # Won't break on subsampled files with new name.
+#         # TODO
+#         # - Write cleaner way to do this.
+#         image_base_name = df[camera_name_field].iloc[i]
+#         image_base_name = os.path.split(image_base_name)[-1].split('.')[0]
+#         for image_file in image_files:
+#             if image_base_name in image_file:
+#                 image_file_name = image_file
+#
+#         # run the corner coordinate picker
+#         corner_coordinate_df = image_corner_coordinate_picker(image_file_name,
+#                                                               camera_center_lon,
+#                                                               camera_center_lat,
+#                                                               utm_zone)
+#         # Drop the camera center from data from and reindex
+#         # Data frame now only contains the UL, UR, LR, LL corner coordinatees,
+#         # in that order.
+#         corner_coordinate_df = corner_coordinate_df.drop(0)
+#         corner_coordinate_df = corner_coordinate_df.reset_index(drop=True)
+#
+#         # convert utm back to lat lon
+#         lon, lat = utm.to_latlon(corner_coordinate_df['x'],
+#                                  corner_coordinate_df['y'],
+#                                  utm_zone,
+#                                  utm_zone_code)
+#         corner_coordinate_df['lat'] = lat
+#         corner_coordinate_df['lon'] = lon
+#
+#         # Create the string for ASP cam_gen and append to list
+#         corner_coordinates_string = geoviews_corner_coordinates_df_to_string(corner_coordinate_df)
+#         list_of_corner_coordinates_strings.append(corner_coordinates_string)
+#         image_paths.append(image_file_name)
+#
+#     df['corner_coordinates_string'] = list_of_corner_coordinates_strings
+#     df['image_file_paths']          = image_paths
+#
+#     return df
     
-    df = pd.read_csv(camera_locations_csv)
-    
-    list_of_corner_coordinates_strings = []
-    
-    image_paths = []
-    for i in range(len(df)):
-        lon               = df[longtiude_field].iloc[i]
-        lat               = df[latitude_field].iloc[i]
-        u                 = utm.from_latlon(lat,lon)
-        camera_center_lon = u[0]
-        camera_center_lat = u[1]
-        utm_zone          = u[2]
-        utm_zone_code     = u[3]
-        
-        
-        
-        # Select image file path corresponding to entry in dataframe.
-        # Won't break on subsampled files with new name.
-        # TODO
-        # - Write cleaner way to do this.
-        image_base_name = df[camera_name_field].iloc[i]
-        image_base_name = os.path.split(image_base_name)[-1].split('.')[0]
-        for image_file in image_files:
-            if image_base_name in image_file:
-                image_file_name = image_file
-        
-        # run the corner coordinate picker
-        corner_coordinate_df = image_corner_coordinate_picker(image_file_name,
-                                                              camera_center_lon,
-                                                              camera_center_lat,
-                                                              utm_zone)
-        # Drop the camera center from data from and reindex
-        # Data frame now only contains the UL, UR, LR, LL corner coordinatees,
-        # in that order.
-        corner_coordinate_df = corner_coordinate_df.drop(0)
-        corner_coordinate_df = corner_coordinate_df.reset_index(drop=True)
-        
-        # convert utm back to lat lon
-        lon, lat = utm.to_latlon(corner_coordinate_df['x'], 
-                                 corner_coordinate_df['y'],
-                                 utm_zone,
-                                 utm_zone_code)
-        corner_coordinate_df['lat'] = lat
-        corner_coordinate_df['lon'] = lon
-        
-        # Create the string for ASP cam_gen and append to list
-        corner_coordinates_string = geoviews_corner_coordinates_df_to_string(corner_coordinate_df)
-        list_of_corner_coordinates_strings.append(corner_coordinates_string)
-        image_paths.append(image_file_name)
-
-    df['corner_coordinates_string'] = list_of_corner_coordinates_strings
-    df['image_file_paths']          = image_paths
-
-    return df
-    
-def generate_cameras_from_picker_corner_coordinate_df(corner_coordinate_df,
-                                                      focal_length_mm,
-                                                      reference_dem,
-                                                      output_directory,
-                                                      scale = 1,
-                                                      verbose=True):
-    heading                           = None
-    camera_lat_lon_center_coordinates = None
-        
-    for i in range(len(corner_coordinate_df)):
-        image_file_name                   = corner_coordinate_df.image_file_paths[i]
-        corner_coordinates_string         = corner_coordinate_df.corner_coordinates_string[i]
-
-        hsfm.asp.generate_camera(image_file_name,
-                                 camera_lat_lon_center_coordinates,
-                                 reference_dem,
-                                 focal_length_mm,
-                                 heading,
-                                 output_directory = output_directory,
-                                 scale = scale,
-                                 verbose = verbose,
-                                 corner_coordinates_string = corner_coordinates_string)
+# def generate_cameras_from_picker_corner_coordinate_df(corner_coordinate_df,
+#                                                       focal_length_mm,
+#                                                       reference_dem,
+#                                                       output_directory,
+#                                                       scale = 1,
+#                                                       verbose=True):
+#     heading                           = None
+#     camera_lat_lon_center_coordinates = None
+#
+#     for i in range(len(corner_coordinate_df)):
+#         image_file_name                   = corner_coordinate_df.image_file_paths[i]
+#         corner_coordinates_string         = corner_coordinate_df.corner_coordinates_string[i]
+#
+#         hsfm.asp.generate_camera(image_file_name,
+#                                  camera_lat_lon_center_coordinates,
+#                                  reference_dem,
+#                                  focal_length_mm,
+#                                  heading,
+#                                  output_directory = output_directory,
+#                                  scale = scale,
+#                                  verbose = verbose,
+#                                  corner_coordinates_string = corner_coordinates_string)
                                  
 def difference_dems(dem_file_name_a,
                     dem_file_name_b,
