@@ -178,15 +178,29 @@ def pick_heading_from_map(image_file_name,
     b = scale_down_number(src.shape[1])
     # a = 500
     # b = 500
-    title = 'Select the location of the green dot in the left image on the right map.'
+    title = '''
+    Select the approximate location of the green dot in the left image on the right map.
+    to determine the heading aka flight direction of the aircraft.'''
     da = xr.open_rasterio(src)
-    img = da.sel(band=1).hvplot.image(rasterize=True,
+    
+    point_x = src.shape[0] / 2
+    point_y = 100
+    point_location = hv.Points([(point_x,point_y,
+                                 'point_to_pick')], 
+                                 vdims='location')
+    image_point_stream = PointDraw(source=point_location)
+    image = da.sel(band=1).hvplot.image(rasterize=True,
                                       width=b,
                                       height=a,
                                       flip_yaxis=True,
                                       colorbar=False,
                                       cmap='gray',
                                       title=title)
+    img = (image*point_location).opts(opts.Points(width=a, 
+                                                  height=b, 
+                                                  size=10, 
+                                                  color='green', 
+                                                  tools=['hover']))
     
     # load the image with PIL
     # img = np.array(PIL.Image.open(image_file_name))
@@ -205,13 +219,14 @@ def pick_heading_from_map(image_file_name,
 
     location = gv.Points([(camera_center_lon,
                            camera_center_lat,
-                           'camera_center')], vdims="location")
+                           'camera_center')], 
+                           vdims='location')
 
     point_stream = PointDraw(source=location)
 
     base_map = (tiles * location).opts(opts.Points(width=a, 
                                                    height=b, 
-                                                   size=12, 
+                                                   size=10, 
                                                    color='black', 
                                                    tools=["hover"]))
 
