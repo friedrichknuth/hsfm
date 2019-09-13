@@ -185,10 +185,6 @@ def pick_heading_from_map(image_file_name,
                                       flip_yaxis=True,
                                       colorbar=False,
                                       cmap='gray')
-    # load the image with PIL
-    # img = np.array(PIL.Image.open(image_file_name))
-    # img = hv.Image(img)
-    # img = hv.RGB(img).opts(width=500, height=500)
 
     # create the extent of the bounding box
     extents = (camera_center_lon-dx, 
