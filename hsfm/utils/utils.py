@@ -173,35 +173,18 @@ def pick_heading_from_map(image_file_name,
     # # allow large images to be plotted or force resampling to thumbnail
     # # load the image with xarray and plot with hvplot to handle larger images
     src = rasterio.open(image_file_name)
-
-    a = scale_down_number(src.shape[0])
-    b = scale_down_number(src.shape[1])
-    # a = 500
-    # b = 500
-    title = '''
-    Select the approximate location of the green dot in the left image on the right map.
-    to determine the heading aka flight direction of the aircraft.'''
+    
+    subplot_width  = scale_down_number(src.shape[0])
+    subplot_height = scale_down_number(src.shape[1])
+    
     da = xr.open_rasterio(src)
     
-    point_x = src.shape[0] / 2
-    point_y = 100
-    point_location = hv.Points([(point_x,point_y,
-                                 'point_to_pick')], 
-                                 vdims='location')
-    image_point_stream = PointDraw(source=point_location)
-    image = da.sel(band=1).hvplot.image(rasterize=True,
-                                      width=b,
-                                      height=a,
+    img = da.sel(band=1).hvplot.image(rasterize=True,
+                                      width=subplot_width,
+                                      height=subplot_height,
                                       flip_yaxis=True,
                                       colorbar=False,
-                                      cmap='gray',
-                                      title=title)
-    img = (image*point_location).opts(opts.Points(width=a, 
-                                                  height=b, 
-                                                  size=10, 
-                                                  color='green', 
-                                                  tools=['hover']))
-    
+                                      cmap='gray')
     # load the image with PIL
     # img = np.array(PIL.Image.open(image_file_name))
     # img = hv.Image(img)
@@ -224,8 +207,8 @@ def pick_heading_from_map(image_file_name,
 
     point_stream = PointDraw(source=location)
 
-    base_map = (tiles * location).opts(opts.Points(width=a, 
-                                                   height=b, 
+    base_map = (tiles * location).opts(opts.Points(width=subplot_width, 
+                                                   height=subplot_height, 
                                                    size=10, 
                                                    color='black', 
                                                    tools=["hover"]))
