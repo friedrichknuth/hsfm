@@ -20,6 +20,7 @@ dependencies:
   - seaborn
   - menpo::opencv
   - rasterstats
+  - hvplot
   - pip:
     - elevation
     - "--editable=git+https://github.com/dshean/demcoreg.git#egg=demcoreg"
