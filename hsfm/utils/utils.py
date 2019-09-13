@@ -135,7 +135,7 @@ def pick_headings(image_directory, camera_positions_file_name, subset,delta=0.01
     image_file_paths = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
     lons = df['Longitude'].values
     lats = df['Latitude'].values
-    
+
     headings = []
     for i, v in enumerate(lats):
         image_file_name = image_file_paths[i]
@@ -150,7 +150,7 @@ def pick_headings(image_directory, camera_positions_file_name, subset,delta=0.01
         headings.append(heading)
 
     df['heading'] = headings
-    
+
     return df
 
 def scale_down_number(number, threshold=1000):
@@ -172,23 +172,26 @@ def pick_heading_from_map(image_file_name,
     # TODO
     # # allow large images to be plotted or force resampling to thumbnail
     # # load the image with xarray and plot with hvplot to handle larger images
-    # src = rasterio.open(image_file_name)
-    #
-    # a = scale_down_number(src.shape[0])
-    # b = scale_down_number(src.shape[1])
-    a = 500
-    b = 500
-    #
-    # da = xr.open_rasterio(src)
-    # img = da.sel(band=1).hvplot.image(rasterize=True,
-    #                                   width=b,
-    #                                   height=a,
-    #                                   flip_yaxis=True).opts(hv.opts.Image(cmap='gray'))
+    src = rasterio.open(image_file_name)
+
+    a = scale_down_number(src.shape[0])
+    b = scale_down_number(src.shape[1])
+    # a = 500
+    # b = 500
+    title = 'Select the location of the green dot in the left image on the right map.'
+    da = xr.open_rasterio(src)
+    img = da.sel(band=1).hvplot.image(rasterize=True,
+                                      width=b,
+                                      height=a,
+                                      flip_yaxis=True,
+                                      colorbar=False,
+                                      cmap='gray',
+                                      title=title)
     
     # load the image with PIL
-    img = np.array(PIL.Image.open(image_file_name))
-    img = hv.Image(img)
-    img = hv.RGB(img).opts(width=500, height=500)
+    # img = np.array(PIL.Image.open(image_file_name))
+    # img = hv.Image(img)
+    # img = hv.RGB(img).opts(width=500, height=500)
 
     # create the extent of the bounding box
     extents = (camera_center_lon-dx, 
