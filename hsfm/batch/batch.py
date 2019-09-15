@@ -167,8 +167,8 @@ def preprocess_images(camera_positions_file_name,
         
         left_slice, top_slice, right_slice, bottom_slice = hsfm.core.slice_image_frame(img_gray_clahe)
         
-        # left_slice_padded = hsfm.core.pad_image(left_slice)
-        left_slice_padded = hsfm.core.noisify_template(hsfm.core.pad_image(left_slice))
+        # left_slice_padded = hsfm.core.noisify_template(hsfm.core.pad_image(left_slice))
+        left_slice_padded = hsfm.core.pad_image(left_slice)
         top_slice_padded = hsfm.core.pad_image(top_slice)
         right_slice_padded = hsfm.core.pad_image(right_slice)
         bottom_slice_padded = hsfm.core.pad_image(bottom_slice)

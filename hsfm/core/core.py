@@ -140,7 +140,7 @@ def get_fiducials(grayscale_unit8_image_array,template_file, window, position = 
     if position == 'bottom':
         x = window[2] + loc[1][0] + int(w/2) - 250
         y = window[0] + loc[0][0] - 250
-        return x,y 
+        return x,y
         
 def template_match(grayscale_unit8_image_array,template_file):
     img_gray = grayscale_unit8_image_array
