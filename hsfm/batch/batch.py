@@ -135,6 +135,7 @@ def preprocess_images(camera_positions_file_name,
     Function to preprocess images from NAGAP archive in batch.
     """
     # TODO
+    # - Reduce redundancy with preprocess_images_from_directory function
     # - Handle image io where possible with gdal instead of opencv in order to
     #   optimize io from url and tiling and compression of final output.
     # - Generalize for other types of images
@@ -156,6 +157,128 @@ def preprocess_images(camera_positions_file_name,
     for pid, file_name in targets.items():
         print('Processing',file_name)
         img = hsfm.core.download_image(pid)
+        img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+        
+        window_left = [5000,7000,250,1500]
+        window_right = [5000,6500,12000,img_gray.shape[1]]
+        window_top = [0,500,6000,7200]
+        window_bottom = [11000,img_gray.shape[0],6000,7200]
+        
+        side = hsfm.core.evaluate_image_frame(img)
+        
+        img_gray_clahe = hsfm.image.clahe_equalize_image(img_gray)
+        
+        left_slice, top_slice, right_slice, bottom_slice = hsfm.core.slice_image_frame(img_gray_clahe)
+        
+        # left_slice_padded = hsfm.core.noisify_template(hsfm.core.pad_image(left_slice))
+        left_slice_padded = hsfm.core.pad_image(left_slice)
+        top_slice_padded = hsfm.core.pad_image(top_slice)
+        right_slice_padded = hsfm.core.pad_image(right_slice)
+        bottom_slice_padded = hsfm.core.pad_image(bottom_slice)
+    
+        left_fiducial = hsfm.core.get_fiducials(left_slice_padded, 
+                                                left_template, 
+                                                window_left, 
+                                                position = 'left')
+        top_fiducial = hsfm.core.get_fiducials(top_slice_padded, 
+                                               top_template, 
+                                               window_top, 
+                                               position = 'top')
+        right_fiducial = hsfm.core.get_fiducials(right_slice_padded, 
+                                                 right_template, 
+                                                 window_right, 
+                                                 position = 'right')
+        bottom_fiducial = hsfm.core.get_fiducials(bottom_slice_padded, 
+                                                  bottom_template, 
+                                                  window_bottom, 
+                                                  position = 'bottom')
+        
+        
+        principal_point = hsfm.core.principal_point(left_fiducial,
+                                                    top_fiducial,
+                                                    right_fiducial,
+                                                    bottom_fiducial)
+                                                    
+                                                    
+        # QC routine
+        arc1 = np.rad2deg(np.arctan2(bottom_fiducial[1] - top_fiducial[1],
+                      bottom_fiducial[0] - top_fiducial[0]))
+        arc2 = np.rad2deg(np.arctan2(right_fiducial[1] - left_fiducial[1],
+                      right_fiducial[0] - left_fiducial[0]))
+        intersection_angle = arc1-arc2
+        print('Principal point intersection angle:',intersection_angle)
+        
+        intersections.append(intersection_angle)
+        file_names.append(file_name)
+        
+        if intersection_angle > 90.1 or intersection_angle < 89.9:
+            print("Warning: intersection at principle point is not within orthogonality limits.")
+            print("Skipping", file_name)
+            
+        else:                                                    
+            cropped = hsfm.core.crop_about_principal_point(img, principal_point)
+            img_rot = hsfm.core.rotate_camera(cropped, side=side)
+            out = os.path.join(output_directory, file_name+'.tif')
+            cv2.imwrite(out,img_rot)
+            final_output = hsfm.utils.optimize_geotif(out)
+            os.remove(out)
+            os.rename(final_output, out)
+            
+            
+        if qc == True:
+            hsfm.plot.plot_principal_point_and_fiducial_locations(img,
+                                                                  left_fiducial,
+                                                                  top_fiducial,
+                                                                  right_fiducial,
+                                                                  bottom_fiducial,
+                                                                  principal_point,
+                                                                  file_name,
+                                                                  output_directory='qc/image_preprocessing/')
+            
+    if qc == True:
+        df = pd.DataFrame({"Angle off mean":intersections,"filename":file_names}).set_index("filename")
+        df_mean = df - df.mean()
+        fig, ax = plt.subplots(1, figsize=(10, 10))
+        df_mean.plot.bar(grid=True,ax=ax)
+        plt.show()
+        fig.savefig('qc/image_preprocessing/principal_point_intersection_angle_off_mean.png')
+        plt.close()
+        print("Mean rotation off 90 degree intersection at principal point:",(df.mean() - 90).values[0])
+        print("Further QC plots for principal point and fiducial marker detection available under qc/image_preprocessing/")
+        
+    
+    return output_directory
+    
+def preprocess_images_from_directory(image_directory,
+                                     template_directory,
+                                     output_directory='data/images',
+                                     subset=None, 
+                                     scale=None,
+                                     qc=False):
+                      
+    """
+    Function to preprocess images from NAGAP archive in batch.
+    """
+    # TODO
+    # - Reduce redundancy with preprocess_images function
+                      
+    hsfm.io.create_dir(output_directory)             
+                      
+    left_template = os.path.join(template_directory,'L.jpg')
+    top_template = os.path.join(template_directory,'T.jpg')
+    right_template = os.path.join(template_directory,'R.jpg')
+    bottom_template = os.path.join(template_directory,'B.jpg')
+    
+    intersections =[]
+    file_names = []
+    
+    image_files = sorted(glob.glob(os.path.join(image_directory,'*.tif')))
+    
+    for image_file in image_files:
+        file_path, file_name, file_extension = hsfm.io.split_file(image_file)
+        print('Processing',file_name)
+        
+        img = cv2.imread(image_file)
         img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         
         window_left = [5000,7000,250,1500]

@@ -314,7 +314,6 @@ def optimize_geotif(geotif_file_name,
         file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
         output_file_name = os.path.join(file_path, 
                                         file_name+'_optimized'+file_extension)
-        print(output_file_name)
     
     call = ['gdal_translate',
             '-of','GTiff',
