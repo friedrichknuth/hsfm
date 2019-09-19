@@ -179,6 +179,8 @@ def crop_about_principal_point(grayscale_unit8_image_array, principal_point):
     y_B = int(principal_point[1]+y_dist/2)
     
     cropped = img_gray[y_T:y_B, x_L:x_R]
+    # TODO
+    # why convert to grayscale if already being passed a grayscale image array?
     cropped = cv2.cvtColor(cropped,cv2.COLOR_BGR2GRAY)
     
     cropped = hsfm.image.clahe_equalize_image(cropped)

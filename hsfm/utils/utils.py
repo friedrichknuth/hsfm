@@ -282,14 +282,15 @@ def dem_align_custom(reference_dem,
 
 def rescale_geotif(geotif_file_name,
                    output_file_name=None,
-                   scale=1):
+                   scale=1,
+                   verbose=False):
                    
     percent = str(100/scale) +'%'
     
     if output_file_name is None:
         file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
         output_file_name = os.path.join(file_path, 
-                                        file_name+'rescaled_sub'+str(scale)+file_extension)
+                                        file_name+'_sub'+str(scale)+file_extension)
     
     call = ['gdal_translate',
             '-of','GTiff',
@@ -300,7 +301,30 @@ def rescale_geotif(geotif_file_name,
             geotif_file_name,
             output_file_name]
             
-    run_command(call, verbose=False)
+    run_command(call, verbose=verbose)
+    
+    return output_file_name
+
+def optimize_geotif(geotif_file_name,
+                    output_file_name=None,
+                    verbose=False):
+                   
+
+    if output_file_name is None:
+        file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
+        output_file_name = os.path.join(file_path, 
+                                        file_name+'_optimized'+file_extension)
+        print(output_file_name)
+    
+    call = ['gdal_translate',
+            '-of','GTiff',
+            '-co','TILED=YES',
+            '-co','COMPRESS=LZW',
+            '-co','BIGTIFF=IF_SAFER',
+            geotif_file_name,
+            output_file_name]
+            
+    run_command(call, verbose=verbose)
     
     return output_file_name
     

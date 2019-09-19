@@ -135,6 +135,8 @@ def preprocess_images(camera_positions_file_name,
     Function to preprocess images from NAGAP archive in batch.
     """
     # TODO
+    # - Handle image io where possible with gdal instead of opencv in order to
+    #   optimize io from url and tiling and compression of final output.
     # - Generalize for other types of images
     # - Add affine transformation
                       
@@ -217,6 +219,10 @@ def preprocess_images(camera_positions_file_name,
             img_rot = hsfm.core.rotate_camera(cropped, side=side)
             out = os.path.join(output_directory, file_name+'.tif')
             cv2.imwrite(out,img_rot)
+            final_output = hsfm.utils.optimize_geotif(out)
+            os.remove(out)
+            os.rename(final_output, out)
+            
             
         if qc == True:
             hsfm.plot.plot_principal_point_and_fiducial_locations(img,
