@@ -14,39 +14,41 @@ import hsfm.utils
 
 def rescale_images(image_directory, 
                    extension='.tif',
-                   scale_factor=8):
+                   scale=8,
+                   verbose=False):
     
     image_files  = sorted(glob.glob(os.path.join(image_directory,'*'+ extension)))
     
     for image_file in image_files:
         
         file_path, file_name, file_extension = hsfm.io.split_file(image_file)
-        output_directory = hsfm.io.create_dir(file_path+'_sub'+str(scale_factor))
+        output_directory = hsfm.io.create_dir(file_path+'_sub'+str(scale))
         output_file = os.path.join(output_directory, 
-                                   file_name +'_sub'+str(scale_factor)+file_extension)
+                                   file_name +'_sub'+str(scale)+file_extension)
         
-        rescaled_img = hsfm.image.rescale_image(image_file, scale_factor)
-        
-        rescaled_img.save(output_file)
-    
-#     return output_directory
+        hsfm.utils.rescale_geotif(image_file,
+                                  output_file_name=output_file,
+                                  scale=scale,
+                                  verbose=verbose)
+
+    return output_directory
 #     return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
 
 def rescale_tsai_cameras(camera_directory,
                          extension='.tsai',
-                         scale_factor=8):
+                         scale=8):
                          
     pitch = "pitch = 1"
-    new_pitch = "pitch = "+str(scale_factor)
+    new_pitch = "pitch = "+str(scale)
     
     camera_files  = sorted(glob.glob(os.path.join(camera_directory,'*'+ extension)))
                  
     for camera_file in camera_files:
         
         file_path, file_name, file_extension = hsfm.io.split_file(camera_file)
-        output_directory = hsfm.io.create_dir(file_path+'_sub'+str(scale_factor))
+        output_directory = hsfm.io.create_dir(file_path+'_sub'+str(scale))
         output_file = os.path.join(output_directory, 
-                                   file_name +'_sub'+str(scale_factor)+file_extension)
+                                   file_name +'_sub'+str(scale)+file_extension)
                                    
         
         hsfm.io.replace_string_in_file(camera_file, output_file, pitch, new_pitch)
