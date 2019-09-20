@@ -83,31 +83,53 @@ def download_image(pid):
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
     return image
     
-def slice_image_frame(grayscale_unit8_image_array):
+def slice_image_frame(grayscale_unit8_image_array, windows):
+    window_left   = windows[0]
+    window_top    = windows[1]
+    window_right  = windows[2]
+    window_bottom = windows[3]
     
     img_gray = grayscale_unit8_image_array
-    
-    window_left = [5000,7000,250,1500]
-    window_right = [5000,6500,12000,img_gray.shape[1]]
-    window_top = [0,500,6000,7200]
-    window_bottom = [11000,img_gray.shape[0],6000,7200]
     
     left_slice = img_gray[window_left[0]:window_left[1],window_left[2]:window_left[3]]
     top_slice = img_gray[window_top[0]:window_top[1],window_top[2]:window_top[3]]
     right_slice = img_gray[window_right[0]:window_right[1],window_right[2]:window_right[3]]
     bottom_slice = img_gray[window_bottom[0]:window_bottom[1],window_bottom[2]:window_bottom[3]]
     
-    return left_slice, top_slice, right_slice, bottom_slice
+    slices = [left_slice, top_slice, right_slice, bottom_slice]
+    return slices
     
-def pad_image_frame_slices(left_slice, top_slice, right_slice, bottom_slice):
+def pad_image_frame_slices(slices):
     
-    left_slice_padded = pad_img(left_slice)
-    top_slice_padded = pad_img(top_slice)
-    right_slice_padded = pad_img(right_slice)
-    bottom_slice_padded = pad_img(bottom_slice)
+    left_slice   = slices[0]
+    top_slice    = slices[1]
+    right_slice  = slices[2]
+    bottom_slice = slices[3]
     
-    return left_slice_padded, top_slice_padded, right_slice_padded, bottom_slice_padded
+    left_slice_padded   = hsfm.core.pad_image(left_slice)
+    top_slice_padded    = hsfm.core.pad_image(top_slice)
+    right_slice_padded  = hsfm.core.pad_image(right_slice)
+    bottom_slice_padded = hsfm.core.pad_image(bottom_slice)
     
+    padded_slices = [left_slice_padded, top_slice_padded, right_slice_padded, bottom_slice_padded]
+    
+    return padded_slices
+
+def determine_intersection_angle(fiducials):
+    left_fiducial = fiducials[0]
+    top_fiducial = fiducials[1]
+    right_fiducial = fiducials[2]
+    bottom_fiducial = fiducials[3]
+            
+    # QC routine
+    arc1 = np.rad2deg(np.arctan2(bottom_fiducial[1] - top_fiducial[1],
+                  bottom_fiducial[0] - top_fiducial[0]))
+    arc2 = np.rad2deg(np.arctan2(right_fiducial[1] - left_fiducial[1],
+                  right_fiducial[0] - left_fiducial[0]))
+    intersection_angle = arc1-arc2
+        
+    return intersection_angle
+
 def pad_image(grayscale_unit8_image_array):
     img = grayscale_unit8_image_array
     a=img.shape[0]+500
@@ -117,8 +139,45 @@ def pad_image(grayscale_unit8_image_array):
     padded_img[250:250+img.shape[0],250:250+img.shape[1]] = img
     return padded_img
     
+def detect_fiducials(padded_slices, windows, templates):
+
+    left_slice_padded   = padded_slices[0]
+    top_slice_padded    = padded_slices[1]
+    right_slice_padded  = padded_slices[2]
+    bottom_slice_padded = padded_slices[3]
+
+    window_left   = windows[0]
+    window_top    = windows[1]
+    window_right  = windows[2]
+    window_bottom = windows[3]
+
+    left_template   = templates[0]
+    top_template    = templates[1]
+    right_template  = templates[2]
+    bottom_template = templates[3]
     
-def get_fiducials(grayscale_unit8_image_array,template_file, window, position = None):
+    
+    left_fiducial = hsfm.core.get_fiducial(left_slice_padded, 
+                                           left_template, 
+                                           window_left, 
+                                           position = 'left')
+    top_fiducial = hsfm.core.get_fiducial(top_slice_padded, 
+                                          top_template, 
+                                          window_top, 
+                                          position = 'top')
+    right_fiducial = hsfm.core.get_fiducial(right_slice_padded, 
+                                            right_template, 
+                                            window_right, 
+                                            position = 'right')
+    bottom_fiducial = hsfm.core.get_fiducial(bottom_slice_padded, 
+                                             bottom_template, 
+                                             window_bottom, 
+                                             position = 'bottom')
+                                              
+    fiducials = [left_fiducial, top_fiducial, right_fiducial, bottom_fiducial]
+    return fiducials
+
+def get_fiducial(grayscale_unit8_image_array,template_file, window, position = None):
     img_gray = grayscale_unit8_image_array
     loc,w,h,res = template_match(img_gray,template_file)
     
