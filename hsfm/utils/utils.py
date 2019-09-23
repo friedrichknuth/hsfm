@@ -8,7 +8,6 @@ import geoviews as gv
 from geoviews import opts
 import glob
 import holoviews as hv
-from holoviews.streams import PointDraw
 from osgeo import gdal
 import os
 import pandas as pd
@@ -172,19 +171,7 @@ def pick_heading_from_map(image_file_name,
     # TODO
     # # allow large images to be plotted or force resampling to thumbnail
     # # load the image with xarray and plot with hvplot to handle larger images
-    src = rasterio.open(image_file_name)
-    
-    subplot_width  = scale_down_number(src.shape[0])
-    subplot_height = scale_down_number(src.shape[1])
-    
-    da = xr.open_rasterio(src)
-    
-    img = da.sel(band=1).hvplot.image(rasterize=True,
-                                      width=subplot_width,
-                                      height=subplot_height,
-                                      flip_yaxis=True,
-                                      colorbar=False,
-                                      cmap='gray')
+    img, subplot_width, subplot_height = hv_plot_raster(image_file_name)
 
     # create the extent of the bounding box
     extents = (camera_center_lon-dx, 
@@ -196,18 +183,18 @@ def pick_heading_from_map(image_file_name,
     # run the tile server
     tiles = gv.WMTS(url, extents=extents)
 
-    location = gv.Points([(camera_center_lon,
-                           camera_center_lat,
-                           'camera_center')], 
-                           vdims='location')
+    points = gv.Points([(camera_center_lon,
+                         camera_center_lat,
+                         'camera_center')], 
+                         vdims='location')
 
-    point_stream = PointDraw(source=location)
+    point_stream = hv.streams.PointDraw(source=points)
 
-    base_map = (tiles * location).opts(opts.Points(width=subplot_width, 
-                                                   height=subplot_height, 
-                                                   size=10, 
-                                                   color='black', 
-                                                   tools=["hover"]))
+    base_map = (tiles * points).opts(opts.Points(width=subplot_width, 
+                                                 height=subplot_height, 
+                                                 size=10, 
+                                                 color='black', 
+                                                 tools=["hover"]))
 
     row = pn.Row(img, base_map)
 
@@ -327,4 +314,71 @@ def optimize_geotif(geotif_file_name,
     
     return output_file_name
     
+def launch_fiducial_picker(hv_image, subplot_width, subplot_height):
+    points = hv.Points([])
+    point_stream = hv.streams.PointDraw(source=points)
+
+    app = (hv_image * points).opts(hv.opts.Points(width=subplot_width,
+                                                  height=subplot_height,
+                                                  size=5,
+                                                  color='blue',
+                                                  tools=["hover"]))
+
+    panel = pn.panel(app)
+
+    server = panel.show(threaded=True)
+
+    condition = True
+    while condition == True: 
+        try:
+            if len(point_stream.data['x']) == 4:
+                server.stop()
+                condition = False
+        except:
+            pass
     
+    df = point_stream.element.dframe()
+    
+    left_fiducial   = (df.x[0],df.y[0])
+    top_fiducial    = (df.x[1],df.y[1])
+    right_fiducial  = (df.x[2],df.y[2])
+    bottom_fiducial = (df.x[3],df.y[3])
+    
+    fiducials = [left_fiducial, top_fiducial, right_fiducial, bottom_fiducial]
+    principal_point = hsfm.core.determine_principal_point(fiducials[0],
+                                                          fiducials[1],
+                                                          fiducials[2],
+                                                          fiducials[3])
+    
+    
+    
+    
+    return fiducials, principal_point
+    
+def hv_plot_raster(image_file_name):
+    src = rasterio.open(image_file_name)
+
+    subplot_width  = scale_down_number(src.shape[0])
+    subplot_height = scale_down_number(src.shape[1])
+
+    da = xr.open_rasterio(src)
+
+    hv_image = da.sel(band=1).hvplot.image(rasterize=True,
+                                      width=subplot_width,
+                                      height=subplot_height,
+                                      flip_yaxis=True,
+                                      colorbar=False,
+                                      cmap='gray')
+                                      
+    return hv_image, subplot_width, subplot_height
+    
+def pick_fiducials(image_file_name):
+    
+    hv_image, subplot_width, subplot_height = hv_plot_raster(image_file_name)
+    fiducials, principal_point = launch_fiducial_picker(hv_image,
+                                                        subplot_width,
+                                                        subplot_height)
+    
+    intersection_angle = hsfm.core.determine_intersection_angle(fiducials)
+    
+    return principal_point, intersection_angle

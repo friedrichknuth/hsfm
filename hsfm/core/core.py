@@ -109,8 +109,33 @@ def gather_templates(template_directory):
     templates = [left_template, top_template, right_template, bottom_template]
     return templates
     
+def pick_fiducials_manually(image_file_name=None, image_array=None, qc=False, output_directory='data/images'):
+    if isinstance(image_array, np.ndarray):
+        hsfm.io.create_dir('tmp/')
+        temp_out = os.path.join('tmp/', 'temporary_image.tif')
+        cv2.imwrite(temp_out,image_array)
+        temp_out_optimized = hsfm.utils.optimize_geotif(temp_out)
+        os.remove(temp_out)
+        os.rename(temp_out_optimized, temp_out)
+        
+        image_file_name = temp_out
+          
+    condition = True
+    while condition == True:
+        # currently only works from file on disk
+        principal_point, intersection_angle = hsfm.utils.pick_fiducials(image_file_name)
+        if intersection_angle > 90.1 or intersection_angle < 89.9:
+            print('Intersection angle at principle point is not within orthogonality limits.')
+            print('Try again.')
+        else:
+            if isinstance(image_array, np.ndarray):
+                shutil.rmtree('tmp/')
+            return principal_point, intersection_angle
+            condition = False 
     
-def preprocess_image(image_array, file_name, templates, qc=False, output_directory='data/images'):
+    
+def preprocess_image(image_array, file_name, templates, qc=False, output_directory='data/images', image_file_name=None):
+    
     img_gray = image_array
     
     window_left = [5000,7000,250,1500]
@@ -141,7 +166,6 @@ def preprocess_image(image_array, file_name, templates, qc=False, output_directo
         print('New intersection angle:',intersection_angle)
         if intersection_angle > 90.1 or intersection_angle < 89.9:
             print("Processing top fiducial.")
-            
             fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                               templates, 
                                                                               img_gray,
@@ -168,6 +192,10 @@ def preprocess_image(image_array, file_name, templates, qc=False, output_directo
     if intersection_angle > 90.1 or intersection_angle < 89.9:
         print("Unable to improve result for", file_name)
         print("Please select fiducial markers manually")
+        if image_file_name:
+            principal_point, intersection_angle = pick_fiducials_manually(image_file_name=image_file_name)
+        else:
+            principal_point, intersection_angle = pick_fiducials_manually(image_array=img_gray)
         
     if intersection_angle < 90.1 and intersection_angle > 89.9:
         cropped = crop_about_principal_point(img_gray, principal_point)

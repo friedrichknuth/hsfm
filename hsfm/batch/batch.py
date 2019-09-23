@@ -94,7 +94,6 @@ def batch_generate_cameras(image_directory,
                                  verbose=verbose,
                                  output_directory=output_directory)
         
-    pass
     
     
 def calculate_heading_from_metadata(camera_positions_file_name, subset=None):
@@ -138,8 +137,7 @@ def preprocess_images(template_directory,
     Function to preprocess images from NAGAP archive in batch.
     """
     # TODO
-    # - Handle image io where possible with gdal instead of opencv in order to
-    #   optimize io from url and tiling and compression of final output.
+    # - Make io faster with gdal
     # - Generalize for other types of images
     # - Add affine transformation
                       
@@ -171,8 +169,8 @@ def preprocess_images(template_directory,
             file_path, file_name, file_extension = hsfm.io.split_file(image_file)
             print('Processing',file_name)
             
-            # TODO
-            # make io faster with gdal
+            ## TODO
+            ## - Make io faster with gdal
             # src = gdal.Open(image_file)
             # arr = src.ReadAsArray()
             # if len(arr.shape) == 3:
