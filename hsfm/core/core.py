@@ -8,6 +8,8 @@ import glob
 import os
 
 import hsfm.image
+import hsfm.utils
+import hsfm.plot
 
 def evaluate_image_frame(grayscale_unit8_image_array,frame_size=0.07):
     
@@ -98,7 +100,95 @@ def slice_image_frame(grayscale_unit8_image_array, windows):
     
     slices = [left_slice, top_slice, right_slice, bottom_slice]
     return slices
+
+def gather_templates(template_directory):
+    left_template = os.path.join(template_directory,'L.jpg')
+    top_template = os.path.join(template_directory,'T.jpg')
+    right_template = os.path.join(template_directory,'R.jpg')
+    bottom_template = os.path.join(template_directory,'B.jpg')
+    templates = [left_template, top_template, right_template, bottom_template]
+    return templates
     
+    
+def preprocess_image(image_array, file_name, templates, qc=False, output_directory='data/images'):
+    img_gray = image_array
+    
+    window_left = [5000,7000,250,1500]
+    window_top = [0,500,6000,7200]
+    window_right = [5000,6500,12000,img_gray.shape[1]]
+    window_bottom = [11000,img_gray.shape[0],6000,7200]
+    windows = [window_left, window_top, window_right, window_bottom]
+    
+    side = evaluate_image_frame(img_gray)
+    
+    fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
+                                                                      templates, 
+                                                                      img_gray)
+ 
+    # QC routine
+    intersection_angle = determine_intersection_angle(fiducials)
+    print('Principal point intersection angle:', intersection_angle)
+    
+    if intersection_angle > 90.1 or intersection_angle < 89.9:
+        print("Warning: intersection angle at principle point is not within orthogonality limits.")
+        print('Re-attempting fiducial marker detection.')
+        print("Processing left fiducial.")
+        fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
+                                                                          templates, 
+                                                                          img_gray,
+                                                                          noisify='left')
+        intersection_angle = determine_intersection_angle(fiducials)
+        print('New intersection angle:',intersection_angle)
+        if intersection_angle > 90.1 or intersection_angle < 89.9:
+            print("Processing top fiducial.")
+            
+            fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
+                                                                              templates, 
+                                                                              img_gray,
+                                                                              noisify='top')
+            intersection_angle = determine_intersection_angle(fiducials)
+            print('New intersection angle:',intersection_angle)
+            if intersection_angle > 90.1 or intersection_angle < 89.9:
+                print("Processing right fiducial.")
+                fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
+                                                                                  templates, 
+                                                                                  img_gray,
+                                                                                  noisify='right')
+                intersection_angle = determine_intersection_angle(fiducials)
+                print('New intersection angle:',intersection_angle)
+                if intersection_angle > 90.1 or intersection_angle < 89.9:
+                    print("Processing bottom fiducial.")
+                    fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
+                                                                                      templates, 
+                                                                                      img_gray,
+                                                                                      noisify='bottom')
+                    intersection_angle = determine_intersection_angle(fiducials)
+                    print('New intersection angle:',intersection_angle)
+                    
+    if intersection_angle > 90.1 or intersection_angle < 89.9:
+        print("Unable to improve result for", file_name)
+        print("Please select fiducial markers manually")
+        
+    if intersection_angle < 90.1 and intersection_angle > 89.9:
+        cropped = crop_about_principal_point(img_gray, principal_point)
+        img_rot = rotate_camera(cropped, side=side)
+        out = os.path.join(output_directory, file_name+'.tif')
+        cv2.imwrite(out,img_rot)
+        final_output = hsfm.utils.optimize_geotif(out)
+        os.remove(out)
+        os.rename(final_output, out)
+        
+        
+    if qc == True:
+        hsfm.plot.plot_principal_point_and_fiducial_locations(img_gray,
+                                                              fiducials,
+                                                              principal_point,
+                                                              file_name,
+                                                              output_directory='qc/image_preprocessing/')
+
+    return intersection_angle 
+
+
 def pad_image_frame_slices(slices):
     
     left_slice   = slices[0]
@@ -114,6 +204,47 @@ def pad_image_frame_slices(slices):
     padded_slices = [left_slice_padded, top_slice_padded, right_slice_padded, bottom_slice_padded]
     
     return padded_slices
+
+
+def detect_fiducials_and_principal_point(windows, 
+                                         templates, 
+                                         grayscale_unit8_image_array,
+                                         noisify=None):
+    img_gray = grayscale_unit8_image_array
+
+    window_left   = windows[0]
+    window_top    = windows[1]
+    window_right  = windows[2]
+    window_bottom = windows[3]
+
+    # enhance local contrast
+    img_gray_clahe = hsfm.image.clahe_equalize_image(img_gray)
+
+    # pull out slices according to window
+    slices = slice_image_frame(img_gray_clahe,windows)
+    
+    # pad each slice so that the template can be fully moved over a given fiducial marker
+    padded_slices = pad_image_frame_slices(slices)
+    
+    if noisify == 'left':
+        padded_slices[0] = noisify_template(padded_slices[0])
+    elif noisify == 'top':
+        padded_slices[1] = noisify_template(padded_slices[1])
+    elif noisify == 'right':
+        padded_slices[2] = noisify_template(padded_slices[2])
+    elif noisify == 'bottom':
+        padded_slices[3] = noisify_template(padded_slices[3])
+          
+    # detect fiducial markers
+    fiducials = detect_fiducials(padded_slices, windows, templates)
+
+    # detect principal point
+    principal_point = determine_principal_point(fiducials[0],
+                                                fiducials[1],
+                                                fiducials[2],
+                                                fiducials[3])
+    return fiducials, principal_point
+
 
 def determine_intersection_angle(fiducials):
     left_fiducial = fiducials[0]
@@ -157,19 +288,19 @@ def detect_fiducials(padded_slices, windows, templates):
     bottom_template = templates[3]
     
     
-    left_fiducial = hsfm.core.get_fiducial(left_slice_padded, 
+    left_fiducial = get_fiducial(left_slice_padded, 
                                            left_template, 
                                            window_left, 
                                            position = 'left')
-    top_fiducial = hsfm.core.get_fiducial(top_slice_padded, 
+    top_fiducial = get_fiducial(top_slice_padded, 
                                           top_template, 
                                           window_top, 
                                           position = 'top')
-    right_fiducial = hsfm.core.get_fiducial(right_slice_padded, 
+    right_fiducial = get_fiducial(right_slice_padded, 
                                             right_template, 
                                             window_right, 
                                             position = 'right')
-    bottom_fiducial = hsfm.core.get_fiducial(bottom_slice_padded, 
+    bottom_fiducial = get_fiducial(bottom_slice_padded, 
                                              bottom_template, 
                                              window_bottom, 
                                              position = 'bottom')
@@ -217,7 +348,7 @@ def noisify_template(template):
     template[mask] = rand[mask]
     return template
     
-def principal_point(left_fiducial, top_fiducial, right_fiducial, bottom_fiducial):
+def determine_principal_point(left_fiducial, top_fiducial, right_fiducial, bottom_fiducial):
     fa = np.array([left_fiducial, top_fiducial, right_fiducial, bottom_fiducial], dtype=float)
     fx = fa[:,0]
     fy = fa[:,1]
@@ -240,7 +371,7 @@ def crop_about_principal_point(grayscale_unit8_image_array, principal_point):
     cropped = img_gray[y_T:y_B, x_L:x_R]
     # TODO
     # why convert to grayscale if already being passed a grayscale image array?
-    cropped = cv2.cvtColor(cropped,cv2.COLOR_BGR2GRAY)
+    # cropped = cv2.cvtColor(cropped,cv2.COLOR_BGR2GRAY)
     
     cropped = hsfm.image.clahe_equalize_image(cropped)
     cropped = hsfm.image.img_linear_stretch(cropped)

@@ -33,14 +33,16 @@ def plot_image_histogram(image_array,
     
     
 def plot_principal_point_and_fiducial_locations(image_array,
-                                                left_fiducial,
-                                                top_fiducial,
-                                                right_fiducial,
-                                                bottom_fiducial,
+                                                fiducials,
                                                 principal_point,
                                                 image_base_name,
                                                 output_directory='qc/image_preprocessing/'):
                                                 
+    left_fiducial = fiducials[0]
+    top_fiducial = fiducials[1]
+    right_fiducial = fiducials[2]
+    bottom_fiducial = fiducials[3]
+    
     hsfm.io.create_dir(output_directory)
     
     fig,ax = plt.subplots(1, figsize=(8,8))
@@ -188,5 +190,16 @@ def plot_dem_from_file(dem_file_name,
     plot_dem_with_hillshade(masked_array,
                             output_file_name=output_file_name,
                             cmap=cmap)
-    
+
+def plot_intersection_angles_qc(intersections, file_names):
+    df = pd.DataFrame({"Angle off mean":intersections,"filename":file_names}).set_index("filename")
+    df_mean = df - df.mean()
+    fig, ax = plt.subplots(1, figsize=(10, 10))
+    df_mean.plot.bar(grid=True,ax=ax)
+    plt.show()
+    fig.savefig('qc/image_preprocessing/principal_point_intersection_angle_off_mean.png')
+    plt.close()
+    print("Mean rotation off 90 degree intersection at principal point:",(df.mean() - 90).values[0])
+    print("Further QC plots for principal point and fiducial marker detection available under qc/image_preprocessing/")
+
     

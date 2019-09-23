@@ -129,7 +129,7 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
     else:
         return utm_vrt_subset_file_name
         
-def pick_headings(image_directory, camera_positions_file_name, subset,delta=0.015):
+def pick_headings(image_directory, camera_positions_file_name, subset, delta=0.015):
     df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
     
     image_file_paths = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
