@@ -75,7 +75,7 @@ def plot_principal_point_and_fiducial_locations(image_array,
             color='k', lw=0.1)
     ax.legend()
     
-    plt.imshow(image_array, alpha=0.3)
+    plt.imshow(image_array, alpha=0.3, cmap='gray')
     
     if output_directory == None:
         plt.show()
