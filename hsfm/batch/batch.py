@@ -123,12 +123,32 @@ def calculate_heading_from_metadata(camera_positions_file_name, subset=None):
     df['heading'] = headings
     
     return df
-       
+
+def download_images_to_disk(camera_positions_file_name, 
+                            subset=None, 
+                            output_directory='output_data/raw_images',
+                            image_type='pid_tiff'):
+                            
+    hsfm.io.create_dir(output_directory)
+    df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
+    targets = dict(zip(df[image_type], df['fileName']))
+    for pid, file_name in targets.items():
+        print('Downloading',file_name, image_type)
+        img = hsfm.core.download_image(pid)
+        img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+        out = os.path.join(output_directory, file_name+'.tif')
+        cv2.imwrite(out,img_gray)
+        final_output = hsfm.utils.optimize_geotif(out)
+        os.remove(out)
+        os.rename(final_output, out)
+    
+    return output_directory
+    
 def preprocess_images(template_directory,
                       camera_positions_file_name=None,
                       image_directory=None,
                       image_type='pid_tiff', 
-                      output_directory='data/images',
+                      output_directory='output_data/images',
                       subset=None, 
                       scale=None,
                       qc=False):
@@ -192,6 +212,6 @@ def preprocess_images(template_directory,
             file_names.append(file_name)
         
     if qc == True:
-        plot_intersection_angles_qc(intersections, file_names)
+        hsfm.plot.plot_intersection_angles_qc(intersections, file_names)
     
     return output_directory

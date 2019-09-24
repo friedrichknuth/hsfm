@@ -1,6 +1,7 @@
 from demcoreg import dem_mask
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import os
 from osgeo import gdal
 import rasterio
