@@ -20,34 +20,9 @@ import utm
 import hsfm.io
 import hsfm.utils
 
-def reproject_geotif(geotif_file_name, 
-                     epsg_code,
-                     output_file_name=None,
-                     verbose=False):
-    """
-    Function to reproject a geotif.
-    """
-    
-    
-    if output_file_name == None:
-        file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
-        
-        output_file_name = os.path.join(file_path,file_name+'_EPSG_'+str(epsg_code)+file_extension)
-        
-    call = ['gdalwarp',
-            '-co','COMPRESS=LZW',
-            '-co','TILED=YES',
-            '-co','BIGTIFF=IF_SAFER',
-            '-dstnodata', '-9999',
-            '-r','cubic',
-            '-t_srs', 'EPSG:'+str(epsg_code),
-            geotif_file_name,
-            output_file_name]
-    
-    hsfm.utils.run_command(call, verbose=verbose)
-    
-    return output_file_name
-
+"""
+Geospatial data processing functions.
+"""
 
 def df_xyz_coords_to_gdf(df, 
                          lon='lon',
@@ -319,4 +294,34 @@ def calculate_hillshade(array,
              aspect)
 
     return 255*(shaded + 1)/2
+
+
+def reproject_geotif(geotif_file_name, 
+                     epsg_code,
+                     output_file_name=None,
+                     verbose=False):
+    """
+    Function to reproject a geotif.
+    """
+    # TODO
+    # - consider moving this to hsfm.utils for consistency.
     
+    
+    if output_file_name == None:
+        file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
+        
+        output_file_name = os.path.join(file_path,file_name+'_EPSG_'+str(epsg_code)+file_extension)
+        
+    call = ['gdalwarp',
+            '-co','COMPRESS=LZW',
+            '-co','TILED=YES',
+            '-co','BIGTIFF=IF_SAFER',
+            '-dstnodata', '-9999',
+            '-r','cubic',
+            '-t_srs', 'EPSG:'+str(epsg_code),
+            geotif_file_name,
+            output_file_name]
+    
+    hsfm.utils.run_command(call, verbose=verbose)
+    
+    return output_file_name

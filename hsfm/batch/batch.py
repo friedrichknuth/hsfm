@@ -13,6 +13,12 @@ import hsfm.image
 import hsfm.plot
 import hsfm.utils
 
+"""
+Wrappers around other hsfm functions for batch processing. 
+Inputs are general a folder contaning multiple files or a csv listing
+multiple urls.
+"""
+
 def rescale_images(image_directory, 
                    extension='.tif',
                    scale=8,

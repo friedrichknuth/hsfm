@@ -1,5 +1,12 @@
 import os
 
+"""
+Basic io functions.
+"""
+
+# TODO
+# - move hsfm.utils.run_command here 
+
 def create_dir(directory):
     if directory == None:
         return None

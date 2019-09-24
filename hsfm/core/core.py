@@ -11,6 +11,15 @@ import hsfm.image
 import hsfm.utils
 import hsfm.plot
 
+"""
+Core data wrangling and preprocessing functions. 
+"""
+
+# TODO
+# - break this up into seperate libraries and classes to better
+#   accomodate other imagery and generealize upstream as much as possible.
+
+
 def evaluate_image_frame(grayscale_unit8_image_array,frame_size=0.07):
     
     x = grayscale_unit8_image_array.shape[1]

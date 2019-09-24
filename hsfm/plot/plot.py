@@ -9,6 +9,10 @@ import rasterio
 import hsfm.io
 import hsfm.geospatial
 
+"""
+Functions to plot various products.
+"""
+
 def plot_image_histogram(image_array, 
                          image_base_name,
                          output_directory='qc/image_histograms/',

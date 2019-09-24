@@ -25,34 +25,75 @@ hv.extension('bokeh')
 import hsfm.io
 import hsfm.geospatial
 
-
-def run_command(command, verbose=False, log_directory=None, shell=False):
+def dem_align_custom(reference_dem,
+                     dem_to_be_aligned,
+                     mode='nuth',
+                     max_offset = 1000,
+                     verbose=False,
+                     log_directory=None):
     
-    p = Popen(command,
-              stdout=PIPE,
-              stderr=STDOUT,
-              shell=shell)
-    
-    if log_directory != None:
-        log_file_name = os.path.join(log_directory,command[0]+'_log.txt')
-        hsfm.io.create_dir(log_directory)
-    
-        with open(log_file_name, "w") as log_file:
+    call = ['dem_align.py',
+            '-max_offset',str(max_offset),
+            '-mode', mode,
+            reference_dem,
+            dem_to_be_aligned]
             
-            while p.poll() is None:
-                line = (p.stdout.readline()).decode('ASCII').rstrip('\n')
-                if verbose == True:
-                    print(line)
-                log_file.write(line)
-        return log_file_name
+    log_file_name = run_command(call, verbose=verbose, log_directory=log_directory)
+
+    with open(log_file_name, 'r') as file:
+        output_plot_file_name = file.read().split()[-3]
+    dem_difference_file_name = glob.glob(os.path.split(output_plot_file_name)[0]+'/*_align_diff.tif')[0]
+    aligned_dem_file_name = glob.glob(os.path.split(output_plot_file_name)[0]+'/*align.tif')[0]
     
-    else:
-        while p.poll() is None:
-            line = (p.stdout.readline()).decode('ASCII').rstrip('\n')
-            if verbose == True:
-                print(line)
-        
-        
+    return dem_difference_file_name , aligned_dem_file_name
+    
+
+def rescale_geotif(geotif_file_name,
+                   output_file_name=None,
+                   scale=1,
+                   verbose=False):
+                   
+    percent = str(100/scale) +'%'
+    
+    if output_file_name is None:
+        file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
+        output_file_name = os.path.join(file_path, 
+                                        file_name+'_sub'+str(scale)+file_extension)
+    
+    call = ['gdal_translate',
+            '-of','GTiff',
+            '-co','TILED=YES',
+            '-co','COMPRESS=LZW',
+            '-co','BIGTIFF=IF_SAFER',
+            '-outsize',percent,percent,
+            geotif_file_name,
+            output_file_name]
+            
+    run_command(call, verbose=verbose)
+    
+    return output_file_name
+
+def optimize_geotif(geotif_file_name,
+                    output_file_name=None,
+                    verbose=False):
+                   
+
+    if output_file_name is None:
+        file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
+        output_file_name = os.path.join(file_path, 
+                                        file_name+'_optimized'+file_extension)
+    
+    call = ['gdal_translate',
+            '-of','GTiff',
+            '-co','TILED=YES',
+            '-co','COMPRESS=LZW',
+            '-co','BIGTIFF=IF_SAFER',
+            geotif_file_name,
+            output_file_name]
+            
+    run_command(call, verbose=verbose)
+    
+    return output_file_name
 
 
 def download_srtm(LLLON,LLLAT,URLON,URLAT,
@@ -127,7 +168,45 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
         
     else:
         return utm_vrt_subset_file_name
-        
+
+
+
+
+
+
+
+
+
+'''
+####
+FUNCTIONS BELOW HERE SHOULD BE MOVED ELSEWHERE.
+####
+'''
+    
+## TODO move to hsfm.asp as is asp command
+def difference_dems(dem_file_name_a,
+                    dem_file_name_b,
+                    verbose=False):
+    
+    file_path, file_name, file_extension = hsfm.io.split_file(dem_file_name_a)
+    
+    output_directory_and_prefix = os.path.join(file_path,file_name)
+    
+    call = ['geodiff',
+            '--absolute',
+            dem_file_name_a,
+            dem_file_name_b,
+            '-o', output_directory_and_prefix]
+            
+    run_command(call, verbose=verbose)
+    
+    output_file_name = output_directory_and_prefix+'-diff.tif'
+    
+    return output_file_name
+
+
+
+## TODO move to hsfm.core as best fit (for now)
 def pick_headings(image_directory, camera_positions_file_name, subset, delta=0.015):
     df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
     
@@ -152,12 +231,14 @@ def pick_headings(image_directory, camera_positions_file_name, subset, delta=0.0
 
     return df
 
+## TODO move to hsfm.trig (might need to rename library as hsfm.math)
 def scale_down_number(number, threshold=1000):
     while number > threshold:
         number = number / 2
     number = int(number)
     return number
-    
+
+## TODO move to hsfm.tools (needs to be created) as this launches a self contained app
 def pick_heading_from_map(image_file_name,
                           camera_center_lon,
                           camera_center_lat,
@@ -223,97 +304,9 @@ def pick_heading_from_map(image_file_name,
                                                 heading_lat)
     
     return heading
-                                 
-def difference_dems(dem_file_name_a,
-                    dem_file_name_b,
-                    verbose=False):
-    
-    file_path, file_name, file_extension = hsfm.io.split_file(dem_file_name_a)
-    
-    output_directory_and_prefix = os.path.join(file_path,file_name)
-    
-    call = ['geodiff',
-            '--absolute',
-            dem_file_name_a,
-            dem_file_name_b,
-            '-o', output_directory_and_prefix]
-            
-    run_command(call, verbose=verbose)
-    
-    output_file_name = output_directory_and_prefix+'-diff.tif'
-    
-    return output_file_name
 
-def dem_align_custom(reference_dem,
-                     dem_to_be_aligned,
-                     mode='nuth',
-                     max_offset = 1000,
-                     verbose=False,
-                     log_directory=None):
-    
-    call = ['dem_align.py',
-            '-max_offset',str(max_offset),
-            '-mode', mode,
-            reference_dem,
-            dem_to_be_aligned]
-            
-    log_file_name = run_command(call, verbose=verbose, log_directory=log_directory)
 
-    with open(log_file_name, 'r') as file:
-        output_plot_file_name = file.read().split()[-3]
-    dem_difference_file_name = glob.glob(os.path.split(output_plot_file_name)[0]+'/*_align_diff.tif')[0]
-    aligned_dem_file_name = glob.glob(os.path.split(output_plot_file_name)[0]+'/*align.tif')[0]
-    
-    return dem_difference_file_name , aligned_dem_file_name
-    
-
-def rescale_geotif(geotif_file_name,
-                   output_file_name=None,
-                   scale=1,
-                   verbose=False):
-                   
-    percent = str(100/scale) +'%'
-    
-    if output_file_name is None:
-        file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
-        output_file_name = os.path.join(file_path, 
-                                        file_name+'_sub'+str(scale)+file_extension)
-    
-    call = ['gdal_translate',
-            '-of','GTiff',
-            '-co','TILED=YES',
-            '-co','COMPRESS=LZW',
-            '-co','BIGTIFF=IF_SAFER',
-            '-outsize',percent,percent,
-            geotif_file_name,
-            output_file_name]
-            
-    run_command(call, verbose=verbose)
-    
-    return output_file_name
-
-def optimize_geotif(geotif_file_name,
-                    output_file_name=None,
-                    verbose=False):
-                   
-
-    if output_file_name is None:
-        file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
-        output_file_name = os.path.join(file_path, 
-                                        file_name+'_optimized'+file_extension)
-    
-    call = ['gdal_translate',
-            '-of','GTiff',
-            '-co','TILED=YES',
-            '-co','COMPRESS=LZW',
-            '-co','BIGTIFF=IF_SAFER',
-            geotif_file_name,
-            output_file_name]
-            
-    run_command(call, verbose=verbose)
-    
-    return output_file_name
-    
+## TODO move to hsfm.tools (needs to be created) as this launches a self contained app
 def launch_fiducial_picker(hv_image, subplot_width, subplot_height):
     points = hv.Points([])
     point_stream = hv.streams.PointDraw(source=points)
@@ -354,7 +347,8 @@ def launch_fiducial_picker(hv_image, subplot_width, subplot_height):
     
     
     return fiducials, principal_point
-    
+
+## TODO move to hsfm.core as best fit (for now)
 def hv_plot_raster(image_file_name):
     src = rasterio.open(image_file_name)
 
@@ -371,7 +365,8 @@ def hv_plot_raster(image_file_name):
                                       cmap='gray')
                                       
     return hv_image, subplot_width, subplot_height
-    
+
+## TODO move to hsfm.core as best fit (for now)
 def pick_fiducials(image_file_name):
     
     hv_image, subplot_width, subplot_height = hv_plot_raster(image_file_name)
@@ -382,3 +377,30 @@ def pick_fiducials(image_file_name):
     intersection_angle = hsfm.core.determine_intersection_angle(fiducials)
     
     return principal_point, intersection_angle
+    
+## TODO move to hsfm.io
+def run_command(command, verbose=False, log_directory=None, shell=False):
+    
+    p = Popen(command,
+              stdout=PIPE,
+              stderr=STDOUT,
+              shell=shell)
+    
+    if log_directory != None:
+        log_file_name = os.path.join(log_directory,command[0]+'_log.txt')
+        hsfm.io.create_dir(log_directory)
+    
+        with open(log_file_name, "w") as log_file:
+            
+            while p.poll() is None:
+                line = (p.stdout.readline()).decode('ASCII').rstrip('\n')
+                if verbose == True:
+                    print(line)
+                log_file.write(line)
+        return log_file_name
+    
+    else:
+        while p.poll() is None:
+            line = (p.stdout.readline()).decode('ASCII').rstrip('\n')
+            if verbose == True:
+                print(line)

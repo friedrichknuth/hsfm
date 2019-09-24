@@ -1,5 +1,8 @@
 import numpy as np
 
+"""
+Functions to perform basic calculations.
+"""
 
 def calc_LR(x, y, URLON, URLAT, w, h, alpha, heading):
     delta_x = np.cos(np.radians(alpha)) * w

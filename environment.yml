@@ -25,3 +25,4 @@ dependencies:
     - elevation
     - "--editable=git+https://github.com/dshean/demcoreg.git#egg=demcoreg"
     - "--editable=git+https://github.com/friedrichknuth/bare.git#egg=bare"
+    - "--editable=git+https://github.com/dshean/imview.git#egg=imview"
