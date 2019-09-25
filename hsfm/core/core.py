@@ -73,6 +73,13 @@ def rotate_camera(cropped_grayscale_unit8_image_array, side=None):
     return img
     
 def subset_input_image_list(image_list, subset=None):
+    
+    """
+    Function to subset list of images. 
+    
+    Use tuple to specify a range of image suffixes.
+    Use list to specify a list of image suffixes.
+    """
     if subset == None:
         return image_list
     
@@ -83,23 +90,35 @@ def subset_input_image_list(image_list, subset=None):
             image_list_tmp.append(os.path.splitext(os.path.split(image_file)[-1])[0])
         image_list_df['image_name'] = image_list_tmp
         image_list_df['image_index_number'] = image_list_df['image_name'].str[11:].apply(int)
-        image_list_df = image_list_df[image_list_df['image_index_number'].between(subset[0],subset[1])]
+        
+        if isinstance(subset, tuple):
+            image_list_df = image_list_df[image_list_df['image_index_number'].between(subset[0],subset[1])]
+        elif isinstance(subset, list):
+            image_list_df = image_list_df[image_list_df['image_index_number'].isin(subset)]
+        
         subset_image_list = image_list_df['image_file_path'].to_list()
-    
         return subset_image_list
     
-def select_images_for_download(csv_file_name,subset=None):
+def select_images_for_download(csv_file_name, subset=None):
     
     """
-    Function to convert input csv to dataframe.
+    Function to convert input metadata csv to dataframe.
+    
+    Use tuple to specify a range of image suffixes.
+    Use list to specify a list of image suffixes.
     """
     # TODO
     # - Add option to subset with list if range not suitable
     df = pd.read_csv(csv_file_name)
     df = df.drop_duplicates()
-    if subset != None:
+    if subset == None:
+        return df
+    else:
         df['image_index_number'] = df['fileName'].str[11:].apply(int)
-        df = df[df['image_index_number'].between(subset[0],subset[1])]
+        if isinstance(subset, tuple):
+            df = df[df['image_index_number'].between(subset[0],subset[1])]
+        elif isinstance(subset, list):
+            df = df[df['image_index_number'].isin(subset)]
     return df
     
 def download_image(pid):

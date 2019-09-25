@@ -38,7 +38,7 @@ def rescale_images(image_directory,
                                   scale=scale,
                                   verbose=verbose)
 
-    return output_directory
+    # return output_directory
 #     return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
 
 def rescale_tsai_cameras(camera_directory,
@@ -60,7 +60,7 @@ def rescale_tsai_cameras(camera_directory,
         
         hsfm.io.replace_string_in_file(camera_file, output_file, pitch, new_pitch)
         
-#     return output_directory
+    # return output_directory
 #     return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
 
 def batch_generate_cameras(image_directory,
@@ -72,8 +72,19 @@ def batch_generate_cameras(image_directory,
                            verbose=False,
                            subset=None,
                            manual_heading_selection=False):
+                           
+    """
+    Function to generate cameras in batch.
+                           
+    Note:
+        - Specifying subset as a tuple indicates selecting a range of values, while supplying
+          a list allows for single or multiple specific image selection.
+    """
+    
     # TODO
-    # Embed hsfm.utils.pick_headings() within calculate_heading_from_metadata() and launch only for images where the heading could not be determined.  
+    # - Embed hsfm.utils.pick_headings() within calculate_heading_from_metadata() and launch for            images where the heading could not be determined with high confidence (e.g. if image
+    #   potentially part of another flight line, or at the end of current flight line with no
+    #   subsequent image to determine flight line from.)
     
     image_list = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
     image_list = hsfm.core.subset_input_image_list(image_list, subset=subset)
