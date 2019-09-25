@@ -193,7 +193,6 @@ def difference_dems(dem_file_name_a,
     output_directory_and_prefix = os.path.join(file_path,file_name)
     
     call = ['geodiff',
-            '--absolute',
             dem_file_name_a,
             dem_file_name_b,
             '-o', output_directory_and_prefix]
