@@ -99,6 +99,17 @@ def subset_input_image_list(image_list, subset=None):
         subset_image_list = image_list_df['image_file_path'].to_list()
         return subset_image_list
     
+def pre_select_target_images(input_csv, prefix, image_suffix_list):
+    hsfm.io.create_dir('input_data/')
+    df = pd.read_csv(input_csv)
+    df = df[df['fileName'].str.contains(prefix )]
+    image_suffix_list = list(map(str, image_suffix_list))
+    regex_or_condition_joined_suffixes = '|'.join(image_suffix_list) 
+    df = df[df['fileName'].str.contains(regex_or_condition_joined_suffixes, regex=True)]
+    df.to_csv('input_data/targets.csv',index=False)
+    return 'input_data/targets.csv'
+    
+    
 def select_images_for_download(csv_file_name, subset=None):
     
     """
