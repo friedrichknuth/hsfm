@@ -72,12 +72,28 @@ def rotate_camera(cropped_grayscale_unit8_image_array, side=None):
     
     return img
     
+def subset_input_image_list(image_list, subset=None):
+    if subset == None:
+        return image_list
+    
+    else:
+        image_list_df = pd.DataFrame(image_list,columns=['image_file_path'])
+        image_list_tmp = []
+        for image_file in image_list:
+            image_list_tmp.append(os.path.splitext(os.path.split(image_file)[-1])[0])
+        image_list_df['image_name'] = image_list_tmp
+        image_list_df['image_index_number'] = image_list_df['image_name'].str[11:].apply(int)
+        image_list_df = image_list_df[image_list_df['image_index_number'].between(subset[0],subset[1])]
+        subset_image_list = image_list_df['image_file_path'].to_list()
+    
+        return subset_image_list
     
 def select_images_for_download(csv_file_name,subset=None):
     
     """
     Function to convert input csv to dataframe.
     """
+    # TODO
     # - Add option to subset with list if range not suitable
     df = pd.read_csv(csv_file_name)
     df = df.drop_duplicates()

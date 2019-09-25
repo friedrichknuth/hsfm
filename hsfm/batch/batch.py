@@ -76,6 +76,8 @@ def batch_generate_cameras(image_directory,
     # Embed hsfm.utils.pick_headings() within calculate_heading_from_metadata() and launch only for images where the heading could not be determined.  
     
     image_list = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
+    image_list = hsfm.core.subset_input_image_list(image_list, subset=subset)
+    
     if manual_heading_selection == False:
         df = calculate_heading_from_metadata(camera_positions_file_name, subset=subset)
     else:
@@ -103,6 +105,10 @@ def batch_generate_cameras(image_directory,
     
     
 def calculate_heading_from_metadata(camera_positions_file_name, subset=None):
+    # TODO
+    # - Headings are calculated by images taken along a flight line. 
+    #   Need to separate images by flightline, calculate headings, then
+    #   combine back into a single dataframe afterwards for further processing.
     df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
     lons = df['Longitude'].values
     lats = df['Latitude'].values

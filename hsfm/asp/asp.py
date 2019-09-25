@@ -12,6 +12,9 @@ import hsfm.utils
 This library is intended to contain wrappers around ASP functions.
 """
 
+# TODO 
+# - implement stereo pair matching based on image footprints
+
 def generate_camera(image_file_name,
                     camera_lat_lon_center_coordinates,
                     reference_dem,

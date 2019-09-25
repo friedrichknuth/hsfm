@@ -34,10 +34,12 @@ Wrappers around external command line tools.
 
 ### TODO
 High priority
-- test the existing processing pipeline (end-to-end-notebook) on other NAGAP sites and years
+- test the existing processing pipeline (end-to-end-notebook) on other NAGAP sites and years. this is in process.
 
 Medium priority
-- try to implement ip detection and matching against basemap to georectify imagery before intitial camera generation
+- implement stereo pair matching based on image footprints
+- try to implement ip detection and matching against basemap to georectify imagery before intitial camera generation. 
+ - initial tests with ASP ipfind ipmatch did not give good results. Likely due to inconsistent image characteristics between basemap geotif and NAGAP image used for testing.
 
 Low priority
 - add instructions to contribution guieleines to use black and flake8
