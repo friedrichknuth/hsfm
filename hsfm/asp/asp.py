@@ -311,8 +311,11 @@ def iter_stereo_pairs(stereo_input_directory,
                                                          camera_b,
                                                          output_directory)
                                
-        point_cloud_file_name = glob.glob(os.path.join(stereo_output_directory,'*PC.tif'))[0]
-        point2dem_custom(point_cloud_file_name)
+        try:
+            point_cloud_file_name = glob.glob(os.path.join(stereo_output_directory,'*PC.tif'))[0]
+            point2dem_custom(point_cloud_file_name)
+        except:
+            print('Unable to generate point cloud from', match_file_a,'and', match_file_b)
                                
                                         
                                         
