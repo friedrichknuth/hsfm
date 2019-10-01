@@ -69,7 +69,8 @@ def generate_camera(image_file_name,
 
 def bundle_adjust_custom(image_files_directory, 
                          camera_files_directory, 
-                         output_directory_prefix):
+                         output_directory_prefix,
+                         print_asp_call=False):
     
     input_image_files  = sorted(glob.glob(os.path.join(image_files_directory,'*.tif')))
     input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*.tsai')))
@@ -98,6 +99,9 @@ def bundle_adjust_custom(image_files_directory,
     call.extend(input_camera_files)
     call.extend(['-o', output_directory_prefix])
     
+    if print_asp_call==True:
+        print(*call)
+    
     hsfm.utils.run_command(call, 
                            verbose=False, 
                            log_directory=log_directory)
@@ -110,7 +114,8 @@ def parallel_stereo_custom(first_image,
                            second_image,
                            first_camera,
                            second_camera, 
-                           stereo_output_directory_prefix):
+                           stereo_output_directory_prefix,
+                           print_asp_call=False):
     
 
     stereo_output_directory = os.path.split(stereo_output_directory_prefix)[0]
@@ -132,6 +137,9 @@ def parallel_stereo_custom(first_image,
     call.extend([first_camera,second_camera])
     call.extend([stereo_output_directory_prefix])
     
+    if print_asp_call==True:
+        print(*call)
+        
     hsfm.utils.run_command(call, 
                            verbose=False, 
                            log_directory=log_directory)
@@ -141,7 +149,8 @@ def parallel_stereo_custom(first_image,
     
 def dem_mosaic_custom(stereo_output_directories_parent, 
                       output_file_name,
-                      verbose=False):
+                      verbose=False,
+                      print_asp_call=False):
     """
     Function to run ASP dem_mosaic.
     """
@@ -150,14 +159,18 @@ def dem_mosaic_custom(stereo_output_directories_parent,
     call = ['dem_mosaic']
     call.extend(dems)
     call.extend(['-o', output_file_name])
-    
+
+    if print_asp_call==True:
+        print(*call)
+        
     hsfm.utils.run_command(call, verbose=verbose)
 
 
 
 def point2dem_custom(point_cloud_file_name, 
                      proj_string='"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs"',
-                     verbose=False):
+                     verbose=False,
+                     print_asp_call=False):
     # TODO
     # - build proj string upstream
     
@@ -171,7 +184,12 @@ def point2dem_custom(point_cloud_file_name,
            '--errorimage']
        
     call.extend([point_cloud_file_name])
+
+    if print_asp_call==True:
+        print(*call)
+        
     call = ' '.join(call)
+
     
     hsfm.utils.run_command(call, verbose=verbose, shell=True)
     
@@ -183,7 +201,8 @@ def point2dem_custom(point_cloud_file_name,
 def pc_align_custom(input_dem_file_name,
                     reference_dem_file_name,
                     output_directory_prefix,
-                    verbose=False):
+                    verbose=False,
+                    print_asp_call=False):
     """
     Function to run ASP pc_align.                
     """
@@ -199,6 +218,9 @@ def pc_align_custom(input_dem_file_name,
             '--alignment-method', 'similarity-point-to-point',
             '-o', output_directory_prefix
     ]
+    
+    if print_asp_call==True:
+        print(*call)
 
     hsfm.utils.run_command(call, 
                            log_directory=log_directory, 
