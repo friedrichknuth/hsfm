@@ -278,8 +278,7 @@ def calculate_corner_coordinates(camera_lat_lon_wgs84_center_coordinates,
     UL, UR, LR, LL = hsfm.trig.calculate_corner(camera_utm_lat,camera_utm_lon,half_width_m, half_height_m, heading)
 
     # Calculate corner coordinates in UTM
-    # corners = [UL, UR, LR, LL] # this should be right
-    corners = [LR, UR, UL, LL]
+    corners = [UL, UR, LR, LL]
     corner_points_wgs84 = []
     for coordinate in corners:
         coordinate_wgs84 = utm.to_latlon(coordinate[0],coordinate[1],u[2],u[3])

@@ -24,10 +24,10 @@ def calc_LR(x, y, URLON, URLAT, w, h, alpha, heading):
         px = x + delta_x
         py = y + delta_y
     
-    LRLON = 2*px - URLON
-    LRLAT = 2*py - URLAT
+    ULLON = 2*px - URLON
+    ULLAT = 2*py - URLAT
     
-    return LRLON, LRLAT
+    return ULLON, ULLAT
     
 def calculate_corner(x,y,w,h,heading):
     
@@ -36,26 +36,26 @@ def calculate_corner(x,y,w,h,heading):
     if heading == 0 or heading == 360:
         delta_x = w
         delta_y = h
+        ULLON = x + w
+        ULLAT = y - h
         URLON = x + w
         URLAT = y + h
-        LRLON = x + w
-        LRLAT = y - h
+        LRLON = x - w
+        LRLAT = y + h
         LLLON = x - w
         LLLAT = y - h
-        ULLON = x - w
-        ULLAT = y + h
-        
+
     elif heading == 90:
         delta_x = w
         delta_y = h
-        URLON = x + h
-        URLAT = y - w
-        LRLON = x - h
-        LRLAT = y - w
-        LLLON = x - h
-        LLLAT = y + w
+        URLON = x - h
+        URLAT = y + w
         ULLON = x + h
         ULLAT = y + w
+        LLLON = x + h
+        LLLAT = y - w
+        LRLON = x - h
+        LRLAT = y - w
         
     elif heading == 180:
         delta_x = w
@@ -72,18 +72,18 @@ def calculate_corner(x,y,w,h,heading):
     elif heading == 270:
         delta_x = w
         delta_y = h
-        URLON = x - h
-        URLAT = y + w
-        LRLON = x + h
-        LRLAT = y + w
-        LLLON = x + h
-        LLLAT = y - w
+        URLON = x + h
+        URLAT = y - w
         ULLON = x - h
         ULLAT = y - w
-    
+        LLLON = x - h
+        LLLAT = y + w
+        LRLON = x + h
+        LRLAT = y + w
+        
     else: 
         if 0 < heading < 90:
-            alpha = 90 - heading
+            alpha = 90 + heading
 
             delta_x = np.cos(np.radians(alpha + angle)) * np.sqrt(w**2 + h**2)
             delta_y = np.sin(np.radians(alpha + angle)) * np.sqrt(w**2 + h**2)
@@ -94,7 +94,7 @@ def calculate_corner(x,y,w,h,heading):
             LLLAT = y + delta_x 
 
         elif 90 < heading < 180:
-            alpha = 180 - heading
+            alpha = 180 + heading
 
             delta_x = np.cos(np.radians(alpha + angle)) * np.sqrt(w**2 + h**2)
             delta_y = np.sin(np.radians(alpha + angle)) * np.sqrt(w**2 + h**2)
@@ -105,7 +105,7 @@ def calculate_corner(x,y,w,h,heading):
             LLLAT = y + delta_y 
 
         elif 180 < heading < 270:
-            alpha = 270 - heading
+            alpha = 270 + heading
 
             delta_x = np.cos(np.radians(alpha + angle)) * np.sqrt(w**2 + h**2)
             delta_y = np.sin(np.radians(alpha + angle)) * np.sqrt(w**2 + h**2)
@@ -116,7 +116,7 @@ def calculate_corner(x,y,w,h,heading):
             LLLAT = y - delta_x  
 
         elif 270 < heading < 360:
-            alpha = 360 - heading
+            alpha = 360 + heading
 
             delta_x = np.cos(np.radians(alpha + angle)) * np.sqrt(w**2 + h**2)
             delta_y = np.sin(np.radians(alpha + angle)) * np.sqrt(w**2 + h**2)
@@ -128,10 +128,10 @@ def calculate_corner(x,y,w,h,heading):
 
 
 
-        LRLON, LRLAT = calc_LR(x, y, URLON, URLAT, w, h, alpha, heading)
+        ULLON, ULLAT = calc_LR(x, y, URLON, URLAT, w, h, alpha, heading)
 
-        ULLON = 2*x - LRLON
-        ULLAT = 2*y - LRLAT
+        LRLON = 2*x - ULLON
+        LRLAT = 2*y - ULLAT
 
     LR = (LRLAT, LRLON)
     UR = (URLAT, URLON)
