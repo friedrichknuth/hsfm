@@ -62,9 +62,9 @@ def calculate_corner_coordinates(camera_lat_lon_wgs84_center_coordinates,
 
     # This assumes the principal point is at the image center 
     # i.e. half the image width and height                             
-    half_width_m, half_height_m = hsfm.core.calculate_distance_principal_point_to_image_edge(focal_length_mm,
-                                                                                         image_width_px,
-                                                                                         image_height_px)
+    half_width_m, half_height_m = calculate_distance_principal_point_to_image_edge(focal_length_mm,
+                                                                                   image_width_px,
+                                                                                   image_height_px)
     
     # Convert camera center coordinates to utm
     u = utm.from_latlon(camera_lat_lon_wgs84_center_coordinates[0], camera_lat_lon_wgs84_center_coordinates[1])
@@ -106,10 +106,7 @@ def prep_and_generate_gcp(image_file_name,
     img_ds = gdal.Open(image_file_name)
     image_width_px = img_ds.RasterXSize
     image_height_px = img_ds.RasterYSize
-    principal_point_px = (image_width_px / 2, image_height_px /2 )
-    
-    # Calculate the focal length in pixel coordinates
-    focal_length_px = focal_length_mm / pixel_pitch_mm
+    principal_point_px = (image_width_px/2, image_height_px/2)
     
     # Calculate corner coordinates and elevations
     corner_lons, corner_lats, corner_elevations = calculate_corner_coordinates(camera_lat_lon_center_coordinates,
@@ -118,13 +115,14 @@ def prep_and_generate_gcp(image_file_name,
                                                                                image_width_px,
                                                                                image_height_px,
                                                                                heading)
-    gcp_file = hsfm.core.generate_gcp(corner_lons,
-                                      corner_lats,
-                                      corner_elevations,
-                                      image_file_name,
-                                      image_width_px,
-                                      image_height_px,
-                                      output_directory=output_directory)
+    gcp_file = generate_gcp(corner_lons,
+                            corner_lats,
+                            corner_elevations,
+                            image_file_name,
+                            image_width_px,
+                            image_height_px,
+                            output_directory=output_directory)
+    
     return output_directory
                                       
                                       
@@ -164,7 +162,8 @@ def initialize_cameras(camera_positions_file_name,
                        focal_length_px,
                        principal_point_px,
                        output_directory = 'output_data/intial_cameras',
-                       subset=None):
+                       subset=None,
+                       altitude=1500):
     # TODO
     # - integrate elevation interpolation function to handle no data values
     # - get raster crs and convert points to crs of input raster before interpolation
@@ -176,7 +175,8 @@ def initialize_cameras(camera_positions_file_name,
     lons = df['Longitude'].values
     lats = df['Latitude'].values
     elevations = hsfm.geospatial.sample_dem(lons,lats, reference_dem_file_name)
-    df['elevation'] = elevations
+    df['elevation'] = elevations 
+    df['elevation'] = df['elevation'] + altitude
     gdf = hsfm.geospatial.df_xyz_coords_to_gdf(df,lon='Longitude',lat='Latitude')
     
     gdf = gdf.to_crs({'init':'epsg:4978'})

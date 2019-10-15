@@ -170,10 +170,10 @@ def generate_match_points(image_directory,
     call.extend(['--calib-file', 
                  template_camera,
                  '--bundle-adjust-params', 
-                 '"--no-datum --ip-per-tile 1000 --ip-uniqueness-threshold 0.9"'])
+                 '"--no-datum --ip-per-tile 8000 --ip-uniqueness-threshold 0.9"'])
     if print_asp_call==True:
         print(*call)
-    hsfm.utils.run_command(call, verbose=verbose)
+#     hsfm.utils.run_command(call, verbose=verbose, shell=True)
 
 def point2dem_custom(point_cloud_file_name, 
                      proj_string='"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs"',
