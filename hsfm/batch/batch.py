@@ -62,11 +62,13 @@ def rescale_tsai_cameras(camera_directory,
         
     # return output_directory
 #     return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
-
+    
+    
 def batch_generate_cameras(image_directory,
                            camera_positions_file_name,
                            reference_dem_file_name,
                            focal_length_mm,
+                           pixel_pitch_mm=0.02,
                            output_directory='data/cameras',
                            print_asp_call=False,
                            verbose=False,
@@ -85,6 +87,8 @@ def batch_generate_cameras(image_directory,
     # - Embed hsfm.utils.pick_headings() within calculate_heading_from_metadata() and launch for            images where the heading could not be determined with high confidence (e.g. if image
     #   potentially part of another flight line, or at the end of current flight line with no
     #   subsequent image to determine flight line from.)
+    # - provide principal_point_px to hsfm.core.initialize_cameras on a per image basis
+    # put gcp generation in a seperate batch routine
     
     image_list = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
     image_list = hsfm.core.subset_input_image_list(image_list, subset=subset)
@@ -104,17 +108,32 @@ def batch_generate_cameras(image_directory,
         camera_lat_lon_center_coordinates = (df['Latitude'].iloc[i], df['Longitude'].iloc[i])
         heading = df['heading'].iloc[i]
         
-        hsfm.asp.generate_camera(image_file_name,
-                                 camera_lat_lon_center_coordinates,
-                                 reference_dem_file_name,
-                                 focal_length_mm,
-                                 heading,
-                                 print_asp_call=print_asp_call,
-                                 verbose=verbose,
-                                 output_directory=output_directory)
+        gcp_directory = hsfm.core.prep_and_generate_gcp(image_file_name,
+                                                        camera_lat_lon_center_coordinates,
+                                                        reference_dem_file_name,
+                                                        focal_length_mm,
+                                                        heading)
         
     
+        # principal_point_px is needed to initialize the cameras in the next step.
+        img_ds = gdal.Open(image_file_name)
+        image_width_px = img_ds.RasterXSize
+        image_height_px = img_ds.RasterYSize
+        principal_point_px = (image_width_px / 2, image_height_px /2 )
     
+    focal_length_px = focal_length_mm / pixel_pitch_mm
+    
+    # should be using principal_point_px on a per image basis
+    intial_cameras_directory = hsfm.core.initialize_cameras(camera_positions_file_name, 
+                                                            reference_dem_file_name,
+                                                            focal_length_px,
+                                                            principal_point_px)
+    hsfm.asp.generate_ba_cameras(image_directory,
+                                 gcp_directory,
+                                 intial_cameras_directory) 
+        # return output_directory
+
+
 def calculate_heading_from_metadata(camera_positions_file_name, subset=None):
     # TODO
     # - Headings are calculated by images taken along a flight line. 

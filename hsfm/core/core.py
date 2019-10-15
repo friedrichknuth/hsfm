@@ -6,6 +6,8 @@ import cv2
 from skimage import exposure
 import glob
 import os
+from osgeo import gdal
+import utm
 
 import hsfm.image
 import hsfm.utils
@@ -50,7 +52,162 @@ def evaluate_image_frame(grayscale_unit8_image_array,frame_size=0.07):
     side = min(stats, key=lambda key: stats[key])
     
     return side
+
+def calculate_corner_coordinates(camera_lat_lon_wgs84_center_coordinates,
+                                 reference_dem,
+                                 focal_length_mm,
+                                 image_width_px,
+                                 image_height_px,
+                                 heading):
+
+    # This assumes the principal point is at the image center 
+    # i.e. half the image width and height                             
+    half_width_m, half_height_m = hsfm.core.calculate_distance_principal_point_to_image_edge(focal_length_mm,
+                                                                                         image_width_px,
+                                                                                         image_height_px)
     
+    # Convert camera center coordinates to utm
+    u = utm.from_latlon(camera_lat_lon_wgs84_center_coordinates[0], camera_lat_lon_wgs84_center_coordinates[1])
+    camera_utm_lat = u[1]
+    camera_utm_lon = u[0]
+    
+    # Calculate upper left, upper right, lower right, lower left corner coordinates as (lat,lon)
+    UL, UR, LR, LL = hsfm.trig.calculate_corner(camera_utm_lat,camera_utm_lon,half_width_m, half_height_m, heading)
+
+    #Calculate corner coordinates in UTM
+    corners = [UL, UR, LR, LL]
+    corner_points_wgs84 = []
+    corner_lons = []
+    corner_lats = []
+    
+    for coordinate in corners:
+        coordinate_wgs84 = utm.to_latlon(coordinate[0],coordinate[1],u[2],u[3])
+        lat = coordinate_wgs84[0]
+        lon = coordinate_wgs84[1]
+        corner_lons.append(lon)
+        corner_lats.append(lat)
+        
+    corner_elevations = hsfm.geospatial.sample_dem(corner_lons, corner_lats, reference_dem)
+    
+    return corner_lons, corner_lats, corner_elevations
+    
+def prep_and_generate_gcp(image_file_name,
+                          camera_lat_lon_center_coordinates,
+                          reference_dem,
+                          focal_length_mm,
+                          heading,
+                          pixel_pitch_mm=0.02,
+                          output_directory='output_data/gcp/'):
+    
+    # Get the image base name to name the output camera
+    image_base_name = os.path.splitext(os.path.split(image_file_name)[-1])[0]
+    
+    # Read in the image and get the dimensions and principal point at image center
+    img_ds = gdal.Open(image_file_name)
+    image_width_px = img_ds.RasterXSize
+    image_height_px = img_ds.RasterYSize
+    principal_point_px = (image_width_px / 2, image_height_px /2 )
+    
+    # Calculate the focal length in pixel coordinates
+    focal_length_px = focal_length_mm / pixel_pitch_mm
+    
+    # Calculate corner coordinates and elevations
+    corner_lons, corner_lats, corner_elevations = calculate_corner_coordinates(camera_lat_lon_center_coordinates,
+                                                                               reference_dem,
+                                                                               focal_length_mm,
+                                                                               image_width_px,
+                                                                               image_height_px,
+                                                                               heading)
+    gcp_file = hsfm.core.generate_gcp(corner_lons,
+                                      corner_lats,
+                                      corner_elevations,
+                                      image_file_name,
+                                      image_width_px,
+                                      image_height_px,
+                                      output_directory=output_directory)
+    return output_directory
+                                      
+                                      
+def generate_gcp(corner_lons, 
+                 corner_lats, 
+                 corner_elevations, 
+                 image_file_name,
+                 image_width_px,
+                 image_height_px,
+                 output_directory='output_data/gcp/'):
+    # TODO
+    # - add seperate rescale function based on image subsample factor
+    
+    hsfm.io.create_dir(output_directory)
+    
+    file_path, file_name, file_extension = hsfm.io.split_file(image_file_name)
+    
+    df = pd.DataFrame()
+    df['lat'] = corner_lats
+    df['lon'] = corner_lons
+    df['ground_elevation'] = corner_elevations
+    df['sigmas1'] = 1
+    df['sigmas2'] = 1
+    df['sigmas3'] = 1
+    df['image'] = image_file_name
+    df['corners1'] = [0,image_width_px,image_width_px,0]
+    df['corners2'] = [0,0,image_height_px,image_height_px]
+    df['sigmas4'] = 1
+    df['sigmas5'] = 1
+    
+    out = os.path.join(output_directory,file_name+'.gcp')
+    
+    df.to_csv(out, sep=' ', header=False)
+
+def initialize_cameras(camera_positions_file_name, 
+                       reference_dem_file_name,
+                       focal_length_px,
+                       principal_point_px,
+                       output_directory = 'output_data/intial_cameras',
+                       subset=None):
+    # TODO
+    # - integrate elevation interpolation function to handle no data values
+    # - get raster crs and convert points to crs of input raster before interpolation
+    
+    output_directory = 'output_data/intial_cameras'
+    hsfm.io.create_dir(output_directory)
+    
+    df = hsfm.core.select_images_for_download(camera_positions_file_name)
+    lons = df['Longitude'].values
+    lats = df['Latitude'].values
+    elevations = hsfm.geospatial.sample_dem(lons,lats, reference_dem_file_name)
+    df['elevation'] = elevations
+    gdf = hsfm.geospatial.df_xyz_coords_to_gdf(df,lon='Longitude',lat='Latitude')
+    
+    gdf = gdf.to_crs({'init':'epsg:4978'})
+    gdf = hsfm.geospatial.extract_gpd_geometry(gdf)
+    
+    for index, row in gdf.iterrows():
+        image_base_name = row['fileName']
+        out = os.path.join(output_directory,image_base_name+'.tsai')
+        with open(out, 'w') as f:
+
+            C0 = str(row['x'])
+            C1 = str(row['y'])
+            C2 = str(row['z'])
+
+            line0 = 'VERSION_4\n'
+            line1 = 'PINHOLE\n'
+            line2 = 'fu = ' + str(focal_length_px) +'\n'
+            line3 = 'fv = ' + str(focal_length_px) +'\n'
+            line4 = 'cu = ' + str(principal_point_px[0]) +'\n'
+            line5 = 'cv = ' + str(principal_point_px[1]) +'\n'
+            line6 = 'u_direction = 1 0 0\n'
+            line7 = 'v_direction = 0 1 0\n'
+            line8 = 'w_direction = 0 0 1\n'
+            line9 = ' '.join(['C =',C0,C1,C2,'\n'])
+            line10 = 'R = 1 0 0 0 1 0 0 0 1\n'
+            line11 = 'pitch = 1\n'
+            line12 = 'NULL\n'
+
+            f.writelines([line0,line1,line2,line3,line4,line5,line6,line7,line8,line9,line10,line11,line12])
+    return output_directory
+            
 def rotate_camera(cropped_grayscale_unit8_image_array, side=None):
 
     img = cropped_grayscale_unit8_image_array

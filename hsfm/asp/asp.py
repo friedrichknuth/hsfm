@@ -2,6 +2,7 @@ from osgeo import gdal
 import os
 import glob
 import utm
+import shutil
 
 import hsfm.io
 import hsfm.core
@@ -15,57 +16,46 @@ This library is intended to contain wrappers around ASP functions.
 # TODO 
 # - implement stereo pair matching based on image footprints
 
-def generate_camera(image_file_name,
-                    camera_lat_lon_center_coordinates,
-                    reference_dem,
-                    focal_length_mm,
-                    heading,
-                    output_directory = './data/cameras',
-                    pixel_pitch=0.02,
-                    scale = 1,
-                    verbose=False,
-                    print_asp_call=False,
-                    corner_coordinates_string=None):
+def generate_ba_cameras(image_directory,
+                        gcp_directory,
+                        intial_cameras_directory):
+                        
+    # TODO
+    # - the core of this function should live here, but the iteration over multiple files
+    #   should be moved to batch
     
-    # Get the image base name to name the output camera
-    image_base_name = os.path.splitext(os.path.split(image_file_name)[-1])[0]
+    output_directory = 'output_data/cameras/'
     
-    # Read in the image and get the dimensions and principal point at image center
-    img_ds = gdal.Open(image_file_name)
-    image_width_px = img_ds.RasterXSize
-    image_height_px = img_ds.RasterYSize
-    principal_point_px = (image_width_px / 2, image_height_px /2 )
+    images = sorted(glob.glob(os.path.join(image_directory,'*.tif')))
+    gcp = sorted(glob.glob(os.path.join(gcp_directory,'*.gcp')))
+    cameras = sorted(glob.glob(os.path.join(intial_cameras_directory,'*.tsai')))
+
+    for i, v in enumerate(images):
+        file_path, file_name, file_extension = hsfm.io.split_file(images[i])
     
-    # Calculate the focal length in pixel coordinates
-    focal_length_px = focal_length_mm / pixel_pitch
-    
-    # Calculate corner coordinates string
-    if corner_coordinates_string == None:
-        corner_coordinates_string = calculate_corner_coordinates(camera_lat_lon_center_coordinates,
-                                                          focal_length_mm,
-                                                          image_width_px,
-                                                          image_height_px,
-                                                          heading)
-                                                          
-    out = os.path.join(output_directory,image_base_name+'.tsai')
-    
-    call =[
-        'cam_gen', image_file_name,
-        '--reference-dem', reference_dem,
-        '--focal-length', str(focal_length_px),
-        '--optical-center', str(principal_point_px[0]), str(principal_point_px[1]),
-        '--pixel-pitch', str(scale),
-        '--refine-camera',
-        '-o', out,
-        '--lon-lat-values',corner_coordinates_string
-    ]
-    
-    if print_asp_call==True:
-        print(*call)
-    
-    hsfm.utils.run_command(call, verbose=verbose)
-    
-    return out
+        call =['bundle_adjust',
+               '-t', 'nadirpinhole',
+               images[i],
+               cameras[i],
+               gcp[i],
+               '--datum', 'wgs84',
+               '--inline-adjustments',
+               '--camera-weight', '10',
+               '--max-iterations' ,'0',
+               '--robust-threshold', '10',
+               '--num-passes', '1',
+               '-o', 'output_data/cameras/tmp/run']
+        hsfm.utils.run_command(call)
+
+    camera_files = glob.glob(os.path.join(output_directory, 'tmp',"*.tsai"))
+    for camera_file in camera_files:
+        file_path, file_name, file_extension = hsfm.io.split_file(camera_file)
+        new_camera_name = os.path.join(output_directory, file_name[4:] + file_extension)
+        shutil.copy2(camera_file,new_camera_name)
+
+    shutil.rmtree('output_data/cameras/tmp/')
+#     return output_directory
+
 
 def bundle_adjust_custom(image_files_directory, 
                          camera_files_directory, 
@@ -243,53 +233,6 @@ def pc_align_custom(input_dem_file_name,
 FUNCTIONS BELOW HERE SHOULD BE MOVED ELSEWHERE.
 ####
 '''
-
-def generate_cam_gem_corner_coordinates_string(corners_gdf):
-    for n,p in enumerate(corner_points.geometry):
-        lon_c = corner_points.loc[n].geometry.x
-        lat_c = corner_points.loc[n].geometry.y
-        corner_points_xy.append(str(lon_c))
-        corner_points_xy.append(str(lat_c))
-    corner_points_xy = ','.join(corner_points_xy)
-    return corner_points_xy
-
-def calculate_corner_coordinates(camera_lat_lon_wgs84_center_coordinates,
-                                 focal_length_mm,
-                                 image_width_px,
-                                 image_height_px,
-                                 heading):
-                                 
-    # TODO
-    # - Investigate why the order of UL, UR, LR, LL does not match the way
-    #   cam_gen traverses the iamge 0,0 w,0, w,h, 0,h
-    
-    # This assumes the principal point is at the image center 
-    # i.e. half the image width and height                             
-    half_width_m, half_height_m = hsfm.core.calculate_distance_principal_point_to_image_edge(focal_length_mm,
-                                                                                         image_width_px,
-                                                                                         image_height_px)
-    
-    # Convert camera center coordinates to utm
-    u = utm.from_latlon(camera_lat_lon_wgs84_center_coordinates[0], camera_lat_lon_wgs84_center_coordinates[1])
-    
-    camera_utm_lat = u[1]
-    camera_utm_lon = u[0]
-    # Calculate upper left, upper right, lower right, lower left corner coordinates as (lat,lon)
-    UL, UR, LR, LL = hsfm.trig.calculate_corner(camera_utm_lat,camera_utm_lon,half_width_m, half_height_m, heading)
-
-    # Calculate corner coordinates in UTM
-    corners = [UL, UR, LR, LL]
-    corner_points_wgs84 = []
-    for coordinate in corners:
-        coordinate_wgs84 = utm.to_latlon(coordinate[0],coordinate[1],u[2],u[3])
-        lat = coordinate_wgs84[0]
-        lon = coordinate_wgs84[1]
-        corner_points_wgs84.append(str(lon))
-        corner_points_wgs84.append(str(lat))
-    corner_coordinates_string = ','.join(corner_points_wgs84)
-    
-    return corner_coordinates_string
-
 
 def iter_stereo_pairs(stereo_input_directory,
                       image_files_directory,

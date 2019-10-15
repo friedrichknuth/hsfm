@@ -81,6 +81,7 @@ def extract_gpd_geometry(point_gdf):
     point_gdf['y'] = y
     if len(point_gdf['geometry'].iloc[1].coords[:][0]) == 3:
         point_gdf['z'] = z
+    return point_gdf
         
 def wgs_lon_lat_to_epsg_code(lon, lat):
     """
@@ -325,3 +326,26 @@ def reproject_geotif(geotif_file_name,
     hsfm.utils.run_command(call, verbose=verbose)
     
     return output_file_name
+    
+def sample_dem(lons, lats, dem_file_name):
+    # TODO
+    # - check fill value from DEM
+    # - interpolate value if fill value or nan
+    
+    src = rasterio.open(dem_file_name)
+    epsg_code = src.crs.to_epsg()
+    
+    data = {'lon': lons, 'lat': lats}
+    df = pd.DataFrame(data)
+    gdf = hsfm.geospatial.df_xy_coords_to_gdf(df)
+    gdf = hsfm.geospatial.extract_gpd_geometry(gdf)
+    gdf = gdf.to_crs({'init':'epsg:'+str(epsg_code)})
+    
+    lons = gdf.x.to_list()
+    lats = gdf.y.to_list()
+    lon_lats = list(zip(lons, lats))
+    
+    elevations = []
+    for elevation in src.sample(lon_lats):
+        elevations.append(elevation[0])
+    return elevations
