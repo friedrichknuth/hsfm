@@ -54,7 +54,7 @@ def generate_ba_cameras(image_directory,
         shutil.copy2(camera_file,new_camera_name)
 
     shutil.rmtree('output_data/cameras/tmp/')
-#     return output_directory
+    return output_directory
 
 
 def bundle_adjust_custom(image_files_directory, 
@@ -155,7 +155,25 @@ def dem_mosaic_custom(stereo_output_directories_parent,
         
     hsfm.utils.run_command(call, verbose=verbose)
 
-
+def generate_match_points(image_directory,
+                          camera_directory,
+                          output_directory='output_data/match_files',
+                          verbose=False,
+                          print_asp_call=False):
+    image_file_list = sorted(glob.glob(os.path.join(image_directory,'*.tif')))
+    camera_file_list = sorted(glob.glob(os.path.join(camera_directory,'*.tsai')))
+    template_camera = camera_file_list[0]
+    
+    call =['camera_solve',
+           output_directory]
+    call.extend(image_file_list)
+    call.extend(['--calib-file', 
+                 template_camera,
+                 '--bundle-adjust-params', 
+                 '"--no-datum --ip-per-tile 1000 --ip-uniqueness-threshold 0.9"'])
+    if print_asp_call==True:
+        print(*call)
+    hsfm.utils.run_command(call, verbose=verbose)
 
 def point2dem_custom(point_cloud_file_name, 
                      proj_string='"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs"',

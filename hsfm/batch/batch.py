@@ -69,7 +69,6 @@ def batch_generate_cameras(image_directory,
                            reference_dem_file_name,
                            focal_length_mm,
                            pixel_pitch_mm=0.02,
-                           output_directory='data/cameras',
                            print_asp_call=False,
                            verbose=False,
                            subset=None,
@@ -128,10 +127,10 @@ def batch_generate_cameras(image_directory,
                                                             reference_dem_file_name,
                                                             focal_length_px,
                                                             principal_point_px)
-    hsfm.asp.generate_ba_cameras(image_directory,
+    output_directory = hsfm.asp.generate_ba_cameras(image_directory,
                                  gcp_directory,
                                  intial_cameras_directory) 
-        # return output_directory
+    return output_directory
 
 
 def calculate_heading_from_metadata(camera_positions_file_name, subset=None):
