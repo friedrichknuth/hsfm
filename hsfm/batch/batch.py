@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+
 import hsfm.io
 import hsfm.core
 import hsfm.image
@@ -38,7 +39,7 @@ def rescale_images(image_directory,
                                   scale=scale,
                                   verbose=verbose)
 
-    # return output_directory
+    return os.path.relpath(output_directory)
 #     return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
 
 def rescale_tsai_cameras(camera_directory,
@@ -60,7 +61,7 @@ def rescale_tsai_cameras(camera_directory,
         
         hsfm.io.replace_string_in_file(camera_file, output_file, pitch, new_pitch)
         
-    # return output_directory
+    return os.path.relpath(output_directory)
 #     return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
     
     
@@ -128,8 +129,9 @@ def batch_generate_cameras(image_directory,
                                                             focal_length_px,
                                                             principal_point_px)
     output_directory = hsfm.asp.generate_ba_cameras(image_directory,
-                                 gcp_directory,
-                                 intial_cameras_directory) 
+                                                    gcp_directory,
+                                                    intial_cameras_directory,
+                                                    subset=subset) 
     return output_directory
 
 

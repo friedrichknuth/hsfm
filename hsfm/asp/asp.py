@@ -18,7 +18,8 @@ This library is intended to contain wrappers around ASP functions.
 
 def generate_ba_cameras(image_directory,
                         gcp_directory,
-                        intial_cameras_directory):
+                        intial_cameras_directory,
+                        subset=None):
                         
     # TODO
     # - the core of this function should live here, but the iteration over multiple files
@@ -29,6 +30,10 @@ def generate_ba_cameras(image_directory,
     images = sorted(glob.glob(os.path.join(image_directory,'*.tif')))
     gcp = sorted(glob.glob(os.path.join(gcp_directory,'*.gcp')))
     cameras = sorted(glob.glob(os.path.join(intial_cameras_directory,'*.tsai')))
+    
+    images = hsfm.core.subset_input_image_list(images, subset=subset)
+    cameras = hsfm.core.subset_input_image_list(cameras, subset=subset)
+    gcp = hsfm.core.subset_input_image_list(gcp, subset=subset)
 
     for i, v in enumerate(images):
         file_path, file_name, file_extension = hsfm.io.split_file(images[i])
@@ -60,7 +65,8 @@ def generate_ba_cameras(image_directory,
 def bundle_adjust_custom(image_files_directory, 
                          camera_files_directory, 
                          output_directory_prefix,
-                         print_asp_call=False):
+                         print_asp_call=False,
+                         verbose=False):
     
     input_image_files  = sorted(glob.glob(os.path.join(image_files_directory,'*.tif')))
     input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*.tsai')))
@@ -85,18 +91,19 @@ def bundle_adjust_custom(image_files_directory,
            '--num-iterations', '500',
            '--num-passes', '3']
            
+    call.extend(['-o', output_directory_prefix])
     call.extend(input_image_files)
     call.extend(input_camera_files)
-    call.extend(['-o', output_directory_prefix])
+    
     
     if print_asp_call==True:
         print(*call)
     
-    hsfm.utils.run_command(call, 
-                           verbose=False, 
+    else:
+        hsfm.utils.run_command(call, 
+                           verbose=verbose, 
                            log_directory=log_directory)
                            
-    print('Bundle adjust results saved in', ba_dir)
     return ba_dir
 
 
@@ -121,7 +128,8 @@ def parallel_stereo_custom(first_image,
            '--ip-inlier-factor', '1',
            '--ip-per-tile','2000',
            '--ip-uniqueness-threshold', '0.9',
-           '--ip-debug-images']
+           '--ip-debug-images',
+           '--num-matches-from-disp-triplets','10000']
            
     call.extend([first_image,second_image])
     call.extend([first_camera,second_camera])
@@ -170,10 +178,11 @@ def generate_match_points(image_directory,
     call.extend(['--calib-file', 
                  template_camera,
                  '--bundle-adjust-params', 
-                 '"--no-datum --ip-per-tile 8000 --ip-uniqueness-threshold 0.9"'])
+                 '"--no-datum --ip-per-tile 8000"'])
     if print_asp_call==True:
         print(*call)
 #     hsfm.utils.run_command(call, verbose=verbose, shell=True)
+
 
 def point2dem_custom(point_cloud_file_name, 
                      proj_string='"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs"',

@@ -30,7 +30,7 @@ def dem_align_custom(reference_dem,
                      mode='nuth',
                      max_offset = 1000,
                      verbose=False,
-                     log_directory=None):
+                     log_directory='output_data/dem_align_log'):
     
     call = ['dem_align.py',
             '-max_offset',str(max_offset),
