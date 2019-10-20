@@ -21,6 +21,7 @@ dependencies:
   - menpo::opencv
   - rasterstats
   - hvplot
+  - rasterstats
   - pip:
     - elevation
     - "--editable=git+https://github.com/dshean/demcoreg.git#egg=demcoreg"
