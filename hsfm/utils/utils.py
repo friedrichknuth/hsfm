@@ -30,22 +30,26 @@ def dem_align_custom(reference_dem,
                      mode='nuth',
                      max_offset = 1000,
                      verbose=False,
-                     log_directory='output_data/dem_align_log'):
+                     log_directory='output_data/dem_align_log',
+                     print_call=False):
     
     call = ['dem_align.py',
             '-max_offset',str(max_offset),
             '-mode', mode,
             reference_dem,
             dem_to_be_aligned]
-            
-    log_file_name = run_command(call, verbose=verbose, log_directory=log_directory)
-
-    with open(log_file_name, 'r') as file:
-        output_plot_file_name = file.read().split()[-3]
-    dem_difference_file_name = glob.glob(os.path.split(output_plot_file_name)[0]+'/*_align_diff.tif')[0]
-    aligned_dem_file_name = glob.glob(os.path.split(output_plot_file_name)[0]+'/*align.tif')[0]
     
-    return dem_difference_file_name , aligned_dem_file_name
+    if print_call==True:
+        print(*call)
+    else:         
+        log_file_name = run_command(call, verbose=verbose, log_directory=log_directory)
+
+        with open(log_file_name, 'r') as file:
+            output_plot_file_name = file.read().split()[-3]
+        dem_difference_file_name = glob.glob(os.path.split(output_plot_file_name)[0]+'/*_align_diff.tif')[0]
+        aligned_dem_file_name = glob.glob(os.path.split(output_plot_file_name)[0]+'/*align.tif')[0]
+
+        return dem_difference_file_name , aligned_dem_file_name
     
 
 def rescale_geotif(geotif_file_name,
@@ -402,4 +406,33 @@ def run_command(command, verbose=False, log_directory=None, shell=False):
         while p.poll() is None:
             line = (p.stdout.readline()).decode('ASCII').rstrip('\n')
             if verbose == True:
+                print(line)
+                
+def run_command2(command, verbose=False, log=False):
+    
+    log_directory='logs'
+    
+    p = Popen(command,
+              universal_newlines=True,
+              stdout=PIPE,
+              stderr=STDOUT,
+              shell=True)
+    
+    if log != False:
+        log_file_name = os.path.join(log_directory,command.split(' ')[0]+'_log.txt')
+        hsfm.io.create_dir(log_directory)
+    
+        with open(log_file_name, "w") as log_file:
+            
+            while p.poll() is None:
+                line = (p.stdout.readline())
+                if verbose == True:
+                    print(line)
+                log_file.write(line)
+        return log_file_name
+    
+    else:
+        while p.poll() is None:
+            if verbose == True:
+                line = (p.stdout.readline())
                 print(line)
