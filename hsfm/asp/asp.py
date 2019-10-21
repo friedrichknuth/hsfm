@@ -66,7 +66,8 @@ def bundle_adjust_custom(image_files_directory,
                          camera_files_directory, 
                          output_directory_prefix,
                          print_asp_call=False,
-                         verbose=False):
+                         verbose=False,
+                         overlap_list=False):
     
     input_image_files  = sorted(glob.glob(os.path.join(image_files_directory,'*.tif')))
     input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*.tsai')))
@@ -76,26 +77,27 @@ def bundle_adjust_custom(image_files_directory,
     log_directory = os.path.join(ba_dir,'log')
     hsfm.io.create_dir(log_directory)
     
-    call =['bundle_adjust',
-           '--threads', '1',
-           '--disable-tri-ip-filter',
-           '--force-reuse-match-files',
-           '--skip-rough-homography',
-           '-t', 'nadirpinhole',
-           '--ip-inlier-factor', '1',
-           '--ip-uniqueness-threshold', '0.9',
-           '--ip-per-tile','4000',
-           '--datum', 'wgs84',
-           '--inline-adjustments',
-           '--camera-weight', '0.0',
-           '--num-iterations', '500',
-           '--num-passes', '3']
-           
-    call.extend(['-o', output_directory_prefix])
+    call =['bundle_adjust']
     call.extend(input_image_files)
-    call.extend(input_camera_files)
-    
-    
+    call.extend(input_camera_files)   
+    call.extend(['--threads', '1',
+                 '--disable-tri-ip-filter',
+                 '--force-reuse-match-files',
+                 '--skip-rough-homography',
+                 '-t', 'nadirpinhole',
+                 '--ip-inlier-factor', '1',
+                 '--ip-uniqueness-threshold', '0.9',
+                 '--ip-per-tile','4000',
+                 '--datum', 'wgs84',
+                 '--inline-adjustments',
+                 '--camera-weight', '0.0',
+                 '--num-iterations', '500',
+                 '--num-passes', '3'])
+    if overlap_list:
+                call.extend(['--overlap-list', overlap_list])
+                
+    call.extend(['-o', output_directory_prefix])
+
     if print_asp_call==True:
         print(*call)
     
@@ -128,7 +130,7 @@ def parallel_stereo_custom(first_image,
            '--ip-inlier-factor', '1',
            '--ip-per-tile','2000',
            '--ip-uniqueness-threshold', '0.9',
-           '--ip-debug-images',
+#            '--ip-debug-images',
            '--num-matches-from-disp-triplets','10000']
            
     call.extend([first_image,second_image])
@@ -181,7 +183,9 @@ def generate_match_points(image_directory,
                  '"--no-datum --ip-per-tile 8000"'])
     if print_asp_call==True:
         print(*call)
-#     hsfm.utils.run_command(call, verbose=verbose, shell=True)
+    call = ' '.join(call)
+    
+    hsfm.utils.run_command2(call, verbose=verbose, log=True)
 
 
 def point2dem_custom(point_cloud_file_name, 

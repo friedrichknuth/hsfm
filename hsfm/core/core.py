@@ -12,6 +12,7 @@ import utm
 import hsfm.image
 import hsfm.utils
 import hsfm.plot
+import bare
 
 """
 Core data wrangling and preprocessing functions. 
@@ -21,6 +22,33 @@ Core data wrangling and preprocessing functions.
 # - break this up into seperate libraries and classes to better
 #   accomodate other imagery and generealize upstream as much as possible.
 
+
+def create_overlap_list(camera_solve_directory,
+                        image_directory,
+                        suffix='.match',
+                        output_directory='output_data/ba'):
+    
+    hsfm.io.create_dir(output_directory)
+    
+    
+    filename_out = os.path.join(output_directory,'overlaplist.txt')
+    if os.path.exists(filename_out):
+        os.remove(filename_out)
+    
+    match_files = sorted(glob.glob(os.path.join(camera_solve_directory, '*' + suffix)))
+    
+    match_files
+    pairs = []
+    for match_file in match_files:
+        img1_fn, img2_fn = bare.core.parse_image_names_from_match_file_name(match_file, image_directory, 'tif')
+        pairs.append((img1_fn, img2_fn))
+        
+    # creates full set from .match and clean.match pairs
+    pairs = sorted(list(set(pairs)))
+    for i in pairs:
+        with open(filename_out, 'a') as out:
+            out.write(i[0] + ' '+ i[1]+'\n')
+    return filename_out
 
 def evaluate_image_frame(grayscale_unit8_image_array,frame_size=0.07):
     
@@ -259,10 +287,10 @@ def subset_input_image_list(image_list, subset=None):
 def pre_select_target_images(input_csv, prefix, image_suffix_list):
     hsfm.io.create_dir('input_data/')
     df = pd.read_csv(input_csv)
-    df = df[df['fileName'].str.contains(prefix )]
+    df = df[df['fileName'].str.contains(prefix)]
     image_suffix_list = list(map(str, image_suffix_list))
-    regex_or_condition_joined_suffixes = '|'.join(image_suffix_list) 
-    df = df[df['fileName'].str.contains(regex_or_condition_joined_suffixes, regex=True)]
+    image_suffix_list = [i.zfill(2) if len(i) == 1 else i for i in image_suffix_list]
+    df = df[df['fileName'].str.endswith(tuple(image_suffix_list), na=False)]
     df.to_csv('input_data/targets.csv',index=False)
     return 'input_data/targets.csv'
     

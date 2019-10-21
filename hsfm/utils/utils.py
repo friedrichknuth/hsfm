@@ -381,7 +381,7 @@ def pick_fiducials(image_file_name):
     
     return principal_point, intersection_angle
     
-## TODO move to hsfm.io
+## TODO move to hsfm.io and add docs
 def run_command(command, verbose=False, log_directory=None, shell=False):
     
     p = Popen(command,
