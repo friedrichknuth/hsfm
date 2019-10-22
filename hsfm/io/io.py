@@ -88,8 +88,8 @@ def batch_rename_files(source_file_path,
 
         if unique_id_pattern:
             files = [x for x in files if unique_id_pattern in x] 
+        
         for source_file_name in files:
-
             new_file = rename_file(source_file_name, 
                                    pattern=pattern,
                                    new_pattern=new_pattern,

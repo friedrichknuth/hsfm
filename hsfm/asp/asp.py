@@ -140,12 +140,12 @@ def parallel_stereo_custom(first_image,
     if print_asp_call==True:
         print(*call)
         
-    hsfm.utils.run_command(call, 
+    else:
+        hsfm.utils.run_command(call, 
                            verbose=False, 
-                           log_directory=log_directory)
-                           
-    print('Parallel stereo results saved in', stereo_output_directory)
-    return stereo_output_directory
+                           log_directory=log_directory)          
+        print('Parallel stereo results saved in', stereo_output_directory)
+        return stereo_output_directory
     
 def dem_mosaic_custom(stereo_output_directories_parent, 
                       output_file_name,
@@ -183,9 +183,9 @@ def generate_match_points(image_directory,
                  '"--no-datum --ip-per-tile 8000"'])
     if print_asp_call==True:
         print(*call)
-    call = ' '.join(call)
-    
-    hsfm.utils.run_command2(call, verbose=verbose, log=True)
+    else:
+        call = ' '.join(call)
+        hsfm.utils.run_command2(call, verbose=verbose, log=True)
 
 
 def point2dem_custom(point_cloud_file_name, 
@@ -270,7 +270,8 @@ def iter_stereo_pairs(stereo_input_directory,
                       camera_files_directory,
                       stereo_output_directory_prefix,
                       image_extension = '.tif',
-                      camera_extension = '.tsai'):
+                      camera_extension = '.tsai',
+                      print_asp_call=False):
     """
     Function to run pairwise bundle_adjust based on match files.
     """
@@ -298,13 +299,14 @@ def iter_stereo_pairs(stereo_input_directory,
             
         output_directory = os.path.join(stereo_output_directory_prefix,output_folder+'/run')
         
-        print('Running parallel stereo on', image_a, 'and', image_b)
+#         print('Running parallel stereo on', image_a, 'and', image_b)
     
         stereo_output_directory = parallel_stereo_custom(image_a, 
                                                          image_b,
                                                          camera_a,
                                                          camera_b,
-                                                         output_directory)
+                                                         output_directory,
+                                                         print_asp_call=print_asp_call)
                                
         try:
             point_cloud_file_name = glob.glob(os.path.join(stereo_output_directory,'*PC.tif'))[0]

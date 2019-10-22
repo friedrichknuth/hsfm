@@ -284,15 +284,19 @@ def subset_input_image_list(image_list, subset=None):
         subset_image_list = image_list_df['image_file_path'].to_list()
         return subset_image_list
     
-def pre_select_target_images(input_csv, prefix, image_suffix_list):
+def pre_select_target_images(input_csv, prefix, image_suffix_list,output_file_name=None):
     hsfm.io.create_dir('input_data/')
     df = pd.read_csv(input_csv)
     df = df[df['fileName'].str.contains(prefix)]
     image_suffix_list = list(map(str, image_suffix_list))
     image_suffix_list = [i.zfill(2) if len(i) == 1 else i for i in image_suffix_list]
     df = df[df['fileName'].str.endswith(tuple(image_suffix_list), na=False)]
-    df.to_csv('input_data/targets.csv',index=False)
-    return 'input_data/targets.csv'
+    if output_file_name:
+        df.to_csv(output_file_name,index=False)
+    else:
+        output_file_name = 'input_data/targets.csv'
+        df.to_csv(output_file_name,index=False)
+    return output_file_name
     
     
 def select_images_for_download(csv_file_name, subset=None):
