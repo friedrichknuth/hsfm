@@ -70,7 +70,6 @@ def batch_generate_cameras(image_directory,
                            reference_dem_file_name,
                            focal_length_mm,
                            pixel_pitch_mm=0.02,
-                           print_asp_call=False,
                            verbose=False,
                            subset=None,
                            manual_heading_selection=False):
