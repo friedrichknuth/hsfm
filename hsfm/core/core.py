@@ -531,7 +531,7 @@ def determine_intersection_angle(fiducials):
                   right_fiducial[0] - left_fiducial[0]))
     intersection_angle = arc1-arc2
         
-    return intersection_angle
+    return np.round(intersection_angle,4)
 
 def pad_image(grayscale_unit8_image_array):
     img = grayscale_unit8_image_array

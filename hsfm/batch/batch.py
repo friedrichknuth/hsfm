@@ -258,3 +258,33 @@ def preprocess_images(template_directory,
         hsfm.plot.plot_intersection_angles_qc(intersections, file_names)
     
     return output_directory
+
+def plot_match_overlap(input_folder, output_directory='qc/matches/'):
+    
+    out = os.path.split(input_folder)[-1]
+    output_directory = os.path.join(output_directory,out)
+    hsfm.io.create_dir(output_directory)
+    
+    matches=sorted(glob.glob(os.path.join(input_folder,'*.csv')))
+    _, df_combined, _ = hsfm.qc.calc_matchpoint_coverage(matches)
+    keys = []
+    for i,v in enumerate(matches):
+        match_img1_name, match_img2_name = hsfm.qc.parse_base_names_from_match_file(v)
+        keys.append(match_img1_name+'__'+match_img2_name)
+        
+    fig, ax = plt.subplots(len(keys),2,figsize=(10,15),sharex='col',sharey=True)
+    for i,v in enumerate(keys):
+        
+        left_title = v.split('__')[0]
+        right_title = v.split('__')[1]
+        
+        ax[i][0].scatter(df_combined.xs(keys[i])['x1'], df_combined.xs(keys[i])['y1'],marker='.')
+        ax[i][1].scatter(df_combined.xs(keys[i])['x2'], df_combined.xs(keys[i])['y2'],marker='.')
+        
+        ax[i][0].set_title(left_title)
+        ax[i][1].set_title(right_title)
+    
+    
+    out = os.path.join(output_directory,'match_plot.png')
+    plt.savefig(out)
+    return out

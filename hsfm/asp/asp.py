@@ -13,9 +13,6 @@ import hsfm.utils
 This library is intended to contain wrappers around ASP functions.
 """
 
-# TODO 
-# - implement stereo pair matching based on image footprints
-
 def generate_ba_cameras(image_directory,
                         gcp_directory,
                         intial_cameras_directory,
@@ -167,7 +164,7 @@ def dem_mosaic_custom(stereo_output_directories_parent,
 
 def generate_match_points(image_directory,
                           camera_directory,
-                          output_directory='output_data/match_files',
+                          output_directory='output_data/cam_solve',
                           verbose=False,
                           print_asp_call=False):
     image_file_list = sorted(glob.glob(os.path.join(image_directory,'*.tif')))
@@ -186,6 +183,8 @@ def generate_match_points(image_directory,
     else:
         call = ' '.join(call)
         hsfm.utils.run_command2(call, verbose=verbose, log=True)
+    
+    return output_directory
 
 
 def point2dem_custom(point_cloud_file_name, 
