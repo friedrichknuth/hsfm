@@ -205,7 +205,8 @@ def plot_intersection_angles_qc(intersections, file_names, show=False):
         plt.show()
     fig.savefig('qc/image_preprocessing/principal_point_intersection_angle_off_mean.png')
     plt.close()
-    print("Mean rotation off 90 degree intersection at principal point:",(df.mean() - 90).values[0])
+    angle = np.round((df.mean() - 90).values[0],4)
+    print("Mean rotation off 90 degree intersection at principal point:",angle)
     print("Further QC plots for principal point and fiducial marker detection available under qc/image_preprocessing/")
 
     

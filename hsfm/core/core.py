@@ -8,10 +8,12 @@ import glob
 import os
 from osgeo import gdal
 import utm
+import itertools
 
 import hsfm.image
 import hsfm.utils
 import hsfm.plot
+import hsfm.geospatial
 import bare
 
 """
@@ -21,12 +23,57 @@ Core data wrangling and preprocessing functions.
 # TODO
 # - break this up into seperate libraries and classes to better
 #   accomodate other imagery and generealize upstream as much as possible.
+    
+def get_gcp_polygon(fn):
+    
+    file_name = os.path.splitext(os.path.split(fn)[-1])[0]
+    
+    df = pd.read_csv(fn, header=None, sep=' ')
+    df = df[[1,2]]
+    df.columns=['lat','lon']
+    
+    gdf = hsfm.geospatial.df_points_to_polygon_gdf(df)
+    gdf['camera'] = file_name
+    return gdf
 
-
-def create_overlap_list(camera_solve_directory,
+def create_overlap_list(gcp_directory,
                         image_directory,
-                        suffix='.match',
                         output_directory='output_data/ba'):
+    
+    hsfm.io.create_dir(output_directory)
+    
+    
+    filename_out = os.path.join(output_directory,'overlaplist.txt')
+    if os.path.exists(filename_out):
+        os.remove(filename_out)
+    
+    gcp_files = glob.glob(os.path.join(gcp_directory,'*.gcp'))
+    image_files = glob.glob(os.path.join(image_directory,'*.tif'))
+    
+    footprints = []
+    for fn in gcp_files:
+        gdf = get_gcp_polygon(fn)
+        footprints.append(gdf)
+        
+    pairs=[]
+    for a, b in itertools.combinations(footprints, 2):
+        result = hsfm.geospatial.compare_footprints(a, b)
+        if result == 1:
+            c = hsfm.io.retrieve_match(a['camera'].values[0] , image_files)
+            d = hsfm.io.retrieve_match(b['camera'].values[0] , image_files)
+            pairs.append((c,d))
+
+    pairs = sorted(list(set(pairs)))
+    for i in pairs:
+        with open(filename_out, 'a') as out:
+            out.write(i[0] + ' '+ i[1]+'\n')
+    return filename_out
+
+
+def create_overlap_list_from_match_files(camera_solve_directory,
+                                         image_directory,
+                                         suffix='.match',
+                                         output_directory='output_data/ba'):
     
     hsfm.io.create_dir(output_directory)
     

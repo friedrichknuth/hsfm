@@ -33,11 +33,11 @@ def dem_align_custom(reference_dem,
                      log_directory='output_data/dem_align_log',
                      print_call=False):
     
-    call = ['dem_align.py',
+    call = ['dem_align.py',reference_dem,
+            dem_to_be_aligned,
             '-max_offset',str(max_offset),
             '-mode', mode,
-            reference_dem,
-            dem_to_be_aligned]
+            '-mask_list', 'glaciers', 'nlcd']
     
     if print_call==True:
         print(*call)
@@ -94,7 +94,6 @@ def optimize_geotif(geotif_file_name,
             '-co','BIGTIFF=IF_SAFER',
             geotif_file_name,
             output_file_name]
-            
     run_command(call, verbose=verbose)
     
     return output_file_name

@@ -271,7 +271,8 @@ def plot_match_overlap(input_folder, output_directory='qc/matches/'):
         match_img1_name, match_img2_name = hsfm.qc.parse_base_names_from_match_file(v)
         keys.append(match_img1_name+'__'+match_img2_name)
         
-    fig, ax = plt.subplots(len(keys),2,figsize=(10,15),sharex='col',sharey=True)
+    fig_size_y = len(matches)*3
+    fig, ax = plt.subplots(len(keys),2,figsize=(10,fig_size_y),sharex='col',sharey=True)
     for i,v in enumerate(keys):
         
         left_title = v.split('__')[0]
@@ -282,8 +283,12 @@ def plot_match_overlap(input_folder, output_directory='qc/matches/'):
         
         ax[i][0].set_title(left_title)
         ax[i][1].set_title(right_title)
+        
+        ax[i][0].set_aspect('equal')
+        ax[i][1].set_aspect('equal')
     
     
+    plt.tight_layout()
     out = os.path.join(output_directory,'match_plot.png')
     plt.savefig(out)
     return out

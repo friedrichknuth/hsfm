@@ -24,6 +24,29 @@ import hsfm.utils
 Geospatial data processing functions.
 """
 
+def compare_footprints(gdf1, gdf2):
+    intersection = gpd.overlay(gdf1, gdf2, how='intersection')
+    if len(intersection) > 0:
+        return 1
+    else:
+        return 0
+    
+def df_points_to_polygon_gdf(df, 
+                             lon='lon',
+                             lat='lat',
+                             crs='4326'):
+    vertices = []
+
+    for i in range(len(df)):
+        vertex = (df[lon][i], df[lat][i])
+        vertices.append(vertex)
+        
+    polygon = Polygon(vertices)
+    polygon_gdf = gpd.GeoDataFrame(gpd.GeoSeries(polygon), 
+                                          columns=['geometry'],
+                                          crs={'init':'epsg:'+crs}) 
+    return polygon_gdf
+
 def df_xyz_coords_to_gdf(df, 
                          lon='lon',
                          lat='lat',

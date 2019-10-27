@@ -105,6 +105,51 @@ def bundle_adjust_custom(image_files_directory,
                            
     return ba_dir
 
+def bundle_adjust_custom2(image_files_directory, 
+                         camera_files_directory, 
+                         output_directory_prefix,
+                         print_asp_call=False,
+                         verbose=False,
+                         overlap_list=False):
+    
+    input_image_files  = sorted(glob.glob(os.path.join(image_files_directory,'*.tif')))
+    input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*.tsai')))
+    
+    ba_dir = os.path.split(output_directory_prefix)[0]
+    
+    log_directory = os.path.join(ba_dir,'log')
+    hsfm.io.create_dir(log_directory)
+    
+    call =['bundle_adjust']
+    call.extend(input_image_files)
+    call.extend(input_camera_files)   
+    call.extend(['--threads', '1',
+                 '--disable-tri-ip-filter',
+                 '--force-reuse-match-files',
+                 '--skip-rough-homography',
+                 '-t', 'nadirpinhole',
+                 '--ip-inlier-factor', '1',
+                 '--ip-uniqueness-threshold', '0.9',
+                 '--ip-per-tile','2000',
+                 '--datum', 'wgs84',
+                 '--inline-adjustments',
+                 '--camera-weight', '0.0',
+                 '--num-iterations', '500',
+                 '--num-passes', '3'])
+    if overlap_list:
+                call.extend(['--overlap-list', overlap_list])
+                
+    call.extend(['-o', output_directory_prefix])
+
+    if print_asp_call==True:
+        print(*call)
+    
+    else:
+        hsfm.utils.run_command(call, 
+                           verbose=verbose, 
+                           log_directory=log_directory)
+                           
+    return ba_dir
 
 def parallel_stereo_custom(first_image, 
                            second_image,
@@ -177,7 +222,7 @@ def generate_match_points(image_directory,
     call.extend(['--calib-file', 
                  template_camera,
                  '--bundle-adjust-params', 
-                 '"--no-datum --ip-per-tile 8000"'])
+                 '"--no-datum"'])
     if print_asp_call==True:
         print(*call)
     else:

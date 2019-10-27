@@ -98,4 +98,8 @@ def batch_rename_files(source_file_path,
 
             if source_file_name != new_file:
                 shutil.copy2(source_file_name,new_file)
-            
+
+def retrieve_match(pattern, file_list):
+    for i in file_list:
+        if pattern in i:
+            return i
