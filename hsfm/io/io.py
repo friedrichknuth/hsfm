@@ -42,11 +42,13 @@ def rename_file(source_file_name,
                 pattern=None,
                 new_pattern=None,
                 destination_file_path=None,
-                destination_file_extension=None):
+                destination_file_extension=None,
+                write=False):
     
     file_path, file_name, file_extention = split_file(source_file_name)
     
-    if pattern:
+    if not isinstance(pattern, type(None)):
+        
         if new_pattern==None:
             new_pattern=''
         
@@ -60,7 +62,11 @@ def rename_file(source_file_name,
         file_extention = destination_file_extension
             
     destination_file_name = os.path.join(file_path, file_name+file_extention)
-    return destination_file_name
+    
+    if write==True:
+        shutil.copy2(source_file_name,destination_file_name)
+    else:
+        return destination_file_name
 
 def batch_rename_files(source_file_path,
                        file_extension=None,
@@ -69,6 +75,8 @@ def batch_rename_files(source_file_path,
                        new_pattern=None,
                        destination_file_path=None,
                        destination_file_extension=None):
+    
+    create_dir(destination_file_path)
     
     var_list = [file_extension, 
                 unique_id_pattern, 

@@ -4,6 +4,7 @@ import glob
 import utm
 import shutil
 
+import bare
 import hsfm.io
 import hsfm.core
 import hsfm.utils
@@ -64,7 +65,8 @@ def bundle_adjust_custom(image_files_directory,
                          output_directory_prefix,
                          print_asp_call=False,
                          verbose=False,
-                         overlap_list=False):
+                         overlap_list=False,
+                         qc=False):
     
     input_image_files  = sorted(glob.glob(os.path.join(image_files_directory,'*.tif')))
     input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*.tsai')))
@@ -78,6 +80,7 @@ def bundle_adjust_custom(image_files_directory,
     call.extend(input_image_files)
     call.extend(input_camera_files)   
     call.extend(['--threads', '1',
+                 '--ip-detect-method','1',
                  '--disable-tri-ip-filter',
                  '--force-reuse-match-files',
                  '--skip-rough-homography',
@@ -102,61 +105,28 @@ def bundle_adjust_custom(image_files_directory,
         hsfm.utils.run_command(call, 
                            verbose=verbose, 
                            log_directory=log_directory)
-                           
-    return ba_dir
+        
+        if qc == True:
+            hsfm.io.batch_rename_files(
+                'output_data/ba',
+                file_extension='clean.match',
+                destination_file_path='output_data/match_files/ba/')
+            bare.core.iter_mp_to_csv('output_data/match_files/ba/')
+            hsfm.batch.plot_match_overlap('output_data/match_files/ba/', 
+                                          image_files_directory, 
+                                          output_directory='qc/ba_matches/')
+            print('camera_solve match point qc plots saved in qc/ba_matches/')
+            
+        return ba_dir
 
-def bundle_adjust_custom2(image_files_directory, 
-                         camera_files_directory, 
-                         output_directory_prefix,
-                         print_asp_call=False,
-                         verbose=False,
-                         overlap_list=False):
-    
-    input_image_files  = sorted(glob.glob(os.path.join(image_files_directory,'*.tif')))
-    input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*.tsai')))
-    
-    ba_dir = os.path.split(output_directory_prefix)[0]
-    
-    log_directory = os.path.join(ba_dir,'log')
-    hsfm.io.create_dir(log_directory)
-    
-    call =['bundle_adjust']
-    call.extend(input_image_files)
-    call.extend(input_camera_files)   
-    call.extend(['--threads', '1',
-                 '--disable-tri-ip-filter',
-                 '--force-reuse-match-files',
-                 '--skip-rough-homography',
-                 '-t', 'nadirpinhole',
-                 '--ip-inlier-factor', '1',
-                 '--ip-uniqueness-threshold', '0.9',
-                 '--ip-per-tile','2000',
-                 '--datum', 'wgs84',
-                 '--inline-adjustments',
-                 '--camera-weight', '0.0',
-                 '--num-iterations', '500',
-                 '--num-passes', '3'])
-    if overlap_list:
-                call.extend(['--overlap-list', overlap_list])
-                
-    call.extend(['-o', output_directory_prefix])
-
-    if print_asp_call==True:
-        print(*call)
-    
-    else:
-        hsfm.utils.run_command(call, 
-                           verbose=verbose, 
-                           log_directory=log_directory)
-                           
-    return ba_dir
 
 def parallel_stereo_custom(first_image, 
                            second_image,
                            first_camera,
                            second_camera, 
                            stereo_output_directory_prefix,
-                           print_asp_call=False):
+                           print_asp_call=False,
+                           qc = False):
     
 
     stereo_output_directory = os.path.split(stereo_output_directory_prefix)[0]
@@ -172,7 +142,6 @@ def parallel_stereo_custom(first_image,
            '--ip-inlier-factor', '1',
            '--ip-per-tile','2000',
            '--ip-uniqueness-threshold', '0.9',
-#            '--ip-debug-images',
            '--num-matches-from-disp-triplets','10000']
            
     call.extend([first_image,second_image])
@@ -196,7 +165,7 @@ def dem_mosaic_custom(stereo_output_directories_parent,
     """
     Function to run ASP dem_mosaic.
     """
-    dems = glob.glob(os.path.join(stereo_output_directories_parent,'*','run-DEM.tif'))
+    dems = glob.glob(os.path.join(stereo_output_directories_parent,'*','*-DEM.tif'))
     
     call = ['dem_mosaic']
     call.extend(dems)
@@ -205,13 +174,16 @@ def dem_mosaic_custom(stereo_output_directories_parent,
     if print_asp_call==True:
         print(*call)
         
-    hsfm.utils.run_command(call, verbose=verbose)
+    else:
+        hsfm.utils.run_command(call, verbose=verbose)
 
 def generate_match_points(image_directory,
                           camera_directory,
                           output_directory='output_data/cam_solve',
                           verbose=False,
-                          print_asp_call=False):
+                          print_asp_call=False,
+                          qc=False):
+    
     image_file_list = sorted(glob.glob(os.path.join(image_directory,'*.tif')))
     camera_file_list = sorted(glob.glob(os.path.join(camera_directory,'*.tsai')))
     template_camera = camera_file_list[0]
@@ -222,14 +194,25 @@ def generate_match_points(image_directory,
     call.extend(['--calib-file', 
                  template_camera,
                  '--bundle-adjust-params', 
-                 '"--no-datum"'])
+                 '"--no-datum --ip-per-tile 8000 --ip-detect-method 1"'])
     if print_asp_call==True:
         print(*call)
     else:
         call = ' '.join(call)
         hsfm.utils.run_command2(call, verbose=verbose, log=True)
+        
+        if qc == True:
+            hsfm.io.batch_rename_files(
+                output_directory,
+                file_extension='8.match',
+                destination_file_path='output_data/match_files/cam_solve/')
+            bare.core.iter_mp_to_csv('output_data/match_files/cam_solve/')
+            hsfm.batch.plot_match_overlap('output_data/match_files/cam_solve/', 
+                                          image_directory, 
+                                          output_directory='qc/cam_solve_matches/')
+            print('camera_solve match point qc plots saved in qc/cam_solve_matches/')
     
-    return output_directory
+        return output_directory
 
 
 def point2dem_custom(point_cloud_file_name, 
@@ -253,14 +236,13 @@ def point2dem_custom(point_cloud_file_name,
     if print_asp_call==True:
         print(*call)
         
-    call = ' '.join(call)
+    else:
+        call = ' '.join(call)
+        hsfm.utils.run_command(call, verbose=verbose, shell=True)
 
-    
-    hsfm.utils.run_command(call, verbose=verbose, shell=True)
-    
-    file_path, file_name, file_extension = hsfm.io.split_file(point_cloud_file_name)
-    dem_file_name = os.path.join(file_path,file_name+'-DEM'+file_extension)
-    return dem_file_name
+        file_path, file_name, file_extension = hsfm.io.split_file(point_cloud_file_name)
+        dem_file_name = os.path.join(file_path,file_name+'-DEM'+file_extension)
+        return dem_file_name
     
     
 def pc_align_custom(input_dem_file_name,
@@ -269,7 +251,7 @@ def pc_align_custom(input_dem_file_name,
                     verbose=False,
                     print_asp_call=False):
     """
-    Function to run ASP pc_align.                
+    Function to run ASP pc_align. First does rigid body point-to-plane, followed by similarity-point-to-point to adjust scaling issues.                 
     """
     
 #     log_directory = os.path.join(output_directory,'log')
@@ -280,21 +262,39 @@ def pc_align_custom(input_dem_file_name,
             '--max-displacement', '-1',
             reference_dem_file_name,
             input_dem_file_name,
-            '--alignment-method', 'similarity-point-to-point',
-            '-o', output_directory_prefix
-    ]
-    
+            '--alignment-method', 'point-to-plane',
+            '-o', output_directory_prefix]
+
+
     if print_asp_call==True:
         print(*call)
 
-    hsfm.utils.run_command(call, 
+    else:
+        hsfm.utils.run_command(call, 
                            log_directory=log_directory, 
                            verbose=verbose)
     
-    output_directory = os.path.split(output_directory_prefix)[0]
-    point_cloud_file_name = os.path.join(output_directory,'run-trans_source.tif')
-    dem_file_name = point2dem_custom(point_cloud_file_name)
-    return dem_file_name
+        output_directory = os.path.split(output_directory_prefix)[0]
+        point_cloud_file_name = os.path.join(output_directory,'run-trans_source.tif')
+        dem_file_name = point2dem_custom(point_cloud_file_name)
+        
+        
+        call = ['pc_align',
+                '--save-transformed-source-points',
+                '--max-displacement', '-1',
+                reference_dem_file_name,
+                dem_file_name,
+                '--alignment-method', 'similarity-point-to-point',
+                '-o', output_directory_prefix+'-run']
+    
+        hsfm.utils.run_command(call, 
+                           log_directory=log_directory, 
+                           verbose=verbose)
+    
+        point_cloud_file_name = os.path.join(output_directory,'run-run-trans_source.tif')
+        dem_file_name = point2dem_custom(point_cloud_file_name)
+        
+        return dem_file_name
 
 
 
@@ -315,7 +315,8 @@ def iter_stereo_pairs(stereo_input_directory,
                       stereo_output_directory_prefix,
                       image_extension = '.tif',
                       camera_extension = '.tsai',
-                      print_asp_call=False):
+                      print_asp_call=False,
+                      qc=False):
     """
     Function to run pairwise bundle_adjust based on match files.
     """
@@ -340,8 +341,16 @@ def iter_stereo_pairs(stereo_input_directory,
                 camera_b = camera_file
             
         output_folder = match_file_a + '__' + match_file_b
+        
+        output_dir = os.path.join(stereo_output_directory_prefix,output_folder)
+        hsfm.io.create_dir(output_dir)
+        
+        hsfm.io.rename_file(match_file, 
+                            pattern='-clean',
+                            destination_file_path=output_dir,
+                            write=True)
             
-        output_directory = os.path.join(stereo_output_directory_prefix,output_folder+'/run')
+        output_directory = os.path.join(stereo_output_directory_prefix,output_folder+'/asp_ba_out')
         
 #         print('Running parallel stereo on', image_a, 'and', image_b)
     
@@ -350,7 +359,8 @@ def iter_stereo_pairs(stereo_input_directory,
                                                          camera_a,
                                                          camera_b,
                                                          output_directory,
-                                                         print_asp_call=print_asp_call)
+                                                         print_asp_call=print_asp_call,
+                                                         qc = qc)
                                
         try:
             point_cloud_file_name = glob.glob(os.path.join(stereo_output_directory,'*PC.tif'))[0]
@@ -358,5 +368,16 @@ def iter_stereo_pairs(stereo_input_directory,
         except:
             print('Unable to generate point cloud from', match_file_a,'and', match_file_b)
                                
-                                        
+    if qc == True:
+        stereo_output_directory = os.path.split(stereo_output_directory_prefix)[0]
+        hsfm.io.batch_rename_files(
+            stereo_output_directory,
+            file_extension='.match',
+            unique_id_pattern='asp_ba_out-disp',
+            destination_file_path='output_data/match_files/stereo/')
+        bare.core.iter_mp_to_csv('output_data/match_files/stereo/')
+        hsfm.batch.plot_match_overlap('output_data/match_files/stereo/', 
+                                      image_files_directory, 
+                                      output_directory='qc/stereo_matches/')
+        print('camera_solve match point qc plots saved in qc/stereo_matches/')                                     
                                         

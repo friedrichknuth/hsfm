@@ -41,17 +41,21 @@ def get_metric(key, df, dim_x, dim_y):
     right_image_percent_covered = get_coverage(df.xs(key)['x2'],df.xs(key)['y2'], image_area)
     return left_image_percent_covered, right_image_percent_covered
 
-def calc_matchpoint_coverage(match_files_list):
+def match_files_to_combined_df(match_files_list):
     keys = []
-    for i,v in enumerate(match_files_list):
-        match_img1_name, match_img2_name = parse_base_names_from_match_file(v)
-        keys.append(match_img1_name+'__'+match_img2_name)
-
     df_list = []
-    for fn in match_files_list:
-        df = pd.read_csv(fn,sep=' ')
-        df_list.append(df)
+    for i,v in enumerate(match_files_list):
+        df = pd.read_csv(v,sep=' ')
+        if len(df) != 0:
+            df_list.append(df)
+            match_img1_name, match_img2_name = hsfm.qc.parse_base_names_from_match_file(v)
+            keys.append(match_img1_name+'__'+match_img2_name)
     df_combined = pd.concat(df_list,keys=keys)
+    
+    return df_combined, keys
+    
+def calc_matchpoint_coverage(match_files_list):
+    df_combined, keys = match_files_to_combined_df(match_files_list)
     
     dim_x = 1400
     dim_y = 1400

@@ -258,18 +258,16 @@ def preprocess_images(template_directory,
     
     return output_directory
 
-def plot_match_overlap(input_folder, output_directory='qc/matches/'):
+def plot_match_overlap(match_files_directory, images_directory, output_directory='qc/matches/'):
     
-    out = os.path.split(input_folder)[-1]
+    out = os.path.split(match_files_directory)[-1]
     output_directory = os.path.join(output_directory,out)
     hsfm.io.create_dir(output_directory)
     
-    matches=sorted(glob.glob(os.path.join(input_folder,'*.csv')))
-    _, df_combined, _ = hsfm.qc.calc_matchpoint_coverage(matches)
-    keys = []
-    for i,v in enumerate(matches):
-        match_img1_name, match_img2_name = hsfm.qc.parse_base_names_from_match_file(v)
-        keys.append(match_img1_name+'__'+match_img2_name)
+    matches=sorted(glob.glob(os.path.join(match_files_directory,'*.csv')))
+    images=sorted(glob.glob(os.path.join(images_directory,'*.tif')))
+    
+    df_combined, keys = hsfm.qc.match_files_to_combined_df(matches)
         
     fig_size_y = len(matches)*3
     fig, ax = plt.subplots(len(keys),2,figsize=(10,fig_size_y),sharex='col',sharey=True)
@@ -278,8 +276,20 @@ def plot_match_overlap(input_folder, output_directory='qc/matches/'):
         left_title = v.split('__')[0]
         right_title = v.split('__')[1]
         
-        ax[i][0].scatter(df_combined.xs(keys[i])['x1'], df_combined.xs(keys[i])['y1'],marker='.')
-        ax[i][1].scatter(df_combined.xs(keys[i])['x2'], df_combined.xs(keys[i])['y2'],marker='.')
+        ax[i][0].scatter(df_combined.xs(keys[i])['x1'], df_combined.xs(keys[i])['y1'],color='r',marker='.')
+        ax[i][1].scatter(df_combined.xs(keys[i])['x2'], df_combined.xs(keys[i])['y2'],color='r',marker='.')
+        
+        left_image = hsfm.io.retrieve_match(left_title, images)
+        left_image = gdal.Open(left_image)
+        left_image = left_image.ReadAsArray()
+        clim = np.percentile(left_image, (2,98))
+        ax[i][0].imshow(left_image, clim=clim, cmap='gray')
+        
+        right_image = hsfm.io.retrieve_match(right_title, images)
+        right_image = gdal.Open(right_image)
+        right_image = right_image.ReadAsArray()
+        clim = np.percentile(right_image, (2,98))
+        ax[i][1].imshow(right_image, clim=clim, cmap='gray')
         
         ax[i][0].set_title(left_title)
         ax[i][1].set_title(right_title)
