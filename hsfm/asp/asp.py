@@ -202,15 +202,23 @@ def generate_match_points(image_directory,
         hsfm.utils.run_command2(call, verbose=verbose, log=True)
         
         if qc == True:
-            hsfm.io.batch_rename_files(
-                output_directory,
-                file_extension='8.match',
-                destination_file_path='output_data/match_files/cam_solve/')
-            bare.core.iter_mp_to_csv('output_data/match_files/cam_solve/')
-            hsfm.batch.plot_match_overlap('output_data/match_files/cam_solve/', 
-                                          image_directory, 
-                                          output_directory='qc/cam_solve_matches/')
-            print('camera_solve match point qc plots saved in qc/cam_solve_matches/')
+            try:
+                hsfm.io.batch_rename_files(
+                    output_directory,
+                    file_extension='.match',
+                    destination_file_path='output_data/match_files/cam_solve/')
+                clean_match_file_list = sorted(glob.glob(os.path.join('output_data/match_files/cam_solve/',
+                                                                      '*clean.match')))
+                for match_file in clean_match_file_list:
+                    os.remove(match_file)
+                bare.core.iter_mp_to_csv('output_data/match_files/cam_solve/')
+                hsfm.batch.plot_match_overlap('output_data/match_files/cam_solve/', 
+                                              image_directory, 
+                                              output_directory='qc/cam_solve_matches/')
+                print('camera_solve match point qc plots saved in qc/cam_solve_matches/')
+            except:
+                print('unable to generate match points with camera_solve')
+            
     
         return output_directory
 

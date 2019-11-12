@@ -119,18 +119,6 @@ def wgs_lon_lat_to_epsg_code(lon, lat):
         epsg_code = '327' + utm_band
     return epsg_code
     
-# def wgs_lon_lat_to_utm_coordinates(lon,lat):
-#     """
-#     Function to convert WGS84 geographic coordinates to UTM.
-#     """
-#     # TODO
-#     # - Figure out why exactly results differ from using bare.geospatial.utm.from_latlon(lat, lon)
-#     epsg_code = wgs_lon_lat_to_epsg_code(lon, lat)
-#     utm_code = wgs_lon_lat_to_epsg_code(lon, lat)
-#     crs_wgs = pyproj.Proj(init='epsg:4326')
-#     crs_utm = pyproj.Proj(init='epsg:{0}'.format(utm_code))
-#     x, y = pyproj.transform(crs_wgs, crs_utm, lon, lat)
-#     return x, y
     
 def distance_two_point_on_earth(point1_lon, point1_lat, point2_lon, point2_lat):
     """
