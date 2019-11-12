@@ -218,6 +218,7 @@ def generate_match_points(image_directory,
                 print('camera_solve match point qc plots saved in qc/cam_solve_matches/')
             except:
                 print('unable to generate match points with camera_solve')
+                pass
             
     
         return output_directory
@@ -298,7 +299,7 @@ def pc_align_custom(input_dem_file_name,
         hsfm.utils.run_command(call, 
                            log_directory=log_directory, 
                            verbose=verbose)
-    
+        
         point_cloud_file_name = os.path.join(output_directory,'run-run-trans_source.tif')
         dem_file_name = point2dem_custom(point_cloud_file_name)
         

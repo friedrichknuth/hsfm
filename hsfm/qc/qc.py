@@ -94,26 +94,35 @@ def id_reruns(cam_solve_match_files, stereo_match_files):
 
 def eval_stereo_matches(stereo_output_directory, 
                         output_directory = 'output_data/poor_matches'):
-    
     hsfm.io.create_dir(output_directory)
     intersection_errors = sorted(glob.glob(os.path.join(stereo_output_directory,'*','*IntersectionErr.tif')))
+    
+    hsfm.io.create_dir('qc/match_stats')
+    good_matches_stats = open('qc/match_stats/good_matches_stats.txt', 'a')
+    poor_matches_stats = open('qc/match_stats/poor_matches_stats.txt', 'a')
+    
     for fn in intersection_errors:
-        
         image_pair = fn.split('/')[-2]
-        
         img_ds = gdal.Open(fn)
         arr = img_ds.ReadAsArray()
         arr[arr < -1000] = np.nan
-        print(np.nanpercentile(arr,90))
+        print(image_pair, np.round(np.nanpercentile(arr,90),2))
         
         if np.nanpercentile(arr,90) > 1:
             src = os.path.join(stereo_output_directory,image_pair)
             dst = os.path.join(output_directory,image_pair)
-            
             print('Moving stereo results for '+image_pair+ ' to ' +dst)
-            
             shutil.move(src, dst)
+            poor_matches_stats.write(' '.join([image_pair,str(np.round(np.nanpercentile(arr,90),2)),'\n']))
             
+        else:
+            good_matches_stats.write(' '.join([image_pair,str(np.round(np.nanpercentile(arr,90),2)),'\n']))
+    
+    good_matches_stats.close()
+    poor_matches_stats.close()
+    
+    print('Intersection errors reported in qc/match_stats/stats.txt')
+    
 def compute_time_delta(start_time,prompt='Compute time:'):
     time_delta = datetime.now() - start_time
     total_seconds = int(time_delta.total_seconds())
