@@ -262,7 +262,7 @@ def pc_align_custom(input_dem_file_name,
     """
     Function to run ASP pc_align. First does rigid body point-to-plane, followed by similarity-point-to-point to adjust scaling issues.                 
     """
-    
+    # TODO generalize for any kind of prefix, not just "run"
 #     log_directory = os.path.join(output_directory,'log')
     log_directory = None
     
@@ -284,15 +284,17 @@ def pc_align_custom(input_dem_file_name,
                            verbose=verbose)
     
         output_directory = os.path.split(output_directory_prefix)[0]
-        point_cloud_file_name = os.path.join(output_directory,'run-trans_source.tif')
+        point_cloud_file_name = output_directory_prefix+'-trans_source.tif'
         dem_file_name = point2dem_custom(point_cloud_file_name)
+        transform = output_directory_prefix+'-transform.txt'
         
         
         call = ['pc_align',
                 '--save-transformed-source-points',
                 '--max-displacement', '-1',
+                '--initial-transform', transform,
                 reference_dem_file_name,
-                dem_file_name,
+                input_dem_file_name,
                 '--alignment-method', 'similarity-point-to-point',
                 '-o', output_directory_prefix+'-run']
     
