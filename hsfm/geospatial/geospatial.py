@@ -102,7 +102,7 @@ def extract_gpd_geometry(point_gdf):
 
     point_gdf['x'] = x
     point_gdf['y'] = y
-    if len(point_gdf['geometry'].iloc[1].coords[:][0]) == 3:
+    if len(point_gdf['geometry'].iloc[0].coords[:][0]) == 3:
         point_gdf['z'] = z
     return point_gdf
         
