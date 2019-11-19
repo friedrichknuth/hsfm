@@ -54,12 +54,15 @@ def match_files_to_combined_df(match_files_list):
     
     return df_combined, keys
     
-def calc_matchpoint_coverage(match_files_list):
+def calc_matchpoint_coverage(match_files_list,image_directory):
+    
+    image_files_list=sorted(glob.glob(os.path.join(image_directory,'*.tif')))
+    img_ds = gdal.Open(image_files_list[0])
+    dim_x = img_ds.RasterXSize
+    dim_y = img_ds.RasterYSize
+    
     df_combined, keys = match_files_to_combined_df(match_files_list)
     
-    dim_x = 1400
-    dim_y = 1400
-
     percent_left = []
     percent_right = []
     for i,v in enumerate(keys):
@@ -75,20 +78,20 @@ def calc_matchpoint_coverage(match_files_list):
     df = pd.DataFrame.from_dict(mydict)
     return df, df_combined, keys
 
-def compare_left_right(match_files):
-    df, df_combined, keys = calc_matchpoint_coverage(match_files)
+def compare_left_right(match_files_list,image_directory):
+    df, df_combined, keys = calc_matchpoint_coverage(match_files_list,image_directory)
     df['diff'] = abs(df['left_percent'] - df['right_percent'])
     return df
 
-def compare_matches(df1,df2):
+def compare_ba_to_stereo_matches(df1,df2):
     df2['left_df1_diff'] = abs(df1['left_percent'] - df2['left_percent'])
     df2['right_df1_diff'] = abs(df1['right_percent'] - df2['right_percent'])
     return df2
 
-def id_reruns(cam_solve_match_files, stereo_match_files):
-    df1 = compare_left_right(cam_solve_match_files)
-    df2 = compare_left_right(stereo_match_files)
-    df = compare_matches(df1,df2)
+def id_reruns(cam_solve_match_files, stereo_match_files,image_directory):
+    df1 = compare_left_right(cam_solve_match_files,image_directory)
+    df2 = compare_left_right(stereo_match_files,image_directory)
+    df = compare_ba_to_stereo_matches(df1,df2)
     keys = df[(df['left_df1_diff']>0.1) | (df['right_df1_diff']>0.1)]['keys'].values
     return list(keys)
 
