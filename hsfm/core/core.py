@@ -70,7 +70,7 @@ def create_overlap_list(gcp_directory,
     return filename_out
 
 
-def create_overlap_list_from_match_files(camera_solve_directory,
+def create_overlap_list_from_match_files(match_files_directory,
                                          image_directory,
                                          suffix='.match',
                                          output_directory='output_data/ba'):
@@ -82,7 +82,7 @@ def create_overlap_list_from_match_files(camera_solve_directory,
     if os.path.exists(filename_out):
         os.remove(filename_out)
     
-    match_files = sorted(glob.glob(os.path.join(camera_solve_directory, '*' + suffix)))
+    match_files = sorted(glob.glob(os.path.join(match_files_directory, '*' + suffix)))
     
     match_files
     pairs = []
