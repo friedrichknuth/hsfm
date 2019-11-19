@@ -336,7 +336,7 @@ def pre_select_target_images(input_csv, prefix, image_suffix_list,output_file_na
     df = pd.read_csv(input_csv)
     df = df[df['fileName'].str.contains(prefix)]
     image_suffix_list = list(map(str, image_suffix_list))
-    image_suffix_list = [i.zfill(2) if len(i) == 1 else i for i in image_suffix_list]
+    image_suffix_list = [x.rjust(3,'0') for x in image_suffix_list]
     df = df[df['fileName'].str.endswith(tuple(image_suffix_list), na=False)]
     if output_file_name:
         df.to_csv(output_file_name,index=False)
