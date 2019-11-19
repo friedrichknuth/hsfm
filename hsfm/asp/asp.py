@@ -68,6 +68,8 @@ def bundle_adjust_custom(image_files_directory,
                          overlap_list=False,
                          qc=False):
     
+    # TODO
+    # - make ba arguments optional
     input_image_files  = sorted(glob.glob(os.path.join(image_files_directory,'*.tif')))
     input_camera_files  = sorted(glob.glob(os.path.join(camera_files_directory,'*.tsai')))
     
@@ -112,9 +114,16 @@ def bundle_adjust_custom(image_files_directory,
                 file_extension='clean.match',
                 destination_file_path='output_data/match_files/ba/')
             bare.core.iter_mp_to_csv('output_data/match_files/ba/')
-            hsfm.batch.plot_match_overlap('output_data/match_files/ba/', 
+            try:
+                hsfm.batch.plot_match_overlap('output_data/match_files/ba/', 
                                           image_files_directory, 
                                           output_directory='qc/ba_matches/')
+                
+            except:
+                bare.batch.plot_mp_over_images('output_data/match_files/ba/',
+                                               image_directory,
+                                               output_directory='qc/ba_matches/')
+                
             print('camera_solve match point qc plots saved in qc/ba_matches/')
             
         return ba_dir
@@ -183,7 +192,8 @@ def generate_match_points(image_directory,
                           verbose=False,
                           print_asp_call=False,
                           qc=False):
-    
+    # TODO
+    # - make ba arguments optional 
     image_file_list = sorted(glob.glob(os.path.join(image_directory,'*.tif')))
     camera_file_list = sorted(glob.glob(os.path.join(camera_directory,'*.tsai')))
     template_camera = camera_file_list[0]
@@ -194,7 +204,7 @@ def generate_match_points(image_directory,
     call.extend(['--calib-file', 
                  template_camera,
                  '--bundle-adjust-params', 
-                 '"--no-datum --ip-per-tile 8000 --ip-detect-method 1"'])
+                 '"--force-reuse-match-files --no-datum --ip-per-tile 16000 --ip-detect-method 1 --ip-uniqueness-threshold 0.9 --disable-tri-ip-filter --skip-rough-homography --ip-inlier-factor 1"'])
     if print_asp_call==True:
         print(*call)
     else:
@@ -212,10 +222,16 @@ def generate_match_points(image_directory,
                 for match_file in clean_match_file_list:
                     os.remove(match_file)
                 bare.core.iter_mp_to_csv('output_data/match_files/cam_solve/')
-                hsfm.batch.plot_match_overlap('output_data/match_files/cam_solve/', 
+                try:
+                    hsfm.batch.plot_match_overlap('output_data/match_files/cam_solve/', 
                                               image_directory, 
                                               output_directory='qc/cam_solve_matches/')
+                except:
+                    bare.batch.plot_mp_over_images('output_data/match_files/cam_solve/',
+                               image_directory,
+                               output_directory='qc/cam_solve_matches/')
                 print('camera_solve match point qc plots saved in qc/cam_solve_matches/')
+                
             except:
                 print('unable to generate match points with camera_solve')
                 pass
@@ -387,8 +403,14 @@ def iter_stereo_pairs(stereo_input_directory,
             unique_id_pattern='asp_ba_out-disp',
             destination_file_path='output_data/match_files/stereo/')
         bare.core.iter_mp_to_csv('output_data/match_files/stereo/')
-        hsfm.batch.plot_match_overlap('output_data/match_files/stereo/', 
+        try:
+            hsfm.batch.plot_match_overlap('output_data/match_files/stereo/', 
                                       image_files_directory, 
                                       output_directory='qc/stereo_matches/')
+        except:
+            bare.batch.plot_mp_over_images('output_data/match_files/stereo/',
+                                           image_directory,
+                                           output_directory='qc/stereo_matches/')
+                
         print('camera_solve match point qc plots saved in qc/stereo_matches/')                                     
                                         
