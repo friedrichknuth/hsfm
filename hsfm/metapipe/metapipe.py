@@ -6,15 +6,13 @@ import glob
 Agisoft Metashape processing pipeline.
 """
 
+# TODO add logging output
+
 ### SETUP
-# TODO Authentication should be handle in a class structure, 
-# with dialog + skip option upon import of HSFM library.
-
+# TODO import of hsfm.metapipe should prompt for licence if not found.
 METAHSAPE_LICENCE_FILE = '/opt/metashape-pro/uw_agisoft.lic'
-
 metashape_licence_file_symlink = os.path.join(os.getcwd(),
                                               os.path.basename(METAHSAPE_LICENCE_FILE))
-
 if not os.path.exists(metashape_licence_file_symlink):
     os.symlink(metashape_licence_file,
                metashape_licence_file_symlink)
