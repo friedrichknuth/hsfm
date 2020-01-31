@@ -8,3 +8,4 @@ import hsfm.asp
 import hsfm.utils
 import hsfm.plot
 import hsfm.qc
+import hsfm.metapipe
