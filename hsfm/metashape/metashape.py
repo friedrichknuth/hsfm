@@ -10,25 +10,29 @@ Agisoft Metashape processing pipeline.
 
 ### SETUP
 # TODO import of hsfm.metapipe should prompt for licence if not found.
-METAHSAPE_LICENCE_FILE = '/opt/metashape-pro/uw_agisoft.lic'
-metashape_licence_file_symlink = os.path.join(os.getcwd(),
-                                              os.path.basename(METAHSAPE_LICENCE_FILE))
-if not os.path.exists(metashape_licence_file_symlink):
-    os.symlink(metashape_licence_file,
-               metashape_licence_file_symlink)
 
+def authentication():
+    METAHSAPE_LICENCE_FILE = '/opt/metashape-pro/uw_agisoft.lic'
+    metashape_licence_file_symlink = os.path.join(os.getcwd(),
+                                                  os.path.basename(METAHSAPE_LICENCE_FILE))
+    if not os.path.exists(metashape_licence_file_symlink):
+        os.symlink(METAHSAPE_LICENCE_FILE,
+                   metashape_licence_file_symlink)
+
+
+authentication()
 import Metashape
 
 
 
-def images2las(project_name            = 'study_site_name',
-               image_folder            = 'path/to/images/',
-               image_metadata_file     = 'path/to/image/metadata_file',
-               reference_dem_file      = 'path/to/reference_dem_file',
-               output_path             = './metashape/',
-               crs                     = 'EPSG:4326',
-               image_matching_accuracy = 8,
-               densecloud_quality      = 8,
+def images2las(project_name,
+               images_path,
+               images_metadata_file,
+               reference_dem_file,
+               output_path,
+               crs                     = 'EPSG::4326',
+               image_matching_accuracy = 1,
+               densecloud_quality      = 1,
                keypoint_limit          = 40000,
                tiepoint_limit          = 4000):
 
@@ -53,10 +57,10 @@ def images2las(project_name            = 'study_site_name',
     else:
         chunk = doc.addChunk()
 
-    images = glob.glob(os.path.join(image_folder,'*'))
+    images = glob.glob(os.path.join(images_path,'*'))
     chunk.addPhotos(images)
 
-    chunk.importReference(image_metadata_file,
+    chunk.importReference(images_metadata_file,
                           columns="nxyzXYZabcABC", # from metashape py api docs
                           delimiter=',',
                           format=Metashape.ReferenceFormatCSV)
@@ -82,24 +86,28 @@ def images2las(project_name            = 'study_site_name',
     chunk.buildDenseCloud()
     doc.save()
 
-    chunk.exportPoints(path= output_path + project_name + ".las",
+    output_file = output_path + project_name + ".las"
+
+    chunk.exportPoints(path=output_file,
                        format=Metashape.PointsFormatLAS, crs = chunk.crs)
 
-    
-def las2dem(project_name = 'study_site_name',
-            output_path  = './metashape/'):
-    
+    return output_file
+
+
+def las2dem(project_name,
+            output_path):
+
     doc = Metashape.Document()
     doc.open(output_path + project_name + ".psx")
     doc.read_only = False
-    
+
     chunk = doc.chunk
-    
+
     chunk.buildDem(source_data=Metashape.DenseCloudData, 
                    interpolation=Metashape.DisabledInterpolation)
-    
+
     doc.save()
-    
+
     chunk.exportRaster(output_path + project_name + "_DEM.tif", 
                        source_data= Metashape.ElevationData,
                        image_format=Metashape.ImageFormatTIFF, 
@@ -107,21 +115,20 @@ def las2dem(project_name = 'study_site_name',
                        nodata_value=-32767, 
                        save_kml=False, 
                        save_world=True)
-    
-def images2ortho(project_name = 'study_site_name',
-                 output_path  = './metashape/'):
-    
+
+def images2ortho(project_name,
+                 output_path):
+
     doc = Metashape.Document()
     doc.open(output_path + project_name + ".psx")
     doc.read_only = False
-    
+
     chunk = doc.chunk
-    
+
     chunk.buildOrthomosaic(surface_data=Metashape.ElevationData)
-    
+
     doc.save()
-    
+
     chunk.exportRaster(output_path + project_name + "_orthomosaic.tif",
                        source_data= Metashape.OrthomosaicData)
 
-    
