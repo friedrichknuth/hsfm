@@ -96,13 +96,12 @@ def id_reruns(cam_solve_match_files, stereo_match_files,image_directory):
     return list(keys)
 
 def eval_stereo_matches(stereo_output_directory, 
-                        output_directory = 'output_data/poor_matches'):
-    hsfm.io.create_dir(output_directory)
+                        output_directory):
+    
     intersection_errors = sorted(glob.glob(os.path.join(stereo_output_directory,'*','*IntersectionErr.tif')))
     
-    hsfm.io.create_dir('qc/match_stats')
-    good_matches_stats = open('qc/match_stats/good_matches_stats.txt', 'a')
-    poor_matches_stats = open('qc/match_stats/poor_matches_stats.txt', 'a')
+    good_matches_stats = open(os.path.join(output_directory, 'good_matches_stats.txt'), 'a')
+    poor_matches_stats = open(os.path.join(output_directory, 'poor_matches_stats.txt'), 'a')
     
     for fn in intersection_errors:
         image_pair = fn.split('/')[-2]
@@ -124,7 +123,7 @@ def eval_stereo_matches(stereo_output_directory,
     good_matches_stats.close()
     poor_matches_stats.close()
     
-    print('Intersection errors reported in qc/match_stats/stats.txt')
+    print('Intersection errors reported in', output_directory)
     
 def compute_time_delta(start_time,prompt='Compute time:'):
     time_delta = datetime.now() - start_time
