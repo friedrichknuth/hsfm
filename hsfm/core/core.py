@@ -38,7 +38,9 @@ def get_gcp_polygon(fn):
 
 def create_overlap_list(gcp_directory,
                         image_directory,
-                        output_directory='output_data/ba'):
+                        output_directory):
+    
+    output_directory = os.path.join(output_directory, 'ba')
     
     hsfm.io.create_dir(output_directory)
     
@@ -72,8 +74,10 @@ def create_overlap_list(gcp_directory,
 
 def create_overlap_list_from_match_files(match_files_directory,
                                          image_directory,
-                                         suffix='.match',
-                                         output_directory='output_data/ba'):
+                                         output_directory,
+                                         suffix='.match'):
+    
+    output_directory = os.path.join(output_directory, 'ba')
     
     hsfm.io.create_dir(output_directory)
     
@@ -87,7 +91,9 @@ def create_overlap_list_from_match_files(match_files_directory,
     match_files
     pairs = []
     for match_file in match_files:
-        img1_fn, img2_fn = bare.core.parse_image_names_from_match_file_name(match_file, image_directory, 'tif')
+        img1_fn, img2_fn = bare.core.parse_image_names_from_match_file_name(match_file, 
+                                                                            image_directory, 
+                                                                            'tif')
         pairs.append((img1_fn, img2_fn))
         
     # creates full set from .match and clean.match pairs
@@ -95,6 +101,7 @@ def create_overlap_list_from_match_files(match_files_directory,
     for i in pairs:
         with open(filename_out, 'a') as out:
             out.write(i[0] + ' '+ i[1]+'\n')
+            
     return filename_out
 
 def evaluate_image_frame(grayscale_unit8_image_array,frame_size=0.07):
@@ -171,8 +178,8 @@ def prep_and_generate_gcp(image_file_name,
                           reference_dem,
                           focal_length_mm,
                           heading,
-                          pixel_pitch_mm=0.02,
-                          output_directory='output_data/gcp/'):
+                          output_directory,
+                          pixel_pitch_mm=0.02):
     
     # Get the image base name to name the output camera
     image_base_name = os.path.splitext(os.path.split(image_file_name)[-1])[0]
@@ -190,13 +197,13 @@ def prep_and_generate_gcp(image_file_name,
                                                                                image_width_px,
                                                                                image_height_px,
                                                                                heading)
-    gcp_file = generate_gcp(corner_lons,
-                            corner_lats,
-                            corner_elevations,
-                            image_file_name,
-                            image_width_px,
-                            image_height_px,
-                            output_directory=output_directory)
+    output_directory = generate_gcp(corner_lons,
+                                    corner_lats,
+                                    corner_elevations,
+                                    image_file_name,
+                                    image_width_px,
+                                    image_height_px,
+                                    output_directory=output_directory)
     
     return output_directory
                                       
@@ -207,7 +214,10 @@ def generate_gcp(corner_lons,
                  image_file_name,
                  image_width_px,
                  image_height_px,
-                 output_directory='output_data/gcp/'):
+                 output_directory):
+    
+    output_directory = os.path.join(output_directory, 'gcp')
+    
     # TODO
     # - add seperate rescale function based on image subsample factor
     
@@ -231,19 +241,22 @@ def generate_gcp(corner_lons,
     out = os.path.join(output_directory,file_name+'.gcp')
     
     df.to_csv(out, sep=' ', header=False)
+    
+    return output_directory
 
 def initialize_cameras(camera_positions_file_name, 
                        reference_dem_file_name,
                        focal_length_px,
                        principal_point_px,
-                       output_directory = 'output_data/intial_cameras',
+                       output_directory,
                        subset=None,
                        altitude=1500):
+    
     # TODO
     # - integrate elevation interpolation function to handle no data values
     # - get raster crs and convert points to crs of input raster before interpolation
     
-    output_directory = 'output_data/intial_cameras'
+    output_directory = os.path.join(output_directory, 'intial_cameras')
     hsfm.io.create_dir(output_directory)
     
     df = hsfm.core.select_images_for_download(camera_positions_file_name)
