@@ -20,17 +20,67 @@ Inputs are general a folder contaning multiple files or a csv listing
 multiple urls.
 """
 
-def rescale_images(image_directory, 
+def prepare_ba_run(input_directory,
+                   output_directory,
+                   scale):
+    
+    
+    camera_solve_directory = os.path.join(output_directory, 'camera_solve')
+    bundle_adjust_directory = os.path.join(output_directory,'ba')
+    images_directory = os.path.join(output_directory,'images'+'_sub'+str(scale))
+    gcp_directory = os.path.join(input_directory,'gcp')
+
+    hsfm.io.batch_rename_files(
+            camera_solve_directory,
+            file_extension=str(scale)+'.match',
+            destination_file_path=bundle_adjust_directory)
+
+    overlap_list = hsfm.core.create_overlap_list_from_match_files(camera_solve_directory,
+                                                                  images_directory,
+                                                                  output_directory)
+
+    if not os.path.exists(os.path.join(bundle_adjust_directory,'overlaplist.txt')):
+        gcp_directory = os.path.join(input_directory,'gcp')
+        overlap_list = hsfm.core.create_overlap_list(gcp_directory,
+                                                     images_directory,
+                                                     output_directory=output_directory)
+        
+    return os.path.join(bundle_adjust_directory,'overlaplist.txt')
+    
+    
+    
+def prepare_stereo_run(output_directory):
+    
+    bundle_adjust_directory = os.path.join(output_directory, 'ba')
+    stereo_input_directory = os.path.join(output_directory, 'stereo/stereo_inputs')
+    stereo_output_directory = os.path.join(output_directory, 'stereo/stereo_run')
+
+    hsfm.io.batch_rename_files(
+        bundle_adjust_directory,
+        file_extension='tsai',
+        destination_file_path=stereo_input_directory)
+
+    hsfm.io.batch_rename_files(
+        bundle_adjust_directory,
+        file_extension='clean.match',
+        destination_file_path=stereo_input_directory)
+
+
+
+def rescale_images(image_directory,
+                   output_directory,
                    extension='.tif',
                    scale=8,
                    verbose=False):
+    
+    output_directory = os.path.join(output_directory, 'images'+'_sub'+str(scale))
+    hsfm.io.create_dir(output_directory)
     
     image_files  = sorted(glob.glob(os.path.join(image_directory,'*'+ extension)))
     
     for image_file in image_files:
         
         file_path, file_name, file_extension = hsfm.io.split_file(image_file)
-        output_directory = hsfm.io.create_dir(file_path+'_sub'+str(scale))
         output_file = os.path.join(output_directory, 
                                    file_name +'_sub'+str(scale)+file_extension)
         
@@ -43,9 +93,13 @@ def rescale_images(image_directory,
 #     return sorted(glob.glob(os.path.join(output_directory,'*'+ extension)))
 
 def rescale_tsai_cameras(camera_directory,
+                         output_directory,
                          extension='.tsai',
                          scale=8):
-                         
+
+    output_directory = os.path.join(output_directory, 'cameras'+'_sub'+str(scale))
+    hsfm.io.create_dir(output_directory)
+    
     pitch = "pitch = 1"
     new_pitch = "pitch = "+str(scale)
     
@@ -54,7 +108,6 @@ def rescale_tsai_cameras(camera_directory,
     for camera_file in camera_files:
         
         file_path, file_name, file_extension = hsfm.io.split_file(camera_file)
-        output_directory = hsfm.io.create_dir(file_path+'_sub'+str(scale))
         output_file = os.path.join(output_directory, 
                                    file_name +'_sub'+str(scale)+file_extension)
                                    
@@ -69,6 +122,7 @@ def batch_generate_cameras(image_directory,
                            camera_positions_file_name,
                            reference_dem_file_name,
                            focal_length_mm,
+                           output_directory,
                            pixel_pitch_mm=0.02,
                            verbose=False,
                            subset=None,
@@ -111,7 +165,8 @@ def batch_generate_cameras(image_directory,
                                                         camera_lat_lon_center_coordinates,
                                                         reference_dem_file_name,
                                                         focal_length_mm,
-                                                        heading)
+                                                        heading,
+                                                        output_directory)
         
     
         # principal_point_px is needed to initialize the cameras in the next step.
@@ -126,10 +181,13 @@ def batch_generate_cameras(image_directory,
     intial_cameras_directory = hsfm.core.initialize_cameras(camera_positions_file_name, 
                                                             reference_dem_file_name,
                                                             focal_length_px,
-                                                            principal_point_px)
+                                                            principal_point_px,
+                                                            output_directory)
+    
     output_directory = hsfm.asp.generate_ba_cameras(image_directory,
                                                     gcp_directory,
                                                     intial_cameras_directory,
+                                                    output_directory,
                                                     subset=subset) 
     return output_directory
 
