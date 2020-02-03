@@ -25,12 +25,18 @@ hv.extension('bokeh')
 import hsfm.io
 import hsfm.geospatial
 
+
+"""
+Utilities that call other software as subprocesses.
+"""
+
+
 def dem_align_custom(reference_dem,
                      dem_to_be_aligned,
+                     output_directory,
                      mode='nuth',
                      max_offset = 1000,
                      verbose=False,
-                     log_directory='output_data/dem_align_log',
                      print_call=False):
     
     call = ['dem_align.py',reference_dem,
@@ -42,14 +48,14 @@ def dem_align_custom(reference_dem,
     if print_call==True:
         print(*call)
     else:         
-        log_file_name = run_command(call, verbose=verbose, log_directory=log_directory)
+        log_file = run_command(call, verbose=verbose, log_directory=os.path.join(output_directory,'qc/dem_align'))
 
-        with open(log_file_name, 'r') as file:
-            output_plot_file_name = file.read().split()[-3]
-        dem_difference_file_name = glob.glob(os.path.split(output_plot_file_name)[0]+'/*_align_diff.tif')[0]
-        aligned_dem_file_name = glob.glob(os.path.split(output_plot_file_name)[0]+'/*align.tif')[0]
+        with open(log_file, 'r') as file:
+            output_plot_file = file.read().split()[-3]
+        dem_difference_file = glob.glob(os.path.split(output_plot_file)[0]+'/*_align_diff.tif')[0]
+        aligned_dem_file = glob.glob(os.path.split(output_plot_file)[0]+'/*align.tif')[0]
 
-        return dem_difference_file_name , aligned_dem_file_name
+        return dem_difference_file , aligned_dem_file
     
 
 def rescale_geotif(geotif_file_name,
@@ -173,11 +179,39 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
         return utm_vrt_subset_file_name
 
 
-
-
-
-
-
+def clip_reference_dem(dem_file, 
+                       reference_dem_file,
+                       output_file_name = 'reference_dem_clip.tif',
+                       print_call=False,
+                       verbose=False):
+    
+    # TODO check that input DEMs are both in utm
+    
+    rasterio_dataset = rasterio.open(dem_file)
+    bounds = rasterio_dataset.bounds
+    left   = str(bounds[0] - 1000)
+    top    = str(bounds[3] + 1000)
+    right  = str(bounds[2] + 1000)
+    bottom = str(bounds[1] - 1000)
+    center = str(rasterio_dataset.xy(rasterio_dataset.height // 2, 
+                                     rasterio_dataset.width // 2))
+    
+    call =['gdal_translate',
+          '-projwin',
+           left,
+           top,
+           right,
+           bottom,
+           reference_dem_file,
+           output_file_name]
+    
+    if print_call==True:
+        print(*call)
+        
+    else:
+        call = ' '.join(call)
+        hsfm.utils.run_command(call, verbose=verbose, shell=True)
+        return output_file_name
 
 
 '''
