@@ -126,7 +126,8 @@ def batch_generate_cameras(image_directory,
                            pixel_pitch_mm=0.02,
                            verbose=False,
                            subset=None,
-                           manual_heading_selection=False):
+                           manual_heading_selection=False,
+                           reverse_order=False):
                            
     """
     Function to generate cameras in batch.
@@ -147,10 +148,11 @@ def batch_generate_cameras(image_directory,
     image_list = hsfm.core.subset_input_image_list(image_list, subset=subset)
     
     if manual_heading_selection == False:
-        df = calculate_heading_from_metadata(camera_positions_file_name, subset=subset)
+        df = calculate_heading_from_metadata(camera_positions_file_name, 
+                                             subset=subset,
+                                             reverse_order=reverse_order)
     else:
         df = hsfm.utils.pick_headings(image_directory, camera_positions_file_name, subset, delta=0.01)
-    
     
     if len(image_list) != len(df):
         print('Mismatch between metadata entries in camera position file and available images.')
@@ -192,12 +194,16 @@ def batch_generate_cameras(image_directory,
     return output_directory
 
 
-def calculate_heading_from_metadata(camera_positions_file_name, subset=None):
+def calculate_heading_from_metadata(camera_positions_file_name, 
+                                    subset=None,
+                                    reverse_order=False):
     # TODO
     # - Headings are calculated by images taken along a flight line. 
     #   Need to separate images by flightline, calculate headings, then
     #   combine back into a single dataframe afterwards for further processing.
     df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
+    if reverse_order:
+        df = df.sort_values(by=['fileName'], ascending=False)
     lons = df['Longitude'].values
     lats = df['Latitude'].values
     
