@@ -28,6 +28,8 @@ import Metashape
 def images2las(project_name,
                images_path,
                images_metadata_file,
+               focal_length,
+               pixel_pitch,
                reference_dem_file,
                output_path,
                crs                     = 'EPSG::4326',
@@ -59,6 +61,10 @@ def images2las(project_name,
 
     images = glob.glob(os.path.join(images_path,'*'))
     chunk.addPhotos(images)
+    
+    chunk.cameras[0].sensor.focal_length = focal_length
+    chunk.cameras[0].sensor.pixel_height = pixel_pitch
+    chunk.cameras[0].sensor.pixel_width  = pixel_pitch
 
     chunk.importReference(images_metadata_file,
                           columns="nxyzXYZabcABC", # from metashape py api docs
@@ -72,7 +78,7 @@ def images2las(project_name,
 
     chunk.matchPhotos(downscale=image_matching_accuracy,
                       generic_preselection=True,
-                      reference_preselection=False,
+                      reference_preselection=True,
                       keypoint_limit=keypoint_limit,
                       tiepoint_limit=tiepoint_limit)
 
@@ -85,6 +91,8 @@ def images2las(project_name,
                          filter_mode=Metashape.MildFiltering)
     chunk.buildDenseCloud()
     doc.save()
+    
+    chunk.exportReport(output_path + project_name + "_report.pdf")
 
     output_file = output_path + project_name + ".las"
 
