@@ -256,7 +256,7 @@ def initialize_cameras(camera_positions_file_name,
     # - integrate elevation interpolation function to handle no data values
     # - get raster crs and convert points to crs of input raster before interpolation
     
-    output_directory = os.path.join(output_directory, 'intial_cameras')
+    output_directory = os.path.join(output_directory, 'initial_cameras')
     hsfm.io.create_dir(output_directory)
     
     df = hsfm.core.select_images_for_download(camera_positions_file_name)
