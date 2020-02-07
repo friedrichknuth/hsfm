@@ -11,17 +11,17 @@ Agisoft Metashape processing pipeline.
 ### SETUP
 # TODO import of hsfm.metapipe should prompt for licence if not found.
 
-def authentication():
-    METAHSAPE_LICENCE_FILE = '/opt/metashape-pro/uw_agisoft.lic'
-    metashape_licence_file_symlink = os.path.join(os.getcwd(),
-                                                  os.path.basename(METAHSAPE_LICENCE_FILE))
-    if not os.path.exists(metashape_licence_file_symlink):
-        os.symlink(METAHSAPE_LICENCE_FILE,
-                   metashape_licence_file_symlink)
-
-
-authentication()
-import Metashape
+# def authentication():
+#     METAHSAPE_LICENCE_FILE = '/opt/metashape-pro/uw_agisoft.lic'
+#     metashape_licence_file_symlink = os.path.join(os.getcwd(),
+#                                                   os.path.basename(METAHSAPE_LICENCE_FILE))
+#     if not os.path.exists(metashape_licence_file_symlink):
+#         os.symlink(METAHSAPE_LICENCE_FILE,
+#                    metashape_licence_file_symlink)
+#
+#
+# authentication()
+# import Metashape
 
 
 
@@ -33,14 +33,14 @@ def images2las(project_name,
                reference_dem_file,
                output_path,
                crs                     = 'EPSG::4326',
-               image_matching_accuracy = 1,
-               densecloud_quality      = 1,
+               image_matching_accuracy = 4,
+               densecloud_quality      = 4,
                keypoint_limit          = 40000,
                tiepoint_limit          = 4000):
 
     """
-    image_matching_accuracy = Ultra/High/Medium/Low/Lowest -> 1/2/4/8/16
-    densecloud_quality      = Ultra/High/Medium/Low/Lowest -> 1/2/4/8/16
+    image_matching_accuracy = Highest/High/Medium/Low/Lowest -> 0/1/4/8/16
+    densecloud_quality      = Ultra/High/Medium/Low/Lowest   -> 1/2/4/8/16
     """
 
     # TODO
