@@ -147,6 +147,9 @@ def batch_generate_cameras(image_directory,
     image_list = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
     image_list = hsfm.core.subset_input_image_list(image_list, subset=subset)
     
+    if reverse_order:
+        image_list = image_list[::-1]
+    
     if manual_heading_selection == False:
         df = calculate_heading_from_metadata(camera_positions_file_name, 
                                              subset=subset,
