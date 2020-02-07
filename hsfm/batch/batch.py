@@ -151,9 +151,10 @@ def batch_generate_cameras(image_directory,
         image_list = image_list[::-1]
     
     if manual_heading_selection == False:
-        df = calculate_heading_from_metadata(camera_positions_file_name, 
-                                             subset=subset,
-                                             reverse_order=reverse_order)
+        df = hsfm.batch.calculate_heading_from_metadata(camera_positions_file_name,
+                                                        output_directory, 
+                                                        subset=subset,
+                                                        reverse_order=reverse_order)
     else:
         df = hsfm.utils.pick_headings(image_directory, camera_positions_file_name, subset, delta=0.01)
     
@@ -197,13 +198,15 @@ def batch_generate_cameras(image_directory,
     return output_directory
 
 
-def calculate_heading_from_metadata(camera_positions_file_name, 
+def calculate_heading_from_metadata(camera_positions_file_name,
+                                    output_directory,
                                     subset=None,
-                                    reverse_order=False):
+                                    reverse_order=False,
+                                    for_metashape=False,
+                                    reference_dem=None):
     # TODO
-    # - Headings are calculated by images taken along a flight line. 
-    #   Need to separate images by flightline, calculate headings, then
-    #   combine back into a single dataframe afterwards for further processing.
+    # - Add flightline seperation function
+    # - Generalize beyond NAGAP keys
     df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
     if reverse_order:
         df = df.sort_values(by=['fileName'], ascending=False)
@@ -231,7 +234,38 @@ def calculate_heading_from_metadata(camera_positions_file_name,
         
     df['heading'] = headings
     
-    return df
+    if for_metashape:
+        df['yaw']             = df['heading']
+        df['pitch']           = 1.0
+        df['roll']            = 1.0
+        df['image_file_name'] = df['fileName']+'.tif'
+        df['alt']             = hsfm.geospatial.sample_dem(lons, lats, reference_dem)
+        df['lon']             = df['Longitude']
+        df['lat']             = df['Latitude']
+        df['lon_acc']         = 1000
+        df['lat_acc']         = 1000
+        df['alt_acc']         = 1000
+        df['yaw_acc']         = 50
+        df['pitch_acc']       = 50
+        df['roll_acc']        = 50
+    
+        df = df[['image_file_name',
+                 'lon',
+                 'lat',
+                 'alt',
+                 'lon_acc',
+                 'lat_acc',
+                 'alt_acc',
+                 'yaw',
+                 'pitch',
+                 'roll',
+                 'yaw_acc',
+                 'pitch_acc',
+                 'roll_acc']]
+        df.to_csv(os.path.join(output_directory,'metashape_metadata.csv'),index=False)
+    
+    else:
+        return df
 
 def download_images_to_disk(camera_positions_file_name, 
                             subset=None, 
