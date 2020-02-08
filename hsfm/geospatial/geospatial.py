@@ -338,19 +338,25 @@ def reproject_geotif(geotif_file_name,
     
     return output_file_name
     
+def get_epsg_code(dem_file_name):
+    
+    src = rasterio.open(dem_file_name)
+    epsg_code = str(src.crs.to_epsg())
+    
+    return epsg_code
+
 def sample_dem(lons, lats, dem_file_name):
     # TODO
     # - check fill value from DEM
     # - interpolate value if fill value or nan
     
-    src = rasterio.open(dem_file_name)
-    epsg_code = src.crs.to_epsg()
+    epsg_code = get_epsg_code(dem_file_name)
     
     data = {'lon': lons, 'lat': lats}
     df = pd.DataFrame(data)
     gdf = hsfm.geospatial.df_xy_coords_to_gdf(df)
     gdf = hsfm.geospatial.extract_gpd_geometry(gdf)
-    gdf = gdf.to_crs({'init':'epsg:'+str(epsg_code)})
+    gdf = gdf.to_crs({'init':'epsg:'+epsg_code})
     
     lons = gdf.x.to_list()
     lats = gdf.y.to_list()
