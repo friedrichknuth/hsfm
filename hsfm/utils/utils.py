@@ -182,17 +182,18 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
 def clip_reference_dem(dem_file, 
                        reference_dem_file,
                        output_file_name = 'reference_dem_clip.tif',
-                       print_call=False,
-                       verbose=False):
+                       print_call       =False,
+                       verbose          =False,
+                       buff_size        = 1000):
     
     # TODO check that input DEMs are both in utm
     
     rasterio_dataset = rasterio.open(dem_file)
     bounds = rasterio_dataset.bounds
-    left   = str(bounds[0] - 1000)
-    top    = str(bounds[3] + 1000)
-    right  = str(bounds[2] + 1000)
-    bottom = str(bounds[1] - 1000)
+    left   = str(bounds[0] - buff_size)
+    top    = str(bounds[3] + buff_size)
+    right  = str(bounds[2] + buff_size)
+    bottom = str(bounds[1] - buff_size)
     center = str(rasterio_dataset.xy(rasterio_dataset.height // 2, 
                                      rasterio_dataset.width // 2))
     
