@@ -11,27 +11,27 @@ Agisoft Metashape processing pipeline.
 ### SETUP
 # TODO import of hsfm.metapipe should prompt for licence if not found.
 
-# def authentication():
-#     METAHSAPE_LICENCE_FILE = '/opt/metashape-pro/uw_agisoft.lic'
-#     metashape_licence_file_symlink = os.path.join(os.getcwd(),
-#                                                   os.path.basename(METAHSAPE_LICENCE_FILE))
-#     if not os.path.exists(metashape_licence_file_symlink):
-#         os.symlink(METAHSAPE_LICENCE_FILE,
-#                    metashape_licence_file_symlink)
+def authentication():
+    METAHSAPE_LICENCE_FILE = '/opt/metashape-pro/uw_agisoft.lic'
+    metashape_licence_file_symlink = os.path.join(os.getcwd(),
+                                                  os.path.basename(METAHSAPE_LICENCE_FILE))
+    if not os.path.exists(metashape_licence_file_symlink):
+        os.symlink(METAHSAPE_LICENCE_FILE,
+                   metashape_licence_file_symlink)
 #
 #
-# authentication()
-# import Metashape
+authentication()
+import Metashape
 
 
 
 def images2las(project_name,
                images_path,
                images_metadata_file,
-               focal_length,
-               pixel_pitch,
                reference_dem_file,
                output_path,
+               focal_length            = None,
+               pixel_pitch             = None,
                crs                     = 'EPSG::4326',
                image_matching_accuracy = 4,
                densecloud_quality      = 4,
@@ -62,9 +62,12 @@ def images2las(project_name,
     images = glob.glob(os.path.join(images_path,'*'))
     chunk.addPhotos(images)
     
-    chunk.cameras[0].sensor.focal_length = focal_length
-    chunk.cameras[0].sensor.pixel_height = pixel_pitch
-    chunk.cameras[0].sensor.pixel_width  = pixel_pitch
+    if focal_length:
+        chunk.cameras[0].sensor.focal_length = focal_length
+    
+    if pixel_pitch:
+        chunk.cameras[0].sensor.pixel_height = pixel_pitch
+        chunk.cameras[0].sensor.pixel_width  = pixel_pitch
 
     chunk.importReference(images_metadata_file,
                           columns="nxyzXYZabcABC", # from metashape py api docs
@@ -78,7 +81,7 @@ def images2las(project_name,
 
     chunk.matchPhotos(downscale=image_matching_accuracy,
                       generic_preselection=True,
-                      reference_preselection=True,
+                      reference_preselection=False,
                       keypoint_limit=keypoint_limit,
                       tiepoint_limit=tiepoint_limit)
 
