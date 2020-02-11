@@ -356,6 +356,7 @@ def pc_align_p2p_sp2p(input_dem_file,
                                                     '--alignment-method', 
                                                     'point-to-plane',
                                                     print_call=print_call,
+                                                    verbose=verbose,
                                                     prefix=prefix)
 
 
@@ -372,6 +373,7 @@ def pc_align_p2p_sp2p(input_dem_file,
                                                     '--alignment-method', 
                                                     'similarity-point-to-point',
                                                     print_call=print_call,
+                                                    verbose=verbose,
                                                     prefix=prefix)
 
     return aligned_dem_file, transform
@@ -380,7 +382,8 @@ def pc_align_p2p_sp2p(input_dem_file,
     
 def pc_align_tfhs_p2p_sp2p(input_dem_file,
                            reference_dem_file,
-                           output_directory):
+                           output_directory,
+                           verbose=False):
     
     output_directory = os.path.join(output_directory,'pc_align/tmp')
     
@@ -393,7 +396,8 @@ def pc_align_tfhs_p2p_sp2p(input_dem_file,
                                                     '--max-num-reference-points', '1000',
                                                     '--save-transformed-source-points',
                                                     create_dem=False,
-                                                    prefix='dem')
+                                                    prefix='dem',
+                                                    verbose=verbose)
     
     epsg_code = 'EPSG:'+ hsfm.geospatial.get_epsg_code(input_dem_file)
     tmp_input_dem_file = point2dem(point_cloud_file, 
@@ -409,7 +413,8 @@ def pc_align_tfhs_p2p_sp2p(input_dem_file,
                                                     '--max-num-reference-points', '1000',
                                                     '--save-transformed-source-points',
                                                     create_dem=False,
-                                                    prefix='ref_dem')
+                                                    prefix='ref_dem',
+                                                    verbose=verbose)
 
     
     tmp_reference_dem_file = point2dem(point_cloud_file, 
@@ -424,7 +429,8 @@ def pc_align_tfhs_p2p_sp2p(input_dem_file,
                                          '--initial-transform-from-hillshading',
                                          'similarity',
                                          create_dem=False,
-                                         prefix='run')
+                                         prefix='run',
+                                         verbose=verbose)
     
     _ , transform = hsfm.asp.pc_align(tmp_input_dem_file,
                                      tmp_reference_dem_file,
@@ -434,7 +440,8 @@ def pc_align_tfhs_p2p_sp2p(input_dem_file,
                                      '--initial-transform', transform,
                                      '--alignment-method', 'point-to-plane',
                                      create_dem=False,
-                                     prefix='run-run')
+                                     prefix='run-run',
+                                     verbose=verbose)
     
     _ , transform = hsfm.asp.pc_align(tmp_input_dem_file,
                                      tmp_reference_dem_file,
@@ -444,17 +451,8 @@ def pc_align_tfhs_p2p_sp2p(input_dem_file,
                                      '--initial-transform', transform,
                                      '--alignment-method', 'similarity-point-to-point',
                                      create_dem=False,
-                                     prefix='run-run-run')
-    
-    _ , transform = hsfm.asp.pc_align(tmp_input_dem_file,
-                                     tmp_reference_dem_file,
-                                     output_directory,
-                                     '--save-transformed-source-points',
-                                     '--max-displacement','-1',
-                                     '--initial-transform', transform,
-                                     '--alignment-method', 'similarity-point-to-point',
-                                     create_dem=False,
-                                     prefix='run-run-run')
+                                     prefix='run-run-run',
+                                     verbose=verbose)
     
 
     aligned_dem_file, transform = hsfm.asp.pc_align(input_dem_file,
