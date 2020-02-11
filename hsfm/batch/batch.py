@@ -201,9 +201,10 @@ def batch_generate_cameras(image_directory,
 def calculate_heading_from_metadata(camera_positions_file_name,
                                     output_directory,
                                     subset=None,
-                                    reverse_order=False,
-                                    for_metashape=False,
-                                    reference_dem=None):
+                                    reverse_order     = False,
+                                    for_metashape     = False,
+                                    reference_dem     = None,
+                                    flight_altitude_m = 1500):
     # TODO
     # - Add flightline seperation function
     # - Generalize beyond NAGAP keys
@@ -235,13 +236,14 @@ def calculate_heading_from_metadata(camera_positions_file_name,
     df['heading'] = headings
     
     if for_metashape:
-        df['yaw']             = df['heading']
+        df['yaw']             = df['heading'].round()
         df['pitch']           = 1.0
         df['roll']            = 1.0
         df['image_file_name'] = df['fileName']+'.tif'
         df['alt']             = hsfm.geospatial.sample_dem(lons, lats, reference_dem)
-        df['lon']             = df['Longitude']
-        df['lat']             = df['Latitude']
+        df['alt']             = df['alt'] + flight_altitude_m
+        df['lon']             = df['Longitude'].round(6)
+        df['lat']             = df['Latitude'].round(6)
         df['lon_acc']         = 1000
         df['lat_acc']         = 1000
         df['alt_acc']         = 1000
