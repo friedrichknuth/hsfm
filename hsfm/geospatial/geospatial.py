@@ -350,6 +350,7 @@ def sample_dem(lons, lats, dem_file_name):
     # - check fill value from DEM
     # - interpolate value if fill value or nan
     
+    src = rasterio.open(dem_file_name)
     epsg_code = get_epsg_code(dem_file_name)
     
     data = {'lon': lons, 'lat': lats}
