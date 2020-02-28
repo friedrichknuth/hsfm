@@ -240,8 +240,15 @@ def calculate_heading_from_metadata(camera_positions_file_name,
         df['pitch']           = 1.0
         df['roll']            = 1.0
         df['image_file_name'] = df['fileName']+'.tif'
-        df['alt']             = hsfm.geospatial.sample_dem(lons, lats, reference_dem)
-        df['alt']             = df['alt'] + flight_altitude_m
+        
+        if reference_dem:
+            df['alt']             = hsfm.geospatial.sample_dem(lons, lats, reference_dem)
+            df['alt']             = df['alt'] + flight_altitude_m
+            df['alt']             = df['alt'].max()
+        
+        else:
+            df['alt']             = flight_altitude_m
+            
         df['lon']             = df['Longitude'].round(6)
         df['lat']             = df['Latitude'].round(6)
         df['lon_acc']         = 1000
@@ -265,6 +272,8 @@ def calculate_heading_from_metadata(camera_positions_file_name,
                  'pitch_acc',
                  'roll_acc']]
         df.to_csv(os.path.join(output_directory,'metashape_metadata.csv'),index=False)
+        
+        return df
     
     else:
         return df
@@ -279,8 +288,7 @@ def download_images_to_disk(camera_positions_file_name,
     targets = dict(zip(df[image_type], df['fileName']))
     for pid, file_name in targets.items():
         print('Downloading',file_name, image_type)
-        img = hsfm.core.download_image(pid)
-        img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+        img_gray = hsfm.core.download_image(pid)
         out = os.path.join(output_directory, file_name+'.tif')
         cv2.imwrite(out,img_gray)
         final_output = hsfm.utils.optimize_geotif(out)
@@ -296,7 +304,9 @@ def preprocess_images(template_directory,
                       output_directory='output_data/images',
                       subset=None, 
                       scale=None,
-                      qc=False):
+                      qc=False,
+                      invisible_fiducial=None,
+                      crop_from_pp_dist = 11250):
                       
     """
     Function to preprocess images from NAGAP archive in batch.
@@ -304,7 +314,7 @@ def preprocess_images(template_directory,
     # TODO
     # - Make io faster with gdal
     # - Generalize for other types of images
-    # - Add affine transformation
+    # - Add affine transformation (if needed)
                       
     hsfm.io.create_dir(output_directory)
     
@@ -318,13 +328,14 @@ def preprocess_images(template_directory,
         targets = dict(zip(df[image_type], df['fileName']))
         for pid, file_name in targets.items():
             print('Processing',file_name)
-            img = hsfm.core.download_image(pid)
-            img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+            img_gray = hsfm.core.download_image(pid)
             intersection_angle = hsfm.core.preprocess_image(img_gray,
                                                             file_name,
                                                             templates, 
                                                             qc=qc,
-                                                            output_directory=output_directory)
+                                                            output_directory=output_directory,
+                                                            invisible_fiducial=invisible_fiducial,
+                                                            crop_from_pp_dist=crop_from_pp_dist)
             intersections.append(intersection_angle)
             file_names.append(file_name)
     
@@ -335,7 +346,7 @@ def preprocess_images(template_directory,
             print('Processing',file_name)
             
             ## TODO
-            ## - Make io faster with gdal
+            ## - Potentially make io faster with gdal
             # src = gdal.Open(image_file)
             # arr = src.ReadAsArray()
             # if len(arr.shape) == 3:
@@ -345,14 +356,15 @@ def preprocess_images(template_directory,
             # else:
             #     img_gray = arr
                 
-            img = cv2.imread(image_file)
-            img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+            img_gray = cv2.imread(image_file)
             
             intersection_angle = hsfm.core.preprocess_image(img_gray, 
                                                             file_name,
                                                             templates, 
                                                             qc=qc,
-                                                            output_directory=output_directory)
+                                                            output_directory=output_directory,
+                                                            invisible_fiducial=invisible_fiducial,
+                                                            crop_from_pp_dist=crop_from_pp_dist)
             intersections.append(intersection_angle)
             file_names.append(file_name)
         
