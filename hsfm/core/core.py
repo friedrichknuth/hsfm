@@ -265,6 +265,7 @@ def initialize_cameras(camera_positions_file_name,
     elevations = hsfm.geospatial.sample_dem(lons,lats, reference_dem_file_name)
     df['elevation'] = elevations 
     df['elevation'] = df['elevation'] + altitude
+    df['elevation'] = df['elevation'].max()
     gdf = hsfm.geospatial.df_xyz_coords_to_gdf(df,lon='Longitude',lat='Latitude')
     
     gdf = gdf.to_crs({'init':'epsg:4978'})
