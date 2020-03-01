@@ -25,7 +25,7 @@ def prepare_ba_run(input_directory,
                    scale):
     
     
-    camera_solve_directory = os.path.join(output_directory, 'camera_solve')
+    camera_solve_directory = os.path.join(output_directory, 'cam_solve')
     bundle_adjust_directory = os.path.join(output_directory,'ba')
     images_directory = os.path.join(output_directory,'images'+'_sub'+str(scale))
     gcp_directory = os.path.join(input_directory,'gcp')
