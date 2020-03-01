@@ -265,6 +265,7 @@ def initialize_cameras(camera_positions_file_name,
     elevations = hsfm.geospatial.sample_dem(lons,lats, reference_dem_file_name)
     df['elevation'] = elevations 
     df['elevation'] = df['elevation'] + altitude
+    df['elevation'] = df['elevation'].max()
     gdf = hsfm.geospatial.df_xyz_coords_to_gdf(df,lon='Longitude',lat='Latitude')
     
     gdf = gdf.to_crs({'init':'epsg:4978'})
@@ -344,14 +345,15 @@ def subset_input_image_list(image_list, subset=None):
         subset_image_list = image_list_df['image_file_path'].to_list()
         return subset_image_list
     
-def pre_select_target_images(input_csv, prefix, image_suffix_list,output_file_name=None):
-    hsfm.io.create_dir('input_data/')
+def pre_select_target_images(input_csv, prefix, image_suffix_list,output_directory=None):
     df = pd.read_csv(input_csv)
     df = df[df['fileName'].str.contains(prefix)]
     image_suffix_list = list(map(str, image_suffix_list))
     image_suffix_list = [x.rjust(3,'0') for x in image_suffix_list]
     df = df[df['fileName'].str.endswith(tuple(image_suffix_list), na=False)]
-    if output_file_name:
+    if output_directory:
+        hsfm.io.create_dir(output_directory)
+        output_file_name = os.path.join(output_directory, 'targets.csv')
         df.to_csv(output_file_name,index=False)
     else:
         output_file_name = 'input_data/targets.csv'
@@ -386,7 +388,7 @@ def download_image(pid):
     url = base_url+pid
     resp = urlopen(url)
     image = np.asarray(bytearray(resp.read()), dtype="uint8")
-    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    image = cv2.imdecode(image, cv2.IMREAD_GRAYSCALE)
     return image
     
 def slice_image_frame(grayscale_unit8_image_array, windows):
@@ -438,21 +440,31 @@ def pick_fiducials_manually(image_file_name=None, image_array=None, qc=False, ou
             condition = False 
     
     
-def preprocess_image(image_array, file_name, templates, qc=False, output_directory='data/images', image_file_name=None):
+def preprocess_image(image_array, 
+                     file_name, 
+                     templates, 
+                     qc=False, 
+                     output_directory='data/images', 
+                     image_file_name=None,
+                     invisible_fiducial=None,
+                     crop_from_pp_dist=11250):
+                     
+    # TODO clean this up
     
     img_gray = image_array
     
-    window_left = [5000,7000,250,1500]
-    window_top = [0,500,6000,7200]
-    window_right = [5000,6500,12000,img_gray.shape[1]]
-    window_bottom = [11000,img_gray.shape[0],6000,7200]
+    window_left = [5000,7000,0,2000]
+    window_top = [0,500,6000,8000]
+    window_right = [5000,7000,12000,img_gray.shape[1]]
+    window_bottom = [11000,img_gray.shape[0],6000,8000]
     windows = [window_left, window_top, window_right, window_bottom]
     
     side = evaluate_image_frame(img_gray)
     
     fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                       templates, 
-                                                                      img_gray)
+                                                                      img_gray,
+                                                                      invisible_fiducial=invisible_fiducial)
  
     # QC routine
     intersection_angle = determine_intersection_angle(fiducials)
@@ -465,7 +477,8 @@ def preprocess_image(image_array, file_name, templates, qc=False, output_directo
         fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                           templates, 
                                                                           img_gray,
-                                                                          noisify='left')
+                                                                          noisify='left',
+                                                                          invisible_fiducial=invisible_fiducial)
         intersection_angle = determine_intersection_angle(fiducials)
         print('New intersection angle:',intersection_angle)
         if intersection_angle > 90.1 or intersection_angle < 89.9:
@@ -473,7 +486,8 @@ def preprocess_image(image_array, file_name, templates, qc=False, output_directo
             fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                               templates, 
                                                                               img_gray,
-                                                                              noisify='top')
+                                                                              noisify='top',
+                                                                              invisible_fiducial=invisible_fiducial)
             intersection_angle = determine_intersection_angle(fiducials)
             print('New intersection angle:',intersection_angle)
             if intersection_angle > 90.1 or intersection_angle < 89.9:
@@ -481,7 +495,8 @@ def preprocess_image(image_array, file_name, templates, qc=False, output_directo
                 fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                                   templates, 
                                                                                   img_gray,
-                                                                                  noisify='right')
+                                                                                  noisify='right',
+                                                                                  invisible_fiducial=invisible_fiducial)
                 intersection_angle = determine_intersection_angle(fiducials)
                 print('New intersection angle:',intersection_angle)
                 if intersection_angle > 90.1 or intersection_angle < 89.9:
@@ -489,7 +504,8 @@ def preprocess_image(image_array, file_name, templates, qc=False, output_directo
                     fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                                       templates, 
                                                                                       img_gray,
-                                                                                      noisify='bottom')
+                                                                                      noisify='bottom',
+                                                                                      invisible_fiducial=invisible_fiducial)
                     intersection_angle = determine_intersection_angle(fiducials)
                     print('New intersection angle:',intersection_angle)
                     
@@ -502,7 +518,9 @@ def preprocess_image(image_array, file_name, templates, qc=False, output_directo
             principal_point, intersection_angle = pick_fiducials_manually(image_array=img_gray)
         
     if intersection_angle < 90.1 and intersection_angle > 89.9:
-        cropped = crop_about_principal_point(img_gray, principal_point)
+        cropped = crop_about_principal_point(img_gray, 
+                                             principal_point,
+                                             crop_from_pp_dist = crop_from_pp_dist)
         img_rot = rotate_camera(cropped, side=side)
         out = os.path.join(output_directory, file_name+'.tif')
         cv2.imwrite(out,img_rot)
@@ -541,7 +559,8 @@ def pad_image_frame_slices(slices):
 def detect_fiducials_and_principal_point(windows, 
                                          templates, 
                                          grayscale_unit8_image_array,
-                                         noisify=None):
+                                         noisify=None,
+                                         invisible_fiducial=None):
     img_gray = grayscale_unit8_image_array
 
     window_left   = windows[0]
@@ -568,13 +587,19 @@ def detect_fiducials_and_principal_point(windows,
         padded_slices[3] = noisify_template(padded_slices[3])
           
     # detect fiducial markers
-    fiducials = detect_fiducials(padded_slices, windows, templates)
+    fiducials = detect_fiducials(padded_slices, 
+                                 windows, 
+                                 templates, 
+                                 invisible_fiducial=invisible_fiducial)
+    
 
     # detect principal point
     principal_point = determine_principal_point(fiducials[0],
                                                 fiducials[1],
                                                 fiducials[2],
                                                 fiducials[3])
+                                                
+                                                
     return fiducials, principal_point
 
 
@@ -602,7 +627,10 @@ def pad_image(grayscale_unit8_image_array):
     padded_img[250:250+img.shape[0],250:250+img.shape[1]] = img
     return padded_img
     
-def detect_fiducials(padded_slices, windows, templates):
+def detect_fiducials(padded_slices, 
+                     windows, 
+                     templates, 
+                     invisible_fiducial=None):
 
     left_slice_padded   = padded_slices[0]
     top_slice_padded    = padded_slices[1]
@@ -636,8 +664,15 @@ def detect_fiducials(padded_slices, windows, templates):
                                              bottom_template, 
                                              window_bottom, 
                                              position = 'bottom')
-                                              
+    
+    if invisible_fiducial == 'right':                                 
+        offset = top_fiducial[0] - bottom_fiducial[0]
+        x = (left_fiducial[0]+2*(top_fiducial[0]-left_fiducial[0]))
+        y = left_fiducial[1] + offset
+        right_fiducial = (x, y)
+    
     fiducials = [left_fiducial, top_fiducial, right_fiducial, bottom_fiducial]
+    
     return fiducials
 
 def get_fiducial(grayscale_unit8_image_array,template_file, window, position = None):
@@ -689,16 +724,15 @@ def determine_principal_point(left_fiducial, top_fiducial, right_fiducial, botto
     py = fy.reshape(-1,2).mean(axis=0).mean()
     return (px,py)
     
-def crop_about_principal_point(grayscale_unit8_image_array, principal_point):
+def crop_about_principal_point(grayscale_unit8_image_array, 
+                               principal_point,
+                               crop_from_pp_dist = 11250):
     img_gray = grayscale_unit8_image_array
-    
-    y_dist = 11250
-    x_dist = 11250
 
-    x_L = int(principal_point[0]-x_dist/2)
-    x_R = int(principal_point[0]+x_dist/2)
-    y_T = int(principal_point[1]-y_dist/2)
-    y_B = int(principal_point[1]+y_dist/2)
+    x_L = int(principal_point[0]-crop_from_pp_dist/2)
+    x_R = int(principal_point[0]+crop_from_pp_dist/2)
+    y_T = int(principal_point[1]-crop_from_pp_dist/2)
+    y_B = int(principal_point[1]+crop_from_pp_dist/2)
     
     cropped = img_gray[y_T:y_B, x_L:x_R]
     # TODO
@@ -707,6 +741,7 @@ def crop_about_principal_point(grayscale_unit8_image_array, principal_point):
     
     cropped = hsfm.image.clahe_equalize_image(cropped)
     cropped = hsfm.image.img_linear_stretch(cropped)
+
     
     return cropped
     

@@ -1,4 +1,3 @@
-from demcoreg import dem_mask
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -136,6 +135,9 @@ def plot_dem_difference_from_file_name(dem_difference_file_name,
     """
     Function to plot difference map between two DEMs from file.
     """
+                                       
+    from demcoreg import dem_mask
+    
     rasterio_dataset = rasterio.open(dem_difference_file_name)
     array = rasterio_dataset.read(1)
     nodata_value = rasterio_dataset.nodata

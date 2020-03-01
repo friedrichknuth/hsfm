@@ -375,13 +375,11 @@ def launch_fiducial_picker(hv_image, subplot_width, subplot_height):
     bottom_fiducial = (df.x[3],df.y[3])
     
     fiducials = [left_fiducial, top_fiducial, right_fiducial, bottom_fiducial]
+    
     principal_point = hsfm.core.determine_principal_point(fiducials[0],
                                                           fiducials[1],
                                                           fiducials[2],
                                                           fiducials[3])
-    
-    
-    
     
     return fiducials, principal_point
 
