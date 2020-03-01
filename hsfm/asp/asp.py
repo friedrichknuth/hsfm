@@ -128,7 +128,7 @@ def bundle_adjust_custom(image_files_directory,
                 
             except:
                 bare.batch.plot_mp_over_images(destination_file_path,
-                                               image_directory,
+                                               image_files_directory,
                                                output_directory=os.path.join(output_directory, 'qc/ba_matches'))
                 
             print('camera_solve match point qc plots saved in', os.path.join(output_directory, 'qc/ba_matches'))
