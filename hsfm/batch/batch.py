@@ -204,13 +204,15 @@ def calculate_heading_from_metadata(camera_positions_file_name,
                                     reverse_order     = False,
                                     for_metashape     = False,
                                     reference_dem     = None,
-                                    flight_altitude_m = 1500):
+                                    flight_altitude_m = 1500,
+                                    sorting_column = 'fileName'):
     # TODO
     # - Add flightline seperation function
     # - Generalize beyond NAGAP keys
     df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
+    df = df.sort_values(by=[sorting_column])
     if reverse_order:
-        df = df.sort_values(by=['fileName'], ascending=False)
+        df = df.sort_values(by=[sorting_column], ascending=False)
     lons = df['Longitude'].values
     lats = df['Latitude'].values
     
