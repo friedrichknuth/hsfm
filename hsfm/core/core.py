@@ -429,14 +429,14 @@ def pick_fiducials_manually(image_file_name=None, image_array=None, qc=False, ou
     condition = True
     while condition == True:
         # currently only works from file on disk
-        principal_point, intersection_angle = hsfm.utils.pick_fiducials(image_file_name)
+        principal_point, intersection_angle, fiducials = hsfm.utils.pick_fiducials(image_file_name)
         if intersection_angle > 90.1 or intersection_angle < 89.9:
             print('Intersection angle at principle point is not within orthogonality limits.')
             print('Try again.')
         else:
             if isinstance(image_array, np.ndarray):
                 shutil.rmtree('tmp/')
-            return principal_point, intersection_angle
+            return principal_point, intersection_angle, fiducials
             condition = False 
     
     
@@ -447,7 +447,8 @@ def preprocess_image(image_array,
                      output_directory='data/images', 
                      image_file_name=None,
                      invisible_fiducial=None,
-                     crop_from_pp_dist=11250):
+                     crop_from_pp_dist=11250,
+                     manually_pick_fiducials=False):
                      
     # TODO clean this up
     
@@ -461,53 +462,59 @@ def preprocess_image(image_array,
     
     side = evaluate_image_frame(img_gray)
     
-    fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
-                                                                      templates, 
-                                                                      img_gray,
-                                                                      invisible_fiducial=invisible_fiducial)
- 
-    # QC routine
-    intersection_angle = determine_intersection_angle(fiducials)
-    print('Principal point intersection angle:', intersection_angle)
+    if manually_pick_fiducials:
+        if image_file_name:
+            principal_point, intersection_angle, fiducials = pick_fiducials_manually(image_file_name=image_file_name)
+        else:
+            principal_point, intersection_angle, fiducials = pick_fiducials_manually(image_array=img_gray)
     
-    if intersection_angle > 90.1 or intersection_angle < 89.9:
-        print("Warning: intersection angle at principle point is not within orthogonality limits.")
-        print('Re-attempting fiducial marker detection.')
-        print("Processing left fiducial.")
+    else:
         fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                           templates, 
                                                                           img_gray,
-                                                                          noisify='left',
                                                                           invisible_fiducial=invisible_fiducial)
+        # QC routine
         intersection_angle = determine_intersection_angle(fiducials)
-        print('New intersection angle:',intersection_angle)
+        print('Principal point intersection angle:', intersection_angle)
+    
         if intersection_angle > 90.1 or intersection_angle < 89.9:
-            print("Processing top fiducial.")
+            print("Warning: intersection angle at principle point is not within orthogonality limits.")
+            print('Re-attempting fiducial marker detection.')
+            print("Processing left fiducial.")
             fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                               templates, 
                                                                               img_gray,
-                                                                              noisify='top',
+                                                                              noisify='left',
                                                                               invisible_fiducial=invisible_fiducial)
             intersection_angle = determine_intersection_angle(fiducials)
             print('New intersection angle:',intersection_angle)
             if intersection_angle > 90.1 or intersection_angle < 89.9:
-                print("Processing right fiducial.")
+                print("Processing top fiducial.")
                 fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                                   templates, 
                                                                                   img_gray,
-                                                                                  noisify='right',
+                                                                                  noisify='top',
                                                                                   invisible_fiducial=invisible_fiducial)
                 intersection_angle = determine_intersection_angle(fiducials)
                 print('New intersection angle:',intersection_angle)
                 if intersection_angle > 90.1 or intersection_angle < 89.9:
-                    print("Processing bottom fiducial.")
+                    print("Processing right fiducial.")
                     fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                                       templates, 
                                                                                       img_gray,
-                                                                                      noisify='bottom',
+                                                                                      noisify='right',
                                                                                       invisible_fiducial=invisible_fiducial)
                     intersection_angle = determine_intersection_angle(fiducials)
                     print('New intersection angle:',intersection_angle)
+                    if intersection_angle > 90.1 or intersection_angle < 89.9:
+                        print("Processing bottom fiducial.")
+                        fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
+                                                                                          templates, 
+                                                                                          img_gray,
+                                                                                          noisify='bottom',
+                                                                                          invisible_fiducial=invisible_fiducial)
+                        intersection_angle = determine_intersection_angle(fiducials)
+                        print('New intersection angle:',intersection_angle)
                     
     if intersection_angle > 90.1 or intersection_angle < 89.9:
         print("Unable to improve result for", file_name)
@@ -537,7 +544,6 @@ def preprocess_image(image_array,
                                                               output_directory='qc/image_preprocessing/')
 
     return intersection_angle 
-
 
 def pad_image_frame_slices(slices):
     
