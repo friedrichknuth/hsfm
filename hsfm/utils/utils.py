@@ -411,7 +411,7 @@ def pick_fiducials(image_file_name):
     
     intersection_angle = hsfm.core.determine_intersection_angle(fiducials)
     
-    return principal_point, intersection_angle
+    return principal_point, intersection_angle, fiducials
     
 ## TODO move to hsfm.io and add docs
 def run_command(command, verbose=False, log_directory=None, shell=False):
