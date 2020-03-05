@@ -115,7 +115,8 @@ def las2dem(project_name,
     chunk = doc.chunk
 
     chunk.buildDem(source_data=Metashape.DenseCloudData, 
-                   interpolation=Metashape.DisabledInterpolation)
+                   interpolation=Metashape.DisabledInterpolation,
+                   resolution=0.5)
 
     doc.save()
 
@@ -143,3 +144,53 @@ def images2ortho(project_name,
     chunk.exportRaster(output_path + project_name + "_orthomosaic.tif",
                        source_data= Metashape.OrthomosaicData)
 
+def get_estimated_camera_centers(project_file_path):
+    doc = Metashape.Document()
+    doc.open(project_file_path)
+    chunk = doc.chunk
+    
+    images  = []
+    lons    = []
+    lats    = []
+    alts    = []
+    yaws    = []
+    pitches = []
+    rolls   = []
+    omegas  = []
+    phis    = []
+    kappas  = []
+    
+    T = chunk.transform.matrix
+    
+    for camera in chunk.cameras:
+        image = camera.label
+        
+        try:
+            lon, lat, alt = chunk.crs.project(T.mulp(camera.center)) #estimated camera positions
+            m = chunk.crs.localframe(T.mulp(camera.center)) #transformation matrix to the LSE coordinates in the given point
+            R = m * T * camera.transform * Metashape.Matrix().Diag([1, -1, -1, 1])
+            row = list()
+            for j in range (0, 3): #creating normalized rotation matrix 3x3
+                row.append(R.row(j))
+                row[j].size = 3
+                row[j].normalize()
+            R = Metashape.Matrix([row[0], row[1], row[2]])
+            yaw, pitch, roll = Metashape.utils.mat2ypr(R) #estimated orientation angles
+            omega, phi, kappa = Metashape.utils.mat2opk(R)
+            
+            
+        except:
+            lon, lat, alt, yaw, pitch, roll, omega, phi, kappa = None, None, None, None, None, None, None, None, None
+            
+        images.append(image)
+        lons.append(lon)
+        lats.append(lat)
+        alts.append(alt)
+        yaws.append(yaw)
+        pitches.append(pitch)
+        rolls.append(roll)
+        omegas.append(omega)
+        phis.append(phi)
+        kappas.append(kappa)
+        
+    return images, lons, lats, alts, yaws, pitches, rolls, omegas, phis, kappas

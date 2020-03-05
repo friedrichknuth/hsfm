@@ -836,5 +836,80 @@ def move_camera_files_in_sequence(bundle_adjust_directory,
 #     return new_camera_files
     
     
+def metashape_cameras_to_tsai(project_file_path,
+                             original_metashape_metadata,
+                             image_extension = '.tif'):
+    
+    
+    
+    output_directory = os.path.join(os.path.dirname(project_file_path),'metashape_cameras')
+    hsfm.io.create_dir(output_directory)
+    
+    metashape_export = hsfm.metashape.get_estimated_camera_centers(project_file_path)
+    images, lons, lats, alts, yaws, pitches, rolls, omegas, phis, kappas = metashape_export
 
+    images = [s + image_extension for s in images]
+    
+    dict = {'image_file_name': images, 
+        'lon': lons, 
+        'lat': lats,
+        'alt': alts,
+        'lon_acc': 100,
+        'lat_acc': 100,
+        'alt_acc': 100,
+        'yaw': yaws,
+        'pitch': pitches,
+        'roll': rolls,
+        'yaw_acc': 30,
+        'pitch_acc': 30,
+        'roll_acc': 30,
+        'omega': omegas,
+        'phi': phis,
+        'kappa': kappas}  
+    
+    df = pd.DataFrame(dict)
+    
+    metashape_metadata_df = pd.read_csv(original_metashape_metadata)
+    unaligned_cameras = df[df.isnull().any(axis=1)]['image_file_name'].values
+    # replace unaligned cameras with values from original input metadata
+    for i in unaligned_cameras:
+        df[df['image_file_name'].str.contains(i)] = metashape_metadata_df[metashape_metadata_df['image_file_name'].str.contains(i)]
+    
+    gdf = hsfm.geospatial.df_xyz_coords_to_gdf(df,
+                                               lon='lon',
+                                               lat='lat',
+                                               z='alt',
+                                               crs='4326')
+    gdf = gdf.to_crs({'init' :'epsg:4978'})
+    
+    gdf = hsfm.geospatial.extract_gpd_geometry(gdf)
+    
+    gdf = gdf[['image_file_name','x','y','z']]
+    
+    for index, row in gdf.iterrows():
+        image_base_name = row['image_file_name']
+        out = os.path.join(output_directory,image_base_name+'.tsai')
+        with open(out, 'w') as f:
+
+            C0 = str(row['x'])
+            C1 = str(row['y'])
+            C2 = str(row['z'])
+
+            line0 = 'VERSION_4\n'
+            line1 = 'PINHOLE\n'
+            line2 = 'fu = ' + str(7564.1499999999996) +'\n'
+            line3 = 'fv = ' + str(7564.1499999999996) +'\n'
+            line4 = 'cu = ' + str(5625) +'\n'
+            line5 = 'cv = ' + str(5625) +'\n'
+            line6 = 'u_direction = 1 0 0\n'
+            line7 = 'v_direction = 0 1 0\n'
+            line8 = 'w_direction = 0 0 1\n'
+            line9 = ' '.join(['C =',C0,C1,C2,'\n'])
+            line10 = 'R = 1 0 0 0 1 0 0 0 1\n'
+            line11 = 'pitch = 1\n'
+            line12 = 'NULL\n'
+
+            f.writelines([line0,line1,line2,line3,line4,line5,line6,line7,line8,line9,line10,line11,line12])
+            
+    return output_directory
 
