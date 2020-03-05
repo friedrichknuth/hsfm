@@ -309,7 +309,8 @@ def preprocess_images(template_directory,
                       scale=None,
                       qc=False,
                       invisible_fiducial=None,
-                      crop_from_pp_dist = 11250):
+                      crop_from_pp_dist = 11250,
+                      manually_pick_fiducials=False):
                       
     """
     Function to preprocess images from NAGAP archive in batch.
@@ -338,7 +339,8 @@ def preprocess_images(template_directory,
                                                             qc=qc,
                                                             output_directory=output_directory,
                                                             invisible_fiducial=invisible_fiducial,
-                                                            crop_from_pp_dist=crop_from_pp_dist)
+                                                            crop_from_pp_dist=crop_from_pp_dist,
+                                                            manually_pick_fiducials=manually_pick_fiducials)
             intersections.append(intersection_angle)
             file_names.append(file_name)
     
@@ -367,7 +369,8 @@ def preprocess_images(template_directory,
                                                             qc=qc,
                                                             output_directory=output_directory,
                                                             invisible_fiducial=invisible_fiducial,
-                                                            crop_from_pp_dist=crop_from_pp_dist)
+                                                            crop_from_pp_dist=crop_from_pp_dist,
+                                                            manually_pick_fiducials=manually_pick_fiducials)
             intersections.append(intersection_angle)
             file_names.append(file_name)
         
