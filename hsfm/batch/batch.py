@@ -234,7 +234,8 @@ def calculate_heading_from_metadata(camera_positions_file_name,
             # the same as the previous, i.e. the flight 
             # direction did not change
             headings.append(heading)
-        
+            
+    df = df.sort_values(by=[sorting_column], ascending=True)   
     df['heading'] = headings
     
     if for_metashape:
