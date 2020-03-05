@@ -222,8 +222,10 @@ def generate_match_points(image_directory,
     call.extend(image_file_list)
     call.extend(['--calib-file', 
                  template_camera,
+                 '--reuse-theia-matches',
                  '--bundle-adjust-params', 
-                 '"--force-reuse-match-files --no-datum --ip-per-tile 16000 --ip-detect-method 1 --ip-uniqueness-threshold 0.9 --disable-tri-ip-filter --skip-rough-homography --ip-inlier-factor 1"'])
+                 '"--skip-matching --robust-threshold 15"'])
+#                  '"--force-reuse-match-files --no-datum --ip-per-tile 16000 --ip-detect-method 1 --ip-uniqueness-threshold 0.9 --disable-tri-ip-filter --skip-rough-homography --ip-inlier-factor 1"'])
     if print_asp_call==True:
         print(*call)
     else:
@@ -245,17 +247,15 @@ def generate_match_points(image_directory,
                 bare.core.iter_mp_to_csv(qc_output_directory,
                                          'match_files/cam_solve/')
                 try:
-                    hsfm.batch.plot_match_overlap(qc_output_directory,
-                                                  'match_files/cam_solve/', 
+                    hsfm.batch.plot_match_overlap(os.path.join(qc_output_directory,'match_files/cam_solve/'), 
                                                   image_directory, 
                                                   output_directory=os.path.join(qc_output_directory,
                                                                                 'cam_solve_matches'))
                 except:
-                    bare.batch.plot_mp_over_images(os.path.join(qc_output_directory,
-                                                                'match_files/cam_solve/',
+                    bare.batch.plot_mp_over_images(os.path.join(qc_output_directory,'match_files/cam_solve/'),
                                                                 image_directory,
                                                                 output_directory=os.path.join(qc_output_directory,
-                                                                                               'cam_solve_matches/')))
+                                                                                               'cam_solve_matches/'))
                 print('camera_solve match point qc plots saved in qc/cam_solve_matches/')
                 
             except:
@@ -551,5 +551,70 @@ def iter_stereo_pairs(output_directory,
         hsfm.qc.eval_stereo_matches(stereo_output_directory,
                                     os.path.join(output_directory, 'qc/stereo_matches/'))
                 
-        print('camera_solve match point qc plots saved in', os.path.join(output_directory, 'qc/stereo_matches/'))                                     
+        print('camera_solve match point qc plots saved in', os.path.join(output_directory, 'qc/stereo_matches/'))  
+        
+        
+def bundle_adjust(image_files,
+                           camera_files,
+                           output_directory_prefix,
+                           *args,
+                           print_call = False,
+                           verbose    = False):
+    
+    output_directory = os.path.dirname(output_directory_prefix)
+    
+    call = ['bundle_adjust']
+    call.extend(args)
+    call.extend(image_files)
+    call.extend(camera_files)
+    call.extend(['-o', output_directory_prefix])
+                
+    if print_call:
+        print(*call)
+        return output_directory
+    
+    else:
+        hsfm.utils.run_command(call, 
+                               verbose=verbose)
+                
+        return output_directory
+    
+def transform_cameras(image_files,
+                      camera_files,
+                      transform,
+                      output_directory_prefix,
+                      print_call = False,
+                      verbose    = False):
+    
+    output_directory = os.path.dirname(output_directory_prefix)
+    hsfm.io.create_dir(output_directory)
+    
+#     output_directory = parallel_bundle_adjust(image_files,
+#                                                camera_files,
+#                                                output_directory_prefix,
+#                                                '-t', 'nadirpinhole',
+#                                                '--datum', 'wgs84',
+#                                                '--force-reuse-match-files',
+#                                                '--inline-adjustments',
+#                                                '--num-passes', '1',
+#                                                '--num-iterations', '0',
+#                                                '--initial-transform',transform,
+#                                                print_call = print_call,
+#                                                verbose    = verbose)
+
+    output_directory = bundle_adjust(image_files,
+                                   camera_files,
+                                   output_directory_prefix,
+                                   '-t', 'pinhole',
+                                   '--min-matches', '4',
+                                   '--disable-tri-ip-filter', 
+                                   '--skip-rough-homography',
+                                   '--min-triangulation-angle','0.0001',
+                                   '--max-iterations','0',
+                                   '--num-passes', '1',
+                                   '--inline-adjustments',
+                                   '--initial-transform',transform,
+                                   print_call = print_call,
+                                   verbose    = verbose)
+    return output_directory
                                         
