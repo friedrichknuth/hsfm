@@ -459,10 +459,10 @@ def preprocess_image(image_array,
     
     img_gray = image_array
     
-    window_left = [5000,7000,0,2000]
-    window_top = [0,500,4000,8000]
-    window_right = [5000,7000,10000,img_gray.shape[1]]
-    window_bottom = [11000,img_gray.shape[0],4000,8000]
+    window_left = [4000,8000,0,2000]
+    window_top = [0,1000,4000,8000]
+    window_right = [4000,8000,img_gray.shape[1]-1000,img_gray.shape[1]]
+    window_bottom = [img_gray.shape[0]-1000,img_gray.shape[0],4000,8000]
     windows = [window_left, window_top, window_right, window_bottom]
     
     if not side:

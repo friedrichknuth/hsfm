@@ -392,7 +392,8 @@ def create_fiducials(pid,
     fiducials = [left_fiducial, top_fiducial, right_fiducial, bottom_fiducial]
     
     dist_h = np.min([top_fiducial, bottom_fiducial])
-    dist_w = np.min([left_fiducial, right_fiducial])
+    dist_w = dist_h
+    # dist_w = np.min([left_fiducial, right_fiducial])
     
     x_L = int(left_fiducial[0]-dist_w)
     x_R = int(left_fiducial[0])
