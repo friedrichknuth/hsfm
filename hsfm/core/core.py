@@ -526,9 +526,9 @@ def preprocess_image(image_array,
         print("Unable to improve result for", file_name)
         print("Please select fiducial markers manually")
         if image_file_name:
-            principal_point, intersection_angle = pick_fiducials_manually(image_file_name=image_file_name)
+            principal_point, intersection_angle, fiducials = pick_fiducials_manually(image_file_name=image_file_name)
         else:
-            principal_point, intersection_angle = pick_fiducials_manually(image_array=img_gray)
+            principal_point, intersection_angle, fiducials = pick_fiducials_manually(image_array=img_gray)
         
     if intersection_angle < 90.1 and intersection_angle > 89.9:
         cropped = crop_about_principal_point(img_gray, 

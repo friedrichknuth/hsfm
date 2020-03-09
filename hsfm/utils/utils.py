@@ -391,33 +391,34 @@ def create_fiducials(pid,
 
     fiducials = [left_fiducial, top_fiducial, right_fiducial, bottom_fiducial]
     
-    dist = np.min(fiducials)
+    dist_h = np.min([top_fiducial, bottom_fiducial])
+    dist_w = np.min([left_fiducial, right_fiducial])
     
-    x_L = int(left_fiducial[0]-dist)
+    x_L = int(left_fiducial[0]-dist_w)
     x_R = int(left_fiducial[0])
-    y_T = int(left_fiducial[1]-dist)
-    y_B = int(left_fiducial[1]+dist)
+    y_T = int(left_fiducial[1]-2*dist_w)
+    y_B = int(left_fiducial[1]+2*dist_w)
     cropped = image_array[y_T:y_B, x_L:x_R]
     cv2.imwrite(os.path.join(output_directory,'L.jpg'),cropped)
     
-    x_L = int(top_fiducial[0]-dist)
-    x_R = int(top_fiducial[0]+dist)
-    y_T = int(top_fiducial[1]-dist)
+    x_L = int(top_fiducial[0]-2*dist_h)
+    x_R = int(top_fiducial[0]+2*dist_h)
+    y_T = int(top_fiducial[1]-dist_h)
     y_B = int(top_fiducial[1])
     cropped = image_array[y_T:y_B, x_L:x_R]
     cv2.imwrite(os.path.join(output_directory,'T.jpg'),cropped)
     
     x_L = int(right_fiducial[0])
-    x_R = int(right_fiducial[0]+dist)
-    y_T = int(right_fiducial[1]-dist)
-    y_B = int(right_fiducial[1]+dist)
+    x_R = int(right_fiducial[0]+dist_w)
+    y_T = int(right_fiducial[1]-2*dist_w)
+    y_B = int(right_fiducial[1]+2*dist_w)
     cropped = image_array[y_T:y_B, x_L:x_R]
     cv2.imwrite(os.path.join(output_directory,'R.jpg'),cropped)
     
-    x_L = int(bottom_fiducial[0]-dist)
-    x_R = int(bottom_fiducial[0]+dist)
+    x_L = int(bottom_fiducial[0]-2*dist_h)
+    x_R = int(bottom_fiducial[0]+2*dist_h)
     y_T = int(bottom_fiducial[1])
-    y_B = int(bottom_fiducial[1]+dist)
+    y_B = int(bottom_fiducial[1]+dist_h)
     cropped = image_array[y_T:y_B, x_L:x_R]
     cv2.imwrite(os.path.join(output_directory,'B.jpg'),cropped)
 
