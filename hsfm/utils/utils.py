@@ -19,6 +19,7 @@ import subprocess
 from subprocess import Popen, PIPE, STDOUT
 import time
 import utm
+import cv2
 
 hv.extension('bokeh')
 
@@ -342,6 +343,84 @@ def pick_heading_from_map(image_file_name,
     
     return heading
 
+## TODO move to hsfm.tools (needs to be created) as this launches a self contained app
+def create_fiducials(pid, 
+                     output_directory = 'fiducials'):
+                     
+    hsfm.io.create_dir(output_directory)
+                     
+    image_array = hsfm.core.download_image(pid)
+    
+    hsfm.io.create_dir('tmp/')
+    temp_out = os.path.join('tmp/', 'temporary_image.tif')
+    cv2.imwrite(temp_out,image_array)
+    temp_out_optimized = hsfm.utils.optimize_geotif(temp_out)
+    os.remove(temp_out)
+    os.rename(temp_out_optimized, temp_out)
+    
+    hv_image, subplot_width, subplot_height = hsfm.utils.hv_plot_raster(temp_out)
+    
+    points = hv.Points([])
+    point_stream = hv.streams.PointDraw(source=points)
+
+    app = (hv_image * points).opts(hv.opts.Points(width=subplot_width,
+                                                  height=subplot_height,
+                                                  size=5,
+                                                  color='blue',
+                                                  tools=["hover"]))
+
+    panel = pn.panel(app)
+
+    server = panel.show(threaded=True)
+
+    condition = True
+    while condition == True: 
+        try:
+            if len(point_stream.data['x']) == 4:
+                server.stop()
+                condition = False
+        except:
+            pass
+
+    df = point_stream.element.dframe()
+
+    left_fiducial   = (df.x[0],df.y[0])
+    top_fiducial    = (df.x[1],df.y[1])
+    right_fiducial  = (df.x[2],df.y[2])
+    bottom_fiducial = (df.x[3],df.y[3])
+
+    fiducials = [left_fiducial, top_fiducial, right_fiducial, bottom_fiducial]
+    
+    dist = np.min(fiducials)
+    
+    x_L = int(left_fiducial[0]-dist)
+    x_R = int(left_fiducial[0])
+    y_T = int(left_fiducial[1]-dist)
+    y_B = int(left_fiducial[1]+dist)
+    cropped = image_array[y_T:y_B, x_L:x_R]
+    cv2.imwrite(os.path.join(output_directory,'L.jpg'),cropped)
+    
+    x_L = int(top_fiducial[0]-dist)
+    x_R = int(top_fiducial[0]+dist)
+    y_T = int(top_fiducial[1]-dist)
+    y_B = int(top_fiducial[1])
+    cropped = image_array[y_T:y_B, x_L:x_R]
+    cv2.imwrite(os.path.join(output_directory,'T.jpg'),cropped)
+    
+    x_L = int(right_fiducial[0])
+    x_R = int(right_fiducial[0]+dist)
+    y_T = int(right_fiducial[1]-dist)
+    y_B = int(right_fiducial[1]+dist)
+    cropped = image_array[y_T:y_B, x_L:x_R]
+    cv2.imwrite(os.path.join(output_directory,'R.jpg'),cropped)
+    
+    x_L = int(bottom_fiducial[0]-dist)
+    x_R = int(bottom_fiducial[0]+dist)
+    y_T = int(bottom_fiducial[1])
+    y_B = int(bottom_fiducial[1]+dist)
+    cropped = image_array[y_T:y_B, x_L:x_R]
+    cv2.imwrite(os.path.join(output_directory,'B.jpg'),cropped)
+
 
 ## TODO move to hsfm.tools (needs to be created) as this launches a self contained app
 def launch_fiducial_picker(hv_image, subplot_width, subplot_height):
@@ -404,10 +483,10 @@ def hv_plot_raster(image_file_name):
 ## TODO move to hsfm.core as best fit (for now)
 def pick_fiducials(image_file_name):
     
-    hv_image, subplot_width, subplot_height = hv_plot_raster(image_file_name)
-    fiducials, principal_point = launch_fiducial_picker(hv_image,
-                                                        subplot_width,
-                                                        subplot_height)
+    hv_image, subplot_width, subplot_height = hsfm.utils.hv_plot_raster(image_file_name)
+    fiducials, principal_point = hsfm.utils.launch_fiducial_picker(hv_image,
+                                                                   subplot_width,
+                                                                   subplot_height)
     
     intersection_angle = hsfm.core.determine_intersection_angle(fiducials)
     
