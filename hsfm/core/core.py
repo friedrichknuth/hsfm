@@ -455,9 +455,9 @@ def preprocess_image(image_array,
     img_gray = image_array
     
     window_left = [5000,7000,0,2000]
-    window_top = [0,500,6000,8000]
-    window_right = [5000,7000,12000,img_gray.shape[1]]
-    window_bottom = [11000,img_gray.shape[0],6000,8000]
+    window_top = [0,500,4000,8000]
+    window_right = [5000,7000,10000,img_gray.shape[1]]
+    window_bottom = [11000,img_gray.shape[0],4000,8000]
     windows = [window_left, window_top, window_right, window_bottom]
     
     side = evaluate_image_frame(img_gray)
@@ -574,14 +574,15 @@ def detect_fiducials_and_principal_point(windows,
     window_right  = windows[2]
     window_bottom = windows[3]
 
-    # enhance local contrast
-    img_gray_clahe = hsfm.image.clahe_equalize_image(img_gray)
+    # enhance contrast
+    # img_gray_clahe = hsfm.image.clahe_equalize_image(img_gray)
+    img_gray_clahe = hsfm.image.img_linear_stretch(img_gray)
 
     # pull out slices according to window
-    slices = slice_image_frame(img_gray_clahe,windows)
+    slices = hsfm.core.slice_image_frame(img_gray_clahe,windows)
     
     # pad each slice so that the template can be fully moved over a given fiducial marker
-    padded_slices = pad_image_frame_slices(slices)
+    padded_slices = hsfm.core.pad_image_frame_slices(slices)
     
     if noisify == 'left':
         padded_slices[0] = noisify_template(padded_slices[0])
@@ -709,7 +710,8 @@ def template_match(grayscale_unit8_image_array,template_file):
     img_gray = grayscale_unit8_image_array
     template = cv2.imread(template_file)
     template = cv2.cvtColor(template,cv2.COLOR_BGR2GRAY)
-    template = noisify_template(template)
+    template = hsfm.image.img_linear_stretch(template)
+    template = hsfm.core.noisify_template(template)
     w, h = template.shape[::-1]
     res = cv2.matchTemplate(img_gray,template,cv2.TM_CCOEFF_NORMED)
     loc = np.where(res==res.max())
