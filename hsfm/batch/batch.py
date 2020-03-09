@@ -310,7 +310,8 @@ def preprocess_images(template_directory,
                       qc=False,
                       invisible_fiducial=None,
                       crop_from_pp_dist = 11250,
-                      manually_pick_fiducials=False):
+                      manually_pick_fiducials=False,
+                      side = None):
                       
     """
     Function to preprocess images from NAGAP archive in batch.
@@ -340,7 +341,8 @@ def preprocess_images(template_directory,
                                                             output_directory=output_directory,
                                                             invisible_fiducial=invisible_fiducial,
                                                             crop_from_pp_dist=crop_from_pp_dist,
-                                                            manually_pick_fiducials=manually_pick_fiducials)
+                                                            manually_pick_fiducials=manually_pick_fiducials,
+                                                            side = side)
             intersections.append(intersection_angle)
             file_names.append(file_name)
     
@@ -349,19 +351,7 @@ def preprocess_images(template_directory,
         for image_file in image_files:
             file_path, file_name, file_extension = hsfm.io.split_file(image_file)
             print('Processing',file_name)
-            
-            ## TODO
-            ## - Potentially make io faster with gdal
-            # src = gdal.Open(image_file)
-            # arr = src.ReadAsArray()
-            # if len(arr.shape) == 3:
-            #     img = arr.reshape(arr.shape[1], arr.shape[2], arr.shape[0]).shape
-            #     img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-            #
-            # else:
-            #     img_gray = arr
-                
-            img_gray = cv2.imread(image_file)
+            img_gray = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
             
             intersection_angle = hsfm.core.preprocess_image(img_gray, 
                                                             file_name,
@@ -370,7 +360,8 @@ def preprocess_images(template_directory,
                                                             output_directory=output_directory,
                                                             invisible_fiducial=invisible_fiducial,
                                                             crop_from_pp_dist=crop_from_pp_dist,
-                                                            manually_pick_fiducials=manually_pick_fiducials)
+                                                            manually_pick_fiducials=manually_pick_fiducials,
+                                                            side = side)
             intersections.append(intersection_angle)
             file_names.append(file_name)
         

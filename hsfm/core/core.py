@@ -448,7 +448,12 @@ def preprocess_image(image_array,
                      image_file_name=None,
                      invisible_fiducial=None,
                      crop_from_pp_dist=11250,
-                     manually_pick_fiducials=False):
+                     manually_pick_fiducials=False,
+                     side = None):
+    """
+    side = 'left','top','right' #Determines position of frame opposite to flight direction. 
+                                #If none determines side of frame with largest black border.
+    """
                      
     # TODO clean this up
     
@@ -460,7 +465,8 @@ def preprocess_image(image_array,
     window_bottom = [11000,img_gray.shape[0],4000,8000]
     windows = [window_left, window_top, window_right, window_bottom]
     
-    side = evaluate_image_frame(img_gray)
+    if not side:
+        side = hsfm.core.evaluate_image_frame(img_gray)
     
     if manually_pick_fiducials:
         if image_file_name:
@@ -528,7 +534,7 @@ def preprocess_image(image_array,
         cropped = crop_about_principal_point(img_gray, 
                                              principal_point,
                                              crop_from_pp_dist = crop_from_pp_dist)
-        img_rot = rotate_camera(cropped, side=side)
+        img_rot = hsfm.core.rotate_camera(cropped, side=side)
         out = os.path.join(output_directory, file_name+'.tif')
         cv2.imwrite(out,img_rot)
         final_output = hsfm.utils.optimize_geotif(out)
