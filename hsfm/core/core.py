@@ -465,7 +465,7 @@ def preprocess_image(image_array,
     window_bottom = [img_gray.shape[0]-1000,img_gray.shape[0],4000,8000]
     windows = [window_left, window_top, window_right, window_bottom]
     
-    if not side:
+    if isinstance(side, type(None)):
         side = hsfm.core.evaluate_image_frame(img_gray)
     
     if manually_pick_fiducials:

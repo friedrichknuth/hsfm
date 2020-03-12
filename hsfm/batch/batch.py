@@ -414,3 +414,28 @@ def plot_match_overlap(match_files_directory, images_directory, output_directory
     out = os.path.join(output_directory,'match_plot.png')
     plt.savefig(out)
     return out
+    
+def pick_camera_locations(image_directory, 
+                          camera_positions_file_name,
+                          center_lon, 
+                          center_lat,
+                          image_file_column_name = 'fileName',
+                          latitude_column_name = 'Latitude',
+                          longitude_column_name = 'Longitude',
+                          delta=0.030):
+    
+    df = pd.read_csv(camera_positions_file_name)
+    
+    image_file_paths = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
+    
+    for i in image_file_paths:
+        x, y, image_file_basename = hsfm.utils.pick_camera_location(i, 
+                                                                    center_lon, 
+                                                                    center_lat, 
+                                                                    dx = delta,
+                                                                    dy = delta)
+        
+        df.loc[(df[image_file_column_name] == image_file_basename),longitude_column_name] = x
+        df.loc[(df[image_file_column_name] == image_file_basename),latitude_column_name]  = y
+
+    return df

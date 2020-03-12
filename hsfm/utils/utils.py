@@ -277,6 +277,70 @@ def scale_down_number(number, threshold=1000):
     return number
 
 ## TODO move to hsfm.tools (needs to be created) as this launches a self contained app
+def pick_camera_location(image_file_path, 
+                         center_lon, 
+                         center_lat, 
+                         dx = 0.030,
+                         dy = 0.030):
+    
+    # Google Satellite tiled basemap imagery url
+    url = 'https://mt1.google.com/vt/lyrs=s&x={X}&y={Y}&z={Z}'
+
+    # TODO
+    # # allow large images to be plotted or force resampling to thumbnail
+    # # load the image with xarray and plot with hvplot to handle larger images
+    img, subplot_width, subplot_height = hsfm.utils.hv_plot_raster(image_file_path)
+
+    # create the extent of the bounding box
+    extents = (center_lon-dx, 
+               center_lat-dy, 
+               center_lon+dx, 
+               center_lat+dy)
+
+
+    # run the tile server
+    tiles = gv.WMTS(url, extents=extents)
+
+    points = gv.Points([(center_lon,
+                         center_lat,
+                         'starting_center')], 
+                         vdims='image_file_name')
+
+    point_stream = hv.streams.PointDraw(source=points)
+
+    base_map = (tiles * points).opts(opts.Points(width=subplot_width, 
+                                                 height=subplot_height, 
+                                                 size=10, 
+                                                 color='black', 
+                                                 tools=["hover"]))
+
+    row = pn.Row(img, base_map)
+
+    server = row.show(threaded=True)
+
+    condition = True
+    while condition == True:
+        try:
+            if len(point_stream.data['x']) == 2:
+                server.stop()
+                condition = False
+        except:
+            pass
+
+    projected = gv.operation.project_points(point_stream.element,
+                                            projection=ccrs.PlateCarree())
+    
+    image_file_basename = os.path.splitext(os.path.basename(image_file_path))[0]
+    
+    df = projected.dframe()
+    df['image_file_name'] = ['starting_center', image_file_basename]
+    df = df.drop([0])
+    
+    x = df.x.values[0]
+    y = df.y.values[0]
+    
+    return x, y, image_file_basename
+    
 def pick_heading_from_map(image_file_name,
                           camera_center_lon,
                           camera_center_lat,
