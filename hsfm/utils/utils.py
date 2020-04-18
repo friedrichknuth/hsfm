@@ -536,6 +536,8 @@ def hv_plot_raster(image_file_name):
     subplot_height = scale_down_number(src.shape[1])
 
     da = xr.open_rasterio(src)
+    
+    da.values = hsfm.image.img_linear_stretch_full(da.values)
 
     hv_image = da.sel(band=1).hvplot.image(rasterize=True,
                                       width=subplot_width,

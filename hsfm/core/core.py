@@ -927,3 +927,48 @@ def metashape_cameras_to_tsai(project_file_path,
             
     return output_directory
 
+def targets_df_to_metashape_metadata(df,
+                                     output_directory,
+                                     reference_dem    = None,
+                                     flight_altitude_m = 1500):
+
+    
+    df['yaw']             = df['heading'].round()
+    df['pitch']           = 1.0
+    df['roll']            = 1.0
+    df['image_file_name'] = df['fileName']+'.tif'
+
+    if reference_dem:
+        lons = df['Longitude'].values
+        lats = df['Latitude'].values
+        
+        df['alt']             = hsfm.geospatial.sample_dem(lons, lats, reference_dem)
+        df['alt']             = df['alt'] + flight_altitude_m
+        df['alt']             = df['alt'].max()
+
+    else:
+        df['alt']             = flight_altitude_m
+
+    df['lon']             = df['Longitude'].round(6)
+    df['lat']             = df['Latitude'].round(6)
+    df['lon_acc']         = 1000
+    df['lat_acc']         = 1000
+    df['alt_acc']         = 1000
+    df['yaw_acc']         = 50
+    df['pitch_acc']       = 50
+    df['roll_acc']        = 50
+
+    df = df[['image_file_name',
+             'lon',
+             'lat',
+             'alt',
+             'lon_acc',
+             'lat_acc',
+             'alt_acc',
+             'yaw',
+             'pitch',
+             'roll',
+             'yaw_acc',
+             'pitch_acc',
+             'roll_acc']]
+    df.to_csv(os.path.join(output_directory,'metashape_metadata.csv'),index=False)

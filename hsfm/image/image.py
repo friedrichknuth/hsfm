@@ -21,7 +21,10 @@ def img_linear_stretch(img_gray):
     img_rescale = exposure.rescale_intensity(img_gray, in_range=(p_min, p_max))
     return img_rescale
     
-    
+def img_linear_stretch_full(img_gray):
+    p_min, p_max = np.percentile(img_gray, (20, 80))
+    img_rescale = exposure.rescale_intensity(img_gray, in_range=(p_min, p_max))
+    return img_rescale
 
 '''
 ####

@@ -84,7 +84,7 @@ def plot_principal_point_and_fiducial_locations(image_array,
         plt.show()
     
     else:
-        output_file_name = os.path.join(output_directory,image_base_name+'_pp_and_fiducial_location.jpg')
+        output_file_name = os.path.join(output_directory,image_base_name+'_pp_and_fiducial_location.png')
         fig.savefig(output_file_name,dpi=300)
     
     plt.close()
