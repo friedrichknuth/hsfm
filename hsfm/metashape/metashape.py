@@ -9,20 +9,14 @@ Agisoft Metashape processing pipeline.
 # TODO add logging output
 
 ### SETUP
-# TODO import of hsfm.metapipe should prompt for licence if not found.
+# TODO handle import Metashape with class structure
 
-def authentication():
-    METAHSAPE_LICENCE_FILE = '/opt/metashape-pro/uw_agisoft.lic'
+def authentication(METASHAPE_LICENCE_FILE):
     metashape_licence_file_symlink = os.path.join(os.getcwd(),
-                                                  os.path.basename(METAHSAPE_LICENCE_FILE))
+                                                  os.path.basename(METASHAPE_LICENCE_FILE))
     if not os.path.exists(metashape_licence_file_symlink):
-        os.symlink(METAHSAPE_LICENCE_FILE,
+        os.symlink(METASHAPE_LICENCE_FILE,
                    metashape_licence_file_symlink)
-#
-#
-authentication()
-import Metashape
-
 
 
 def images2las(project_name,
@@ -47,6 +41,8 @@ def images2las(project_name,
     # TODO
     # check if project already exists and prompt for overwrite or pickup where left off
     # doc.open(output_path + project_name + ".psx")
+    
+    import Metashape
 
     os.makedirs(output_path)
     doc = Metashape.Document()
@@ -113,6 +109,8 @@ def images2las(project_name,
 
 def las2dem(project_name,
             output_path):
+            
+    import Metashape
 
     doc = Metashape.Document()
     doc.open(output_path + project_name + ".psx")
@@ -136,6 +134,8 @@ def las2dem(project_name,
 
 def images2ortho(project_name,
                  output_path):
+                 
+    import Metashape
 
     doc = Metashape.Document()
     doc.open(output_path + project_name + ".psx")
@@ -151,6 +151,9 @@ def images2ortho(project_name,
                        source_data= Metashape.OrthomosaicData)
 
 def get_estimated_camera_centers(project_file_path):
+    
+    import Metashape
+    
     doc = Metashape.Document()
     doc.open(project_file_path)
     chunk = doc.chunk
