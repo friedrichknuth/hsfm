@@ -45,10 +45,7 @@ Automated SfM processing of historical aerial photographs for land surface eleva
 ### Examples
 See [notebooks](./examples/) for processing examples.
 
-### Results
-Results and sites in process can be viewed [here](https://drive.google.com/drive/folders/1X_IsKKhuZZnTI4LJqpn88Xc5g_mcKVsN?usp=sharing)
-
-### Installation from source
+### Installation
 ```
 $ git clone https://github.com/friedrichknuth/hsfm.git
 $ cd ./hsfm
@@ -56,6 +53,8 @@ $ conda create -f environment.yml
 $ conda activate hsfm
 $ pip install -e .
 ```
+
+Also download and install the [NASA AMes Stereo Pipeline](https://ti.arc.nasa.gov/tech/asr/groups/intelligent-robotics/ngt/stereo/)
 
 ### Contributing
 
