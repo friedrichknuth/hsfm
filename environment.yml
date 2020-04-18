@@ -1,4 +1,4 @@
-name: hsfm
+name: test
 channels:
   - conda-forge
 dependencies:
@@ -28,3 +28,4 @@ dependencies:
     - "--editable=git+https://github.com/dshean/demcoreg.git#egg=demcoreg"
     - "--editable=git+https://github.com/friedrichknuth/bare.git#egg=bare"
     - "--editable=git+https://github.com/dshean/imview.git#egg=imview"
+    - "--editable=git+https://github.com/friedrichknuth/driveanon.git#egg=driveanon"
