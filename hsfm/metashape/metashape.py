@@ -36,7 +36,8 @@ def images2las(project_name,
                image_matching_accuracy = 4,
                densecloud_quality      = 4,
                keypoint_limit          = 40000,
-               tiepoint_limit          = 4000):
+               tiepoint_limit          = 4000,
+               rotation_enabled        = True):
 
     """
     image_matching_accuracy = Highest/High/Medium/Low/Lowest -> 0/1/4/8/16
@@ -73,6 +74,11 @@ def images2las(project_name,
                           columns="nxyzXYZabcABC", # from metashape py api docs
                           delimiter=',',
                           format=Metashape.ReferenceFormatCSV)
+    
+#     for i,v in enumerate(chunk.cameras):
+#         v.reference.rotation_enabled = rotation_enabled
+
+    chunk.cameras[1].reference.rotation_enabled = rotation_enabled
 
     chunk.crs = crs
     chunk.updateTransform()
