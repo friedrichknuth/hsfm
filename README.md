@@ -54,7 +54,9 @@ $ conda activate hsfm
 $ pip install -e .
 ```
 
-Also download and install the [NASA AMes Stereo Pipeline](https://ti.arc.nasa.gov/tech/asr/groups/intelligent-robotics/ngt/stereo/)
+Download and install the [NASA AMes Stereo Pipeline](https://ti.arc.nasa.gov/tech/asr/groups/intelligent-robotics/ngt/stereo/)
+
+Download and install the [Agisoft Metashape Python API](https://agisoft.freshdesk.com/support/solutions/articles/31000148930-how-to-install-metashape-stand-alone-python-module)
 
 ### Contributing
 
