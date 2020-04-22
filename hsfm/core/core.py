@@ -104,6 +104,42 @@ def create_overlap_list_from_match_files(match_files_directory,
             
     return filename_out
 
+def determine_flight_lines(df, cutoff_angle = 30):
+    
+    df = hsfm.batch.calculate_heading_from_metadata(df)
+    
+    df['next_heading'] = df['heading'].shift(-1)
+    df['heading_diff'] = abs(df['next_heading'] - df['heading'])
+    df['heading_diff'] = df['heading_diff'].fillna(0)
+    df = df.reset_index()
+    
+    flights_tmp = []
+    tmp_df = pd.DataFrame()
+    
+    for row in df.iterrows():
+        if row[1]['heading_diff'] < cutoff_angle:
+            tmp_df = pd.concat([tmp_df, pd.DataFrame(row[1])],axis=1)
+        else:
+            tmp_df = pd.concat([tmp_df, pd.DataFrame(row[1])],axis=1)
+            tmp_df = tmp_df.T
+            flights_tmp.append(tmp_df)
+            tmp_df = pd.DataFrame()
+    tmp_df = tmp_df.T
+    if not tmp_df.empty:
+        flights_tmp.append(tmp_df)
+
+    flights = []
+    for i,v in enumerate(flights_tmp):
+        if len(v) == 1:
+            tmp_df = pd.concat([flights_tmp[i-1],v])
+            flights.pop()
+            flights.append(tmp_df)
+        else:
+            flights.append(v)
+    
+    return flights
+    
+    
 def evaluate_image_frame(grayscale_unit8_image_array,frame_size=0.07):
     
     x = grayscale_unit8_image_array.shape[1]
@@ -361,7 +397,7 @@ def pre_select_target_images(input_csv, prefix, image_suffix_list,output_directo
     return output_file_name
     
     
-def select_images_for_download(csv_file_name, subset=None):
+def subset_images_for_download(df, subset=None):
     
     """
     Function to convert input metadata csv to dataframe.
@@ -371,7 +407,6 @@ def select_images_for_download(csv_file_name, subset=None):
     """
     # TODO
     # - Add option to subset with list if range not suitable
-    df = pd.read_csv(csv_file_name)
     df = df.drop_duplicates()
     if subset == None:
         return df
@@ -928,10 +963,11 @@ def metashape_cameras_to_tsai(project_file_path,
     return output_directory
 
 def targets_df_to_metashape_metadata(df,
-                                     output_directory,
+                                     output_directory='input_data',
                                      reference_dem    = None,
                                      flight_altitude_m = 1500):
 
+    hsfm.io.create_dir(output_directory)
     
     df['yaw']             = df['heading'].round()
     df['pitch']           = 1.0
@@ -949,8 +985,8 @@ def targets_df_to_metashape_metadata(df,
     else:
         df['alt']             = flight_altitude_m
 
-    df['lon']             = df['Longitude'].round(6)
-    df['lat']             = df['Latitude'].round(6)
+    df['lon']             = df['Longitude'].astype(float).round(6)
+    df['lat']             = df['Latitude'].astype(float).round(6)
     df['lon_acc']         = 1000
     df['lat_acc']         = 1000
     df['alt_acc']         = 1000

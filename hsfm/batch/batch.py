@@ -198,10 +198,10 @@ def batch_generate_cameras(image_directory,
     return output_directory
 
 
-def calculate_heading_from_metadata(camera_positions_file_name,
-                                    output_directory,
-                                    subset=None,
+def calculate_heading_from_metadata(df,
+                                    subset            = None,
                                     reverse_order     = False,
+                                    output_directory  = None,
                                     for_metashape     = False,
                                     reference_dem     = None,
                                     flight_altitude_m = 1500,
@@ -209,7 +209,9 @@ def calculate_heading_from_metadata(camera_positions_file_name,
     # TODO
     # - Add flightline seperation function
     # - Generalize beyond NAGAP keys
-    df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
+    if subset:
+        df = hsfm.core.subset_images_for_download(df, subset)
+        
     df = df.sort_values(by=[sorting_column])
     if reverse_order:
         df = df.sort_values(by=[sorting_column], ascending=False)
@@ -239,6 +241,7 @@ def calculate_heading_from_metadata(camera_positions_file_name,
     df['heading'] = headings
     
     if for_metashape:
+        
         df['yaw']             = df['heading'].round()
         df['pitch']           = 1.0
         df['roll']            = 1.0
@@ -274,7 +277,10 @@ def calculate_heading_from_metadata(camera_positions_file_name,
                  'yaw_acc',
                  'pitch_acc',
                  'roll_acc']]
-        df.to_csv(os.path.join(output_directory,'metashape_metadata.csv'),index=False)
+                 
+        if output_directory:
+            hsfm.io.create_dir(output_directory)
+            df.to_csv(os.path.join(output_directory,'metashape_metadata.csv'),index=False)
         
         return df
     
