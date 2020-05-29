@@ -186,7 +186,9 @@ def clip_reference_dem(dem_file,
                        print_call       =False,
                        verbose          =False,
                        buff_size        = 1000):
-    
+    """
+    Clips reference_dem_file to bounds of dem_file.
+    """
     # TODO check that input DEMs are both in utm
     
     rasterio_dataset = rasterio.open(dem_file)
