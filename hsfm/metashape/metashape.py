@@ -34,9 +34,11 @@ def images2las(project_name,
                rotation_enabled        = True):
 
     """
-    image_matching_accuracy = Highest/High/Medium/Low/Lowest -> 0/1/4/8/16
+    image_matching_accuracy = Highest/High/Medium/Low/Lowest -> 0/1/2/4/8
     densecloud_quality      = Ultra/High/Medium/Low/Lowest   -> 1/2/4/8/16
     """
+    
+    # Levels from https://www.agisoft.com/forum/index.php?topic=11697.msg52455#msg52455
 
     # TODO
     # check if project already exists and prompt for overwrite or pickup where left off
@@ -108,7 +110,9 @@ def images2las(project_name,
 
 
 def las2dem(project_name,
-            output_path):
+            output_path,,
+            split_in_blocks = False,
+            resolution = 2):
             
     import Metashape
 
@@ -120,20 +124,22 @@ def las2dem(project_name,
 
     chunk.buildDem(source_data=Metashape.DenseCloudData, 
                    interpolation=Metashape.DisabledInterpolation,
-                   resolution=0.5)
+                   resolution=resolution)
 
     doc.save()
 
-    chunk.exportRaster(output_path + project_name + "_DEM.tif", 
-                       source_data= Metashape.ElevationData,
-                       image_format=Metashape.ImageFormatTIFF, 
-                       format=Metashape.RasterFormatTiles, 
-                       nodata_value=-32767, 
-                       save_kml=False, 
-                       save_world=True)
+#     chunk.exportRaster(output_path + project_name + "_DEM.tif", 
+#                        source_data= Metashape.ElevationData,
+#                        image_format=Metashape.ImageFormatTIFF, 
+#                        format=Metashape.RasterFormatTiles, 
+#                        nodata_value=-32767, 
+#                        save_kml=False, 
+#                        save_world=False,
+#                        split_in_blocks = split_in_blocks)
 
 def images2ortho(project_name,
-                 output_path):
+                 output_path,
+                 split_in_blocks = False):
                  
     import Metashape
 
@@ -148,7 +154,8 @@ def images2ortho(project_name,
     doc.save()
 
     chunk.exportRaster(output_path + project_name + "_orthomosaic.tif",
-                       source_data= Metashape.OrthomosaicData)
+                       source_data= Metashape.OrthomosaicData,
+                       split_in_blocks = split_in_blocks)
 
 def get_estimated_camera_centers(project_file_path):
     
