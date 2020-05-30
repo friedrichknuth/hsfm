@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
 import numpy as np
 import pandas as pd
 import os
@@ -212,3 +213,64 @@ def plot_intersection_angles_qc(intersections, file_names, show=False):
     print("Further QC plots for principal point and fiducial marker detection available under qc/image_preprocessing/")
 
     
+def plot_offsets(LE90,
+                 CE90,
+                 x_offset, 
+                 y_offset, 
+                 z_offset,
+                 title            = None,
+                 plot_file_name   = None):
+    x = x_offset
+    y = y_offset
+    z = z_offset
+
+    fig, axs = plt.subplots(1,3, figsize=(15,5))
+
+    maxdim = np.ceil(np.max(np.abs([x, y, z])))
+
+    ## find first non-zero float value
+    # for i in range(4):
+    #     maxdim =np.around(np.max(np.abs([x, y, z])),i)
+    #     if maxdim != 0:
+    #         continue
+    #     else:
+    #         pass
+
+    axs[0].scatter(x,y)
+    axs[0].set_xlabel('X offset (m)')
+    axs[0].set_ylabel('Y offset (m)')
+
+    axs[1].scatter(x,z)
+    axs[1].set_xlabel('X offset (m)')
+    axs[1].set_ylabel('Z offset (m)')
+
+    axs[2].scatter(y,z)
+    axs[2].set_xlabel('Y offset (m)')
+    axs[2].set_ylabel('Z offset (m)')
+
+    for ax in axs:
+        ax.set_aspect('equal', 'box')
+        ax.set_xlim(-maxdim, maxdim)
+        ax.set_ylim(-maxdim, maxdim)
+
+    e = Ellipse((0,0), 2*CE90, 2*CE90, linewidth=0, alpha=0.1)
+    axs[0].add_artist(e)
+
+    e = Ellipse((0,0), 2*CE90, 2*LE90, linewidth=0, alpha=0.1)
+    axs[1].add_artist(e)
+
+    e = Ellipse((0,0), 2*CE90, 2*LE90, linewidth=0, alpha=0.1)
+    axs[2].add_artist(e)
+
+    LE90_label = str(np.round(LE90,10))
+    CE90_label = str(np.round(CE90,10))
+    title = title + '\nLE90: ' + LE90_label +' m | CE90: '+ CE90_label+' m'
+
+    plt.suptitle(title)
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.85)
+    if not isinstance(plot_file_name, type(None)):
+        plt.savefig(plot_file_name)
+    
+    else:
+        plt.show()
