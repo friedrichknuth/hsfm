@@ -21,6 +21,7 @@ import time
 import utm
 import cv2
 
+
 hv.extension('bokeh')
 
 import hsfm.io
@@ -410,13 +411,15 @@ def pick_heading_from_map(image_file_name,
     return heading
 
 ## TODO move to hsfm.tools (needs to be created) as this launches a self contained app
-def create_fiducials(pid, 
+def create_fiducials(image_array, 
                      output_directory = 'fiducials'):
+                     
+    """
+    Select inner most point to crop from, in order left - top - right - bottom.
+    """
                      
     hsfm.io.create_dir(output_directory)
                      
-    image_array = hsfm.core.download_image(pid)
-    
     hsfm.io.create_dir('tmp/')
     temp_out = os.path.join('tmp/', 'temporary_image.tif')
     cv2.imwrite(temp_out,image_array)
@@ -488,6 +491,8 @@ def create_fiducials(pid,
     y_B = int(bottom_fiducial[1]+dist_h)
     cropped = image_array[y_T:y_B, x_L:x_R]
     cv2.imwrite(os.path.join(output_directory,'B.jpg'),cropped)
+    
+    return output_directory
 
 
 ## TODO move to hsfm.tools (needs to be created) as this launches a self contained app
@@ -499,7 +504,7 @@ def launch_fiducial_picker(hv_image, subplot_width, subplot_height):
                                                   height=subplot_height,
                                                   size=5,
                                                   color='blue',
-                                                  tools=["hover"]))
+                                                  tools=['hover']))
 
     panel = pn.panel(app)
 

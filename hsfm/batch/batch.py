@@ -311,7 +311,7 @@ def preprocess_images(template_directory,
                       camera_positions_file_name=None,
                       image_directory=None,
                       image_type='pid_tiff', 
-                      output_directory='output_data/images',
+                      output_directory='input_data/images',
                       subset=None, 
                       scale=None,
                       qc=False,
@@ -322,6 +322,8 @@ def preprocess_images(template_directory,
                       
     """
     Function to preprocess images from NAGAP archive in batch.
+    
+    side : 'left', 'right', top', 'bottom' # side opposite flight direction in image
     """
     # TODO
     # - Make io faster with gdal

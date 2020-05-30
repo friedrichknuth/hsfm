@@ -494,10 +494,33 @@ def preprocess_image(image_array,
     
     img_gray = image_array
     
-    window_left = [4000,8000,0,2000]
-    window_top = [0,1000,4000,8000]
-    window_right = [4000,8000,img_gray.shape[1]-1000,img_gray.shape[1]]
-    window_bottom = [img_gray.shape[0]-1000,img_gray.shape[0],4000,8000]
+    half_image_height     = int(img_gray.shape[0] / 2)
+    quarter_image_height  = int(half_image_height / 2)
+
+    half_image_width     = int(img_gray.shape[1] / 2)
+    quarter_image_width  = int(half_image_width / 2)
+    
+    window_left = [half_image_height - quarter_image_height,
+                   half_image_height + quarter_image_height,
+                   0, 
+                   half_image_width - quarter_image_width]
+
+    window_top = [0,
+                  half_image_height - quarter_image_height,
+                  half_image_width - quarter_image_width,
+                  half_image_width + quarter_image_width]
+
+    window_right = [half_image_height - quarter_image_height,
+                    half_image_height + quarter_image_height,
+                    half_image_width + quarter_image_width,
+                    img_gray.shape[1]]
+
+
+    window_bottom = [half_image_height + quarter_image_height,
+                     img_gray.shape[0],
+                     half_image_width - quarter_image_width,
+                     half_image_width + quarter_image_width]
+                     
     windows = [window_left, window_top, window_right, window_bottom]
     
     if isinstance(side, type(None)):
