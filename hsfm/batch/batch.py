@@ -294,7 +294,11 @@ def download_images_to_disk(camera_positions_file_name,
                             image_type='pid_tiff'):
                             
     hsfm.io.create_dir(output_directory)
-    df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
+    df = pd.read_csv(camera_positions_file_name)
+    
+    if not isinstance(subset,type(None)):
+        df = hsfm.core.subset_images_for_download(df, subset)
+    
     targets = dict(zip(df[image_type], df['fileName']))
     for pid, file_name in targets.items():
         print('Downloading',file_name, image_type)

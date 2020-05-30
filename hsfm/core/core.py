@@ -295,7 +295,10 @@ def initialize_cameras(camera_positions_file_name,
     output_directory = os.path.join(output_directory, 'initial_cameras')
     hsfm.io.create_dir(output_directory)
     
-    df = hsfm.core.select_images_for_download(camera_positions_file_name)
+    df = pd.read_csv(camera_positions_file_name)
+    if not isinstance(subset,type(None)):
+        df = hsfm.core.subset_images_for_download(df, subset)
+        
     lons = df['Longitude'].values
     lats = df['Latitude'].values
     elevations = hsfm.geospatial.sample_dem(lons,lats, reference_dem_file_name)
