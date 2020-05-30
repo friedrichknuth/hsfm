@@ -1008,3 +1008,107 @@ def targets_df_to_metashape_metadata(df,
              'pitch_acc',
              'roll_acc']]
     df.to_csv(os.path.join(output_directory,'metashape_metadata.csv'),index=False)
+    
+
+def metadata_transform(metadata_file,
+                       pc_align_transform_file,
+                       output_file_name = None):
+    
+    '''
+    Applies pc_align transform to lat, lon, alt positions.
+    '''
+    metadata_df = pd.read_csv(metadata_file)
+    df = hsfm.geospatial.df_xyz_coords_to_gdf(metadata_df, z='alt')
+    df = df.to_crs({'init':'epsg:4978'})
+    hsfm.geospatial.extract_gpd_geometry(df)
+    
+    df_tmp = pd.DataFrame()
+    for index, row in df.iterrows():
+        C = [row.x,row.y,row.z]
+        C_translation, R_transform = hsfm.core.extract_transform(pc_align_transform_file)
+        row.x,row.y,row.z = hsfm.core.apply_position_transform(C, C_translation, R_transform)
+
+        row = row.drop(['geometry'])
+        df_tmp = df_tmp.append(row)
+        
+    transformed_metadata = hsfm.geospatial.df_xyz_coords_to_gdf(df_tmp, 
+                                                                lon='x', 
+                                                                lat= 'y', 
+                                                                z='z',
+                                                                crs='4978')
+
+    transformed_metadata = transformed_metadata.to_crs({'init':'epsg:4326'})
+    hsfm.geospatial.extract_gpd_geometry(transformed_metadata)
+
+    transformed_metadata[['lon', 'lat','alt']] = transformed_metadata[['x', 'y','z']]
+    transformed_metadata = transformed_metadata.drop(['x', 'y','z', 'geometry'], axis=1)
+    transformed_metadata = transformed_metadata[['image_file_name', 
+                                                 'lon', 
+                                                 'lat', 
+                                                 'alt', 
+                                                 'lon_acc', 
+                                                 'lat_acc', 
+                                                 'alt_acc',
+                                                 'yaw', 
+                                                 'pitch', 
+                                                 'roll', 
+                                                 'yaw_acc', 
+                                                 'pitch_acc', 
+                                                 'roll_acc']]
+    
+    transformed_metadata = transformed_metadata.sort_values(by=['image_file_name'], ascending=True)
+    
+    if not isinstance(output_file_name, type(None)):
+        transformed_metadata.to_csv(output_file_name, index = False)
+    
+    return transformed_metadata
+
+def extract_transform(pc_align_transform_file):
+    transform = pd.read_csv(pc_align_transform_file, header=None, delimiter=r"\s+")
+    transform = transform.drop(3)
+    C_translation = list(transform[3].values)
+    transform = transform.drop([3],axis=1)
+    a = list(transform.iloc[0].values)
+    b = list(transform.iloc[1].values)
+    c = list(transform.iloc[2].values)
+    R_transform = [a,b,c]
+    
+    return C_translation, R_transform
+
+def apply_position_transform(C, C_translation, R_transform):
+    xi = R_transform[0][0]*C[0] + R_transform[0][1]*C[1] + R_transform[0][2]*C[2] + C_translation[0]
+    yi = R_transform[1][0]*C[0] + R_transform[1][1]*C[1] + R_transform[1][2]*C[2] + C_translation[1]
+    zi = R_transform[2][0]*C[0] + R_transform[2][1]*C[1] + R_transform[2][2]*C[2] + C_translation[2]
+
+    return(xi,yi,zi)
+
+def compute_point_offsets(metadata_file_1, 
+                          metadata_file_2,
+                          lon       = 'lon',
+                          lat       = 'lat',
+                          alt       = 'alt',
+                          epsg_code = '32610'):
+    
+    df1 = pd.read_csv(metadata_file_1)
+    gdf1 = hsfm.geospatial.df_xy_coords_to_gdf(df1, lon='lon', lat='lat')
+    gdf1 = gdf1.to_crs({'init' :'epsg:'+epsg_code})
+    hsfm.geospatial.extract_gpd_geometry(gdf1)
+    
+    df2 = pd.read_csv(metadata_file_2)
+    gdf2 = hsfm.geospatial.df_xy_coords_to_gdf(df2, lon='lon', lat='lat')
+    gdf2 = gdf2.to_crs({'init' :'epsg:'+epsg_code})
+    hsfm.geospatial.extract_gpd_geometry(gdf2)
+    
+    x_offset = gdf1.x - gdf2.x
+    y_offset = gdf1.y - gdf2.y
+    z_offset = gdf1.alt - gdf2.alt
+    
+    return x_offset, y_offset, z_offset
+    
+
+    
+    
+    
+    
+    
+    
