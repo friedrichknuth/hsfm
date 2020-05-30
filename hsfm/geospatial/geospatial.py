@@ -367,3 +367,46 @@ def sample_dem(lons, lats, dem_file_name):
     for elevation in src.sample(lon_lats):
         elevations.append(elevation[0])
     return elevations
+
+# From https://github.com/dshean/pygeotools/blob/master/pygeotools/lib/geolib.py
+# Formulas for CE90/LE90 here:
+# http://www.fgdc.gov/standards/projects/FGDC-standards-projects/accuracy/part3/chapter3
+def CE90(x_offset,y_offset):
+    RMSE_x = np.sqrt(np.sum(x_offset**2)/x_offset.size) 
+    RMSE_y = np.sqrt(np.sum(y_offset**2)/y_offset.size) 
+    c95 = 2.4477
+    c90 = 2.146
+    RMSE_min = min(RMSE_x, RMSE_y)
+    RMSE_max = max(RMSE_x, RMSE_y)
+    ratio = RMSE_min/RMSE_max
+    if ratio > 0.6 and ratio < 1.0:
+        out = c90 * 0.5 * (RMSE_x + RMSE_y)
+    else:
+        out = c90 * np.sqrt(RMSE_x**2 + RMSE_y**2)
+    return out
+
+def LE90(z_offset):
+    RMSE_z = np.sqrt(np.sum(z_offset**2)/z_offset.size)
+    c95 = 1.9600
+    c90 = 1.6449
+    return c90 * RMSE_z
+
+def compare_dem_extent(dem1_file,
+                       dem2_file):
+    
+    '''
+    Returns larger_dem_extent_file, smaller_dem_extent_file
+    '''
+    
+    ds = rasterio.open(dem1_file)
+    bounds = ds.bounds
+    a = bounds.right - bounds.left + bounds.top - bounds.bottom
+
+    ds = rasterio.open(dem2_file)
+    bounds = ds.bounds
+    b = bounds.right - bounds.left + bounds.top - bounds.bottom
+    
+    if a > b:
+        return dem1_file, dem2_file
+    else:
+        return dem2_file, dem1_file
