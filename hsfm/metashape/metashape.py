@@ -1,6 +1,8 @@
 import os
 import glob
+import pandas as pd
 
+import hsfm
 
 """
 Agisoft Metashape processing pipeline.
@@ -22,7 +24,6 @@ def authentication(METASHAPE_LICENCE_FILE):
 def images2las(project_name,
                images_path,
                images_metadata_file,
-               reference_dem_file,
                output_path,
                focal_length            = None,
                pixel_pitch             = None,
@@ -33,12 +34,12 @@ def images2las(project_name,
                tiepoint_limit          = 4000,
                rotation_enabled        = True):
 
+    # Levels from https://www.agisoft.com/forum/index.php?topic=11697.msg52455#msg52455
     """
     image_matching_accuracy = Highest/High/Medium/Low/Lowest -> 0/1/2/4/8
     densecloud_quality      = Ultra/High/Medium/Low/Lowest   -> 1/2/4/8/16
     """
     
-    # Levels from https://www.agisoft.com/forum/index.php?topic=11697.msg52455#msg52455
 
     # TODO
     # check if project already exists and prompt for overwrite or pickup where left off
@@ -47,8 +48,12 @@ def images2las(project_name,
     import Metashape
 
     os.makedirs(output_path)
+    metashape_project_file = os.path.join(output_path, project_name  + ".psx")
+    report_file            = os.path.join(output_path, project_name  + "_report.pdf")
+    point_cloud_file       = os.path.join(output_path, project_name  + ".las")
+
     doc = Metashape.Document()
-    doc.save(output_path + project_name + ".psx")
+    doc.save(metashape_project_file)
 
     crs = Metashape.CoordinateSystem(crs)
 
@@ -72,11 +77,13 @@ def images2las(project_name,
                           columns="nxyzXYZabcABC", # from metashape py api docs
                           delimiter=',',
                           format=Metashape.ReferenceFormatCSV)
+
+    # optionally orient first camera
+    chunk.cameras[1].reference.rotation_enabled = rotation_enabled
     
+    # need to iterate to orient all cameras if desired
 #     for i,v in enumerate(chunk.cameras):
 #         v.reference.rotation_enabled = rotation_enabled
-
-    chunk.cameras[1].reference.rotation_enabled = rotation_enabled
 
     chunk.crs = crs
     chunk.updateTransform()
@@ -99,18 +106,15 @@ def images2las(project_name,
     chunk.buildDenseCloud()
     doc.save()
     
-    chunk.exportReport(output_path + project_name + "_report.pdf")
-
-    output_file = output_path + project_name + ".las"
-
-    chunk.exportPoints(path=output_file,
+    chunk.exportReport(report_file)
+    chunk.exportPoints(path=point_cloud_file,
                        format=Metashape.PointsFormatLAS, crs = chunk.crs)
 
-    return output_file
+    return metashape_project_file, point_cloud_file
 
 
 def las2dem(project_name,
-            output_path,,
+            output_path,
             split_in_blocks = False,
             resolution = 2):
             
@@ -139,9 +143,12 @@ def las2dem(project_name,
 
 def images2ortho(project_name,
                  output_path,
-                 split_in_blocks = False):
+                 split_in_blocks = False,
+                 iteration       = 0):
                  
     import Metashape
+    
+    ortho_file = os.path.join(output_path, project_name  +"_orthomosaic.tif")
 
     doc = Metashape.Document()
     doc.open(output_path + project_name + ".psx")
@@ -153,16 +160,16 @@ def images2ortho(project_name,
 
     doc.save()
 
-    chunk.exportRaster(output_path + project_name + "_orthomosaic.tif",
+    chunk.exportRaster(ortho_file,
                        source_data= Metashape.OrthomosaicData,
                        split_in_blocks = split_in_blocks)
 
-def get_estimated_camera_centers(project_file_path):
+def get_estimated_camera_centers(metashape_project_file):
     
     import Metashape
     
     doc = Metashape.Document()
-    doc.open(project_file_path)
+    doc.open(metashape_project_file)
     chunk = doc.chunk
     
     images  = []
@@ -196,7 +203,7 @@ def get_estimated_camera_centers(project_file_path):
             
             
         except:
-            lon, lat, alt, yaw, pitch, roll, omega, phi, kappa = None, None, None, None, None, None, None, None, None
+            lon, lat, alt, yaw, pitch, roll, omega, phi, kappa = [None] * 9
             
         images.append(image)
         lons.append(lon)
@@ -210,3 +217,56 @@ def get_estimated_camera_centers(project_file_path):
         kappas.append(kappa)
         
     return images, lons, lats, alts, yaws, pitches, rolls, omegas, phis, kappas
+
+def update_ba_camera_metadata(metashape_project_file, 
+                              original_metadata_file,
+                              image_file_extension = '.tif',
+                              output_file_name = None,
+                              xyz_acc = 100,
+                              ypr_acc = 30):
+    '''
+    Returns dataframe with bundle adjusted camera positions and camera positions for cameras
+    that were not bundle adjusted in case a match can be made in subsequent runs.
+    '''
+    
+    metashape_export = hsfm.metashape.get_estimated_camera_centers(metashape_project_file)
+    images, lons, lats, alts, yaws, pitches, rolls, omegas, phis, kappas = metashape_export
+    images = [s + image_file_extension for s in images]
+    
+    dict = {'image_file_name': images,
+            'lon': lons,
+            'lat': lats,
+            'alt': alts,
+            'lon_acc': xyz_acc,
+            'lat_acc': xyz_acc,
+            'alt_acc': xyz_acc,
+            'yaw': yaws,
+            'pitch': pitches,
+            'roll': rolls,
+            'yaw_acc': ypr_acc,
+            'pitch_acc': ypr_acc,
+            'roll_acc': ypr_acc,
+           }  
+
+    ba_camera_metadata = pd.DataFrame(dict)
+
+    unaligned_cameras = ba_camera_metadata[ba_camera_metadata.isnull().any(axis=1)]\
+    ['image_file_name'].values
+    
+    # replace unaligned cameras with values from original input metadata
+    for i in unaligned_cameras:
+        ba_camera_metadata[ba_camera_metadata['image_file_name'].str.contains(i)] = \
+        metashape_metadata_df[metashape_metadata_df['image_file_name'].str.contains(i)]
+    
+    if not isinstance(output_file_name, type(None)):
+        ba_camera_metadata.to_csv(output_file_name, index = False)
+    
+    return ba_camera_metadata
+
+
+
+
+
+    
+    
+    
