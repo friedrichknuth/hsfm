@@ -341,8 +341,9 @@ def preprocess_images(template_directory,
     intersections =[]
     file_names = []
     
-    if camera_positions_file_name:
-        df = hsfm.core.select_images_for_download(camera_positions_file_name, subset)
+    if not isinstance(camera_positions_file_name,type(None)):
+        df = pd.read_csv(camera_positions_file_name)
+        df = hsfm.core.subset_images_for_download(df, subset)
         targets = dict(zip(df[image_type], df['fileName']))
         for pid, file_name in targets.items():
             print('Processing',file_name)
@@ -359,7 +360,7 @@ def preprocess_images(template_directory,
             intersections.append(intersection_angle)
             file_names.append(file_name)
     
-    elif image_directory:
+    elif not isinstance(image_directory,type(None)):
         image_files = sorted(glob.glob(os.path.join(image_directory,'*.tif')))
         for image_file in image_files:
             file_path, file_name, file_extension = hsfm.io.split_file(image_file)
