@@ -79,11 +79,11 @@ def images2las(project_name,
                           format=Metashape.ReferenceFormatCSV)
 
     # optionally orient first camera
-    chunk.cameras[1].reference.rotation_enabled = rotation_enabled
+#     chunk.cameras[1].reference.rotation_enabled = rotation_enabled
     
     # need to iterate to orient all cameras if desired
-#     for i,v in enumerate(chunk.cameras):
-#         v.reference.rotation_enabled = rotation_enabled
+    for i,v in enumerate(chunk.cameras):
+        v.reference.rotation_enabled = rotation_enabled
 
     chunk.crs = crs
     chunk.updateTransform()
@@ -219,7 +219,7 @@ def get_estimated_camera_centers(metashape_project_file):
     return images, lons, lats, alts, yaws, pitches, rolls, omegas, phis, kappas
 
 def update_ba_camera_metadata(metashape_project_file, 
-                              original_metadata_file,
+                              metashape_metadata_csv,
                               image_file_extension = '.tif',
                               output_file_name = None,
                               xyz_acc = 100,
@@ -228,6 +228,8 @@ def update_ba_camera_metadata(metashape_project_file,
     Returns dataframe with bundle adjusted camera positions and camera positions for cameras
     that were not bundle adjusted in case a match can be made in subsequent runs.
     '''
+    
+    metashape_metadata_df = pd.read_csv(metashape_metadata_csv)
     
     metashape_export = hsfm.metashape.get_estimated_camera_centers(metashape_project_file)
     images, lons, lats, alts, yaws, pitches, rolls, omegas, phis, kappas = metashape_export
