@@ -10,14 +10,17 @@ import hsfm.io
 Basic image processing functions. 
 """
     
-def clahe_equalize_image(img_gray):
+def clahe_equalize_image(img_gray,
+                         clipLimit = 2.0,
+                         tileGridSize = (8,8)):
     # Contrast Limited Adaptive Histogram Equalization
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    clahe = cv2.createCLAHE(clipLimit=clipLimit, tileGridSize=tileGridSize)
     img_gray_clahe = clahe.apply(img_gray)
     return img_gray_clahe
     
-def img_linear_stretch(img_gray):
-    p_min, p_max = np.percentile(img_gray, (0.1, 99.9))
+def img_linear_stretch(img_gray,
+                       min_max = (0.1, 99.9)):
+    p_min, p_max = np.percentile(img_gray, min_max)
     img_rescale = exposure.rescale_intensity(img_gray, in_range=(p_min, p_max))
     return img_rescale
     
