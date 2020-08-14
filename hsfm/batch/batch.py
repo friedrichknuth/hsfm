@@ -5,6 +5,7 @@ import sys
 import glob
 import numpy as np
 import pandas as pd
+from datetime import datetime
 import matplotlib.pyplot as plt
 
 
@@ -472,6 +473,8 @@ def run_metashape(project_name,
     # TODO auto determine optimal output_dem_resolution from point cloud density
     # TODO plot LE90 CE90 as qc
     
+    now = datetime.now()
+    
     output_path = output_path.rstrip('/') + str(iteration)
     bundle_adjusted_metadata_file = os.path.join(output_path, project_name + "_bundle_adjusted_metadata.csv")
     aligned_bundle_adjusted_metadata_file = os.path.join(output_path, project_name + "_aligned_bundle_adjusted_metadata.csv")
@@ -537,16 +540,18 @@ def run_metashape(project_name,
                                                       buff_size        = 2000,
                                                       verbose = verbose)
     
-    if ba_CE90 < 0.01 and ba_LE90 < 0.01:
-        hsfm.utils.dem_align_custom(reference_dem,
-                                    dem,
-                                    output_path,
-                                    verbose = verbose)
+#     if ba_CE90 < 0.01 and ba_LE90 < 0.01:
+#         hsfm.utils.dem_align_custom(reference_dem,
+#                                     dem,
+#                                     output_path,
+#                                     verbose = verbose)
 
     aligned_dem_file, transform =  hsfm.asp.pc_align_p2p_sp2p(dem, 
                                                               reference_dem,
                                                               output_path,
                                                               verbose = verbose)
+    
+    print("Elapsed time", str(datetime.now() - now))
     
     hsfm.core.metadata_transform(bundle_adjusted_metadata_file,
                                  transform,
@@ -595,6 +600,8 @@ def metaflow(project_name,
              output_path,
              focal_length,
              pixel_pitch,
+             image_matching_accuracy = 1,
+             densecloud_quality      = 1,
              output_dem_resolution   = 0.5,
              metashape_licence_file  = None,
              verbose                 = False,
@@ -608,8 +615,8 @@ def metaflow(project_name,
                                    focal_length,
                                    pixel_pitch,
                                    output_dem_resolution   = output_dem_resolution,
-                                   image_matching_accuracy = 1,
-                                   densecloud_quality      = 1,
+                                   image_matching_accuracy = image_matching_accuracy,
+                                   densecloud_quality      = densecloud_quality,
                                    rotation_enabled        = True,
                                    generate_ortho          = False,
                                    metashape_licence_file  = metashape_licence_file,
@@ -635,8 +642,8 @@ def metaflow(project_name,
                                            focal_length,
                                            pixel_pitch,
                                            output_dem_resolution   = output_dem_resolution,
-                                           image_matching_accuracy = 1,
-                                           densecloud_quality      = 1,
+                                           image_matching_accuracy = image_matching_accuracy,
+                                           densecloud_quality      = densecloud_quality,
                                            rotation_enabled        = False,
                                            generate_ortho          = False,
                                            metashape_licence_file  = metashape_licence_file,
@@ -652,9 +659,25 @@ def metaflow(project_name,
             tr_ba_CE90,\
             tr_ba_LE90 = out
             
+#     out = hsfm.batch.run_metashape(project_name,
+#                                    images_path,
+#                                    bundle_adjusted_metadata_file,
+#                                    reference_dem,
+#                                    output_path,
+#                                    focal_length,
+#                                    pixel_pitch,
+#                                    output_dem_resolution   = output_dem_resolution,
+#                                    image_matching_accuracy = image_matching_accuracy,
+#                                    densecloud_quality      = densecloud_quality,
+#                                    rotation_enabled        = True,
+#                                    generate_ortho          = False,
+#                                    metashape_licence_file  = metashape_licence_file,
+#                                    verbose                 = verbose,
+#                                    iteration               = '_final')
+            
     if cleanup == True:
         las_files = glob.glob('./**/*.las', recursive=True)
-        for i in las_file:
+        for i in las_files:
             os.remove(i)
     
     
