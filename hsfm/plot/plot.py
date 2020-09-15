@@ -199,7 +199,10 @@ def plot_dem_from_file(dem_file_name,
                             output_file_name=output_file_name,
                             cmap=cmap)
 
-def plot_intersection_angles_qc(intersections, file_names, show=False):
+def plot_intersection_angles_qc(intersections, 
+                                file_names, 
+                                show=False,
+                                expected_angle = 90.0):
     df = pd.DataFrame({"Angle off mean":intersections,"filename":file_names}).set_index("filename")
     df_mean = df - df.mean()
     fig, ax = plt.subplots(1, figsize=(10, 10))
@@ -208,8 +211,8 @@ def plot_intersection_angles_qc(intersections, file_names, show=False):
         plt.show()
     fig.savefig('qc/image_preprocessing/principal_point_intersection_angle_off_mean.png')
     plt.close()
-    angle = np.round((df.mean() - 90).values[0],4)
-    print("Mean rotation off 90 degree intersection at principal point:",angle)
+    angle = np.round((df.mean() - expected_angle).values[0],4)
+    print("Mean rotation off " + str(expected_angle) +" degree intersection at principal point:",angle)
     print("Further QC plots for principal point and fiducial marker detection available under qc/image_preprocessing/")
 
     

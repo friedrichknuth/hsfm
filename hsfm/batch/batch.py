@@ -323,7 +323,9 @@ def preprocess_images(template_directory,
                       invisible_fiducial=None,
                       crop_from_pp_dist = 11250,
                       manually_pick_fiducials=False,
-                      side = None):
+                      side = None,
+                      expected_angle=90.0,
+                      angle_threshold=0.2):
                       
     """
     Function to preprocess images from NAGAP archive in batch.
@@ -357,7 +359,9 @@ def preprocess_images(template_directory,
                                                             invisible_fiducial=invisible_fiducial,
                                                             crop_from_pp_dist=crop_from_pp_dist,
                                                             manually_pick_fiducials=manually_pick_fiducials,
-                                                            side = side)
+                                                            side = side,
+                                                            expected_angle=expected_angle,
+                                                            angle_threshold=angle_threshold)
             intersections.append(intersection_angle)
             file_names.append(file_name)
     
@@ -376,12 +380,14 @@ def preprocess_images(template_directory,
                                                             invisible_fiducial=invisible_fiducial,
                                                             crop_from_pp_dist=crop_from_pp_dist,
                                                             manually_pick_fiducials=manually_pick_fiducials,
-                                                            side = side)
+                                                            side = side,
+                                                            expected_angle=expected_angle,
+                                                            angle_threshold=angle_threshold)
             intersections.append(intersection_angle)
             file_names.append(file_name)
         
     if qc == True:
-        hsfm.plot.plot_intersection_angles_qc(intersections, file_names)
+        hsfm.plot.plot_intersection_angles_qc(intersections, file_names,expected_angle=expected_angle)
     
     return output_directory
 

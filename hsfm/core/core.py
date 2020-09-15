@@ -1,5 +1,6 @@
 import shutil
 import numpy as np
+import math
 import pandas as pd
 from urllib.request import urlopen
 import cv2
@@ -507,7 +508,16 @@ def gather_templates(template_directory):
     templates = [left_template, top_template, right_template, bottom_template]
     return templates
     
-def pick_fiducials_manually(image_file_name=None, image_array=None, qc=False, output_directory='data/images'):
+def pick_fiducials_manually(image_file_name=None, 
+                            image_array=None, 
+                            qc=False, 
+                            output_directory='data/images',
+                            expected_angle=90.0,
+                            angle_threshold=0.2):
+    
+    angle_min = expected_angle-angle_threshold
+    angle_max = expected_angle+angle_threshold
+    
     if isinstance(image_array, np.ndarray):
         hsfm.io.create_dir('tmp/')
         temp_out = os.path.join('tmp/', 'temporary_image.tif')
@@ -522,7 +532,7 @@ def pick_fiducials_manually(image_file_name=None, image_array=None, qc=False, ou
     while condition == True:
         # currently only works from file on disk
         principal_point, intersection_angle, fiducials = hsfm.utils.pick_fiducials(image_file_name)
-        if intersection_angle > 90.1 or intersection_angle < 89.9:
+        if intersection_angle > angle_max or intersection_angle < angle_min:
             print('Intersection angle at principle point is not within orthogonality limits.')
             print('Try again.')
         else:
@@ -541,13 +551,18 @@ def preprocess_image(image_array,
                      invisible_fiducial=None,
                      crop_from_pp_dist=11250,
                      manually_pick_fiducials=False,
-                     side = None):
+                     side = None,
+                     expected_angle=90.0,
+                     angle_threshold=0.2):
     """
     side = 'left','top','right' #Determines position of frame opposite to flight direction. 
                                 #If none determines side of frame with largest black border.
     """
                      
     # TODO clean this up
+    
+    angle_min = expected_angle-angle_threshold
+    angle_max = expected_angle+angle_threshold
     
     img_gray = image_array
     
@@ -598,7 +613,7 @@ def preprocess_image(image_array,
         intersection_angle = determine_intersection_angle(fiducials)
         print('Principal point intersection angle:', intersection_angle)
     
-        if intersection_angle > 90.1 or intersection_angle < 89.9:
+        if intersection_angle > angle_max or intersection_angle < angle_min:
             print("Warning: intersection angle at principle point is not within orthogonality limits.")
             print('Re-attempting fiducial marker detection.')
             print("Processing left fiducial.")
@@ -609,7 +624,7 @@ def preprocess_image(image_array,
                                                                               invisible_fiducial=invisible_fiducial)
             intersection_angle = determine_intersection_angle(fiducials)
             print('New intersection angle:',intersection_angle)
-            if intersection_angle > 90.1 or intersection_angle < 89.9:
+            if intersection_angle > angle_max or intersection_angle < angle_min:
                 print("Processing top fiducial.")
                 fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                                   templates, 
@@ -618,7 +633,7 @@ def preprocess_image(image_array,
                                                                                   invisible_fiducial=invisible_fiducial)
                 intersection_angle = determine_intersection_angle(fiducials)
                 print('New intersection angle:',intersection_angle)
-                if intersection_angle > 90.1 or intersection_angle < 89.9:
+                if intersection_angle > angle_max or intersection_angle < angle_min:
                     print("Processing right fiducial.")
                     fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                                       templates, 
@@ -627,7 +642,7 @@ def preprocess_image(image_array,
                                                                                       invisible_fiducial=invisible_fiducial)
                     intersection_angle = determine_intersection_angle(fiducials)
                     print('New intersection angle:',intersection_angle)
-                    if intersection_angle > 90.1 or intersection_angle < 89.9:
+                    if intersection_angle > angle_max or intersection_angle < angle_min:
                         print("Processing bottom fiducial.")
                         fiducials, principal_point = detect_fiducials_and_principal_point(windows, 
                                                                                           templates, 
@@ -637,7 +652,7 @@ def preprocess_image(image_array,
                         intersection_angle = determine_intersection_angle(fiducials)
                         print('New intersection angle:',intersection_angle)
                     
-    if intersection_angle > 90.1 or intersection_angle < 89.9:
+    if intersection_angle > angle_max or intersection_angle < angle_min:
         print("Unable to improve result for", file_name)
         print("Please select fiducial markers manually")
         if image_file_name:
@@ -645,7 +660,7 @@ def preprocess_image(image_array,
         else:
             principal_point, intersection_angle, fiducials = pick_fiducials_manually(image_array=img_gray)
         
-    if intersection_angle < 90.1 and intersection_angle > 89.9:
+    if intersection_angle < angle_max and intersection_angle > angle_min:
         cropped = crop_about_principal_point(img_gray, 
                                              principal_point,
                                              crop_from_pp_dist = crop_from_pp_dist)
@@ -730,20 +745,17 @@ def detect_fiducials_and_principal_point(windows,
                                                 
     return fiducials, principal_point
 
-
 def determine_intersection_angle(fiducials):
     left_fiducial = fiducials[0]
     top_fiducial = fiducials[1]
     right_fiducial = fiducials[2]
     bottom_fiducial = fiducials[3]
-            
-    # QC routine
-    arc1 = np.rad2deg(np.arctan2(bottom_fiducial[1] - top_fiducial[1],
-                  bottom_fiducial[0] - top_fiducial[0]))
-    arc2 = np.rad2deg(np.arctan2(right_fiducial[1] - left_fiducial[1],
-                  right_fiducial[0] - left_fiducial[0]))
-    intersection_angle = arc1-arc2
-        
+    
+    m1 = (left_fiducial[1]-right_fiducial[1])/(left_fiducial[0]-right_fiducial[0])
+    m2 = (top_fiducial[1]-bottom_fiducial[1])/(top_fiducial[0]-bottom_fiducial[0])
+    
+    intersection_angle = abs(math.degrees(math.atan((m2-m1) / (1+m1*m2))))
+    
     return np.round(intersection_angle,4)
 
 def pad_image(grayscale_unit8_image_array):
