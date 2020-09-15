@@ -536,7 +536,8 @@ def launch_fiducial_picker(hv_image, subplot_width, subplot_height):
     return fiducials, principal_point
 
 ## TODO move to hsfm.core as best fit (for now)
-def hv_plot_raster(image_file_name):
+def hv_plot_raster(image_file_name,
+                   stretch_histogram = False):
     src = rasterio.open(image_file_name)
 
     subplot_width  = scale_down_number(src.shape[0])
@@ -544,7 +545,8 @@ def hv_plot_raster(image_file_name):
 
     da = xr.open_rasterio(src)
     
-    da.values = hsfm.image.img_linear_stretch_full(da.values)
+    if stretch_histogram:
+        da.values = hsfm.image.img_linear_stretch_full(da.values)
 
     hv_image = da.sel(band=1).hvplot.image(rasterize=True,
                                       width=subplot_width,
