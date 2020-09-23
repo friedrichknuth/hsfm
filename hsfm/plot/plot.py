@@ -117,10 +117,10 @@ def plot_dem_difference_map(masked_array,
                    clim=(-spread, spread),
                    extent=extent)
     
-    if climits is not None:
-        fig.clim(climits[0], climits[1])
+    cbar = fig.colorbar(im,extend='both')
 
-    fig.colorbar(im,extend='both')
+    if climits is not None:
+        cbar.set_clim(climits[0], climits[1])
     
     if output_file_name == None:
         plt.show()
@@ -183,9 +183,11 @@ def plot_dem_with_hillshade(masked_array,
     ax.imshow(hillshade, 
               cmap='gray',
               alpha=0.5)
+    
+    cbar = fig.colorbar(im,extend='both')
+    
     if climits is not None:
-        fig.clim(climits[0], climits[1])
-    fig.colorbar(im,extend='both')
+        cbar.set_clim(climits[0], climits[1])
 
     if output_file_name == None:
         plt.show()
