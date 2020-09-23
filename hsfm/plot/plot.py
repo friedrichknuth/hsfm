@@ -184,7 +184,7 @@ def plot_dem_with_hillshade(masked_array,
               cmap='gray',
               alpha=0.5)
     
-    bar = fig.colorbar(im,extend='both')
+    fig.colorbar(im,extend='both')
     
     if climits is not None:
         im.set_clim(climits[0], climits[1])
