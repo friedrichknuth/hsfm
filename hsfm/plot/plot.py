@@ -96,7 +96,8 @@ def plot_dem_difference_map(masked_array,
                             percentile_min=1,
                             percentile_max=99,
                             spread=None,
-                            extent=None):
+                            extent=None,
+                            climits=None):
                       
     """
     Function to plot difference map between two DEMs from masked array. 
@@ -116,6 +117,9 @@ def plot_dem_difference_map(masked_array,
                    clim=(-spread, spread),
                    extent=extent)
     
+    if climits is not None:
+        fig.clim(climits[0], climits[1])
+
     fig.colorbar(im,extend='both')
     
     if output_file_name == None:
@@ -131,7 +135,8 @@ def plot_dem_difference_from_file_name(dem_difference_file_name,
                                        percentile_max=99,
                                        spread=None,
                                        extent=None,
-                                       mask_glacier=False):
+                                       mask_glacier=False,
+                                       climits=None):
                       
     """
     Function to plot difference map between two DEMs from file.
@@ -156,7 +161,8 @@ def plot_dem_difference_from_file_name(dem_difference_file_name,
                             percentile_min=percentile_min,
                             percentile_max=percentile_max,
                             spread=spread,
-                            extent=extent)
+                            extent=extent,
+                            climits=climits)
         
 def plot_dem_with_hillshade(masked_array,
                             output_file_name=None,
@@ -201,7 +207,7 @@ def plot_dem_from_file(dem_file_name,
     plot_dem_with_hillshade(masked_array,
                             output_file_name=output_file_name,
                             cmap=cmap,
-                            climits)
+                            climits=climits)
 
 def plot_intersection_angles_qc(intersections, 
                                 file_names, 
