@@ -96,8 +96,7 @@ def plot_dem_difference_map(masked_array,
                             percentile_min=1,
                             percentile_max=99,
                             spread=None,
-                            extent=None,
-                            climits=None):
+                            extent=None):
                       
     """
     Function to plot difference map between two DEMs from masked array. 
@@ -118,9 +117,6 @@ def plot_dem_difference_map(masked_array,
                    extent=extent)
     
     fig.colorbar(im,extend='both')
-
-    if climits is not None:
-        im.set_clim(climits[0], climits[1])
     
     if output_file_name == None:
         plt.show()
@@ -135,8 +131,7 @@ def plot_dem_difference_from_file_name(dem_difference_file_name,
                                        percentile_max=99,
                                        spread=None,
                                        extent=None,
-                                       mask_glacier=False,
-                                       climits=None):
+                                       mask_glacier=False):
                       
     """
     Function to plot difference map between two DEMs from file.
@@ -161,13 +156,12 @@ def plot_dem_difference_from_file_name(dem_difference_file_name,
                             percentile_min=percentile_min,
                             percentile_max=percentile_max,
                             spread=spread,
-                            extent=extent,
-                            climits=climits)
+                            extent=extent)
         
 def plot_dem_with_hillshade(masked_array,
                             output_file_name=None,
                             cmap='inferno',
-                            climits = None):
+                            clim = None):
     """
     Function to plot DEM with hillshade. Uses a masked array with nans as fill value.
     Use hsfm.geospatial.mask_array_with_nan(array,nodata_value) to create an appropriate
@@ -186,8 +180,8 @@ def plot_dem_with_hillshade(masked_array,
     
     fig.colorbar(im,extend='both')
     
-    if climits is not None:
-        im.set_clim(climits[0], climits[1])
+    if clim is not None:
+        im.set_clim(clim[0], clim[1])
 
     if output_file_name == None:
         plt.show()
@@ -198,7 +192,7 @@ def plot_dem_with_hillshade(masked_array,
 def plot_dem_from_file(dem_file_name,
                        output_file_name=None,
                        cmap='inferno',
-                       climits = None):
+                       clim = None):
     
     rasterio_dataset = rasterio.open(dem_file_name)
     array = rasterio_dataset.read(1)
@@ -209,7 +203,7 @@ def plot_dem_from_file(dem_file_name,
     plot_dem_with_hillshade(masked_array,
                             output_file_name=output_file_name,
                             cmap=cmap,
-                            climits=climits)
+                            clim=clim)
 
 def plot_intersection_angles_qc(intersections, 
                                 file_names, 
