@@ -108,9 +108,10 @@ def optimize_geotif(geotif_file_name,
 
 
 def download_srtm(LLLON,LLLAT,URLON,URLAT,
-                  output_directory='./data/reference_dem/',
-                  verbose=True,
-                  cleanup=False):
+                  output_directory='./input_data/reference_dem/',
+                  utm=False,
+                  verbose=False,
+                  cleanup=True):
     # TODO
     # - Add function to determine extent automatically from input cameras
     # - Make geoid adjustment and converstion to UTM optional
@@ -118,7 +119,8 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
     import elevation
     
     run_command(['eio', 'selfcheck'], verbose=verbose)
-    print('Downloading SRTM DEM data...')
+    if verbose:
+        print('Downloading SRTM DEM data...')
 
     hsfm.io.create_dir(output_directory)
 
@@ -157,28 +159,34 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
     run_command(call, verbose=verbose)
     
     adjusted_vrt_subset_file_name = adjusted_vrt_subset_file_name_prefix+'-adj.tif'
-
-    # Get UTM EPSG code
-    epsg_code = hsfm.geospatial.wgs_lon_lat_to_epsg_code(LLLON, LLLAT)
     
-    # Convert to UTM
-    utm_vrt_subset_file_name = os.path.join(output_directory,'SRTM3/cache/srtm_subset_utm_geoid_adj.tif')
-    call = 'gdalwarp -co COMPRESS=LZW -co TILED=YES -co BIGTIFF=IF_SAFER -dstnodata -9999 -r cubic -t_srs EPSG:' + epsg_code
-    call = call.split()
-    call.extend([adjusted_vrt_subset_file_name,utm_vrt_subset_file_name])
-    run_command(call, verbose=verbose)
+    if utm:
+        # Get UTM EPSG code
+        epsg_code = hsfm.geospatial.wgs_lon_lat_to_epsg_code(LLLON, LLLAT)
     
-    # Cleanup
-    if cleanup == True:
-        print('Cleaning up...','Reference DEM available at', out)
-        out = os.path.join(output_directory,os.path.split(utm_vrt_subset_file_name)[-1])
-        os.rename(utm_vrt_subset_file_name, out)
-        shutil.rmtree(os.path.join(output_directory,'SRTM3/'))
-    
-        return out
+        # Convert to UTM
+        utm_vrt_subset_file_name = os.path.join(output_directory,'SRTM3/cache/srtm_subset_utm_geoid_adj.tif')
+        call = 'gdalwarp -co COMPRESS=LZW -co TILED=YES -co BIGTIFF=IF_SAFER -dstnodata -9999 -r cubic -t_srs EPSG:' + epsg_code
+        call = call.split()
+        call.extend([adjusted_vrt_subset_file_name,utm_vrt_subset_file_name])
+        run_command(call, verbose=verbose)
+        
+        if cleanup == True:
+            out = os.path.join(output_directory,os.path.split(utm_vrt_subset_file_name)[-1])
+            os.rename(utm_vrt_subset_file_name, out)
+            shutil.rmtree(os.path.join(output_directory,'SRTM3/'))
+            return out
+        else:
+            return utm_vrt_subset_file_name
         
     else:
-        return utm_vrt_subset_file_name
+        if cleanup == True:
+            out = os.path.join(output_directory,os.path.split(adjusted_vrt_subset_file_name)[-1])
+            os.rename(adjusted_vrt_subset_file_name, out)
+            shutil.rmtree(os.path.join(output_directory,'SRTM3/'))
+            return out
+        else:
+            return adjusted_vrt_subset_file_name
 
 
 def clip_reference_dem(dem_file, 
