@@ -211,9 +211,8 @@ def calculate_heading_from_metadata(df,
     # TODO
     # - Add flightline seperation function
     # - Generalize beyond NAGAP keys
-    if subset:
-        df = hsfm.core.subset_images_for_download(df, subset)
-        
+    
+    df = hsfm.core.subset_images_for_download(df, subset)
     df = df.sort_values(by=[sorting_column])
     if reverse_order:
         df = df.sort_values(by=[sorting_column], ascending=False)
@@ -234,7 +233,7 @@ def calculate_heading_from_metadata(df,
     
         except:
             # When the loop reaches the last element, 
-            # assume that the final image is oriented 
+            # assumes that the final image is oriented 
             # the same as the previous, i.e. the flight 
             # direction did not change
             headings.append(heading)
@@ -242,52 +241,7 @@ def calculate_heading_from_metadata(df,
     df = df.sort_values(by=[sorting_column], ascending=True)   
     df['heading'] = headings
     
-    if for_metashape:
-        
-        df['yaw']             = df['heading'].round()
-        df['pitch']           = 1.0
-        df['roll']            = 1.0
-        df['image_file_name'] = df['fileName']+'.tif'
-        
-        if reference_dem:
-            df['alt']             = hsfm.geospatial.sample_dem(lons, lats, reference_dem)
-            df['alt']             = df['alt'] + flight_altitude_m
-            df['alt']             = df['alt'].max()
-        
-        else:
-            df['alt']             = flight_altitude_m
-            
-        df['lon']             = df['Longitude'].round(6)
-        df['lat']             = df['Latitude'].round(6)
-        df['lon_acc']         = 1000
-        df['lat_acc']         = 1000
-        df['alt_acc']         = 1000
-        df['yaw_acc']         = 50
-        df['pitch_acc']       = 50
-        df['roll_acc']        = 50
-    
-        df = df[['image_file_name',
-                 'lon',
-                 'lat',
-                 'alt',
-                 'lon_acc',
-                 'lat_acc',
-                 'alt_acc',
-                 'yaw',
-                 'pitch',
-                 'roll',
-                 'yaw_acc',
-                 'pitch_acc',
-                 'roll_acc']]
-                 
-        if output_directory:
-            hsfm.io.create_dir(output_directory)
-            df.to_csv(os.path.join(output_directory,'metashape_metadata.csv'),index=False)
-        
-        return df
-    
-    else:
-        return df
+    return df
 
 def download_images_to_disk(camera_positions_file_name, 
                             subset=None, 
