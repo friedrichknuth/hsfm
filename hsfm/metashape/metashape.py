@@ -222,8 +222,8 @@ def update_ba_camera_metadata(metashape_project_file,
                               metashape_metadata_csv,
                               image_file_extension = '.tif',
                               output_file_name = None,
-                              xyz_acc = 100,
-                              ypr_acc = 30):
+                              xyz_acc = 180,
+                              ypr_acc = 10):
     '''
     Returns dataframe with bundle adjusted camera positions and camera positions for cameras
     that were not bundle adjusted in case a match can be made in subsequent runs.
@@ -258,7 +258,7 @@ def update_ba_camera_metadata(metashape_project_file,
     # replace unaligned cameras with values from original input metadata
     for i in unaligned_cameras:
         ba_camera_metadata[ba_camera_metadata['image_file_name'].str.contains(i)] = \
-        metashape_metadata_df[metashape_metadata_df['image_file_name'].str.contains(i)]
+        metashape_metadata_df[metashape_metadata_df['image_file_name'].str.contains(i)].values
     
     if not isinstance(output_file_name, type(None)):
         ba_camera_metadata.to_csv(output_file_name, index = False)
