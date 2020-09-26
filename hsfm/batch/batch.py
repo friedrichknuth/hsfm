@@ -211,8 +211,9 @@ def calculate_heading_from_metadata(df,
     # TODO
     # - Add flightline seperation function
     # - Generalize beyond NAGAP keys
-    
-    df = hsfm.core.subset_images_for_download(df, subset)
+    if subset:
+        df = hsfm.core.subset_images_for_download(df, subset)
+        
     df = df.sort_values(by=[sorting_column])
     if reverse_order:
         df = df.sort_values(by=[sorting_column], ascending=False)
@@ -233,7 +234,7 @@ def calculate_heading_from_metadata(df,
     
         except:
             # When the loop reaches the last element, 
-            # assumes that the final image is oriented 
+            # assume that the final image is oriented 
             # the same as the previous, i.e. the flight 
             # direction did not change
             headings.append(heading)
@@ -241,7 +242,52 @@ def calculate_heading_from_metadata(df,
     df = df.sort_values(by=[sorting_column], ascending=True)   
     df['heading'] = headings
     
-    return df
+    if for_metashape:
+        
+        df['yaw']             = df['heading'].round()
+        df['pitch']           = 1.0
+        df['roll']            = 1.0
+        df['image_file_name'] = df['fileName']+'.tif'
+        
+        if reference_dem:
+            df['alt']             = hsfm.geospatial.sample_dem(lons, lats, reference_dem)
+            df['alt']             = df['alt'] + flight_altitude_m
+            df['alt']             = df['alt'].max()
+        
+        else:
+            df['alt']             = flight_altitude_m
+            
+        df['lon']             = df['Longitude'].round(6)
+        df['lat']             = df['Latitude'].round(6)
+        df['lon_acc']         = 1000
+        df['lat_acc']         = 1000
+        df['alt_acc']         = 1000
+        df['yaw_acc']         = 50
+        df['pitch_acc']       = 50
+        df['roll_acc']        = 50
+    
+        df = df[['image_file_name',
+                 'lon',
+                 'lat',
+                 'alt',
+                 'lon_acc',
+                 'lat_acc',
+                 'alt_acc',
+                 'yaw',
+                 'pitch',
+                 'roll',
+                 'yaw_acc',
+                 'pitch_acc',
+                 'roll_acc']]
+                 
+        if output_directory:
+            hsfm.io.create_dir(output_directory)
+            df.to_csv(os.path.join(output_directory,'metashape_metadata.csv'),index=False)
+        
+        return df
+    
+    else:
+        return df
 
 def download_images_to_disk(camera_positions_file_name, 
                             subset=None, 
@@ -277,9 +323,7 @@ def preprocess_images(template_directory,
                       invisible_fiducial=None,
                       crop_from_pp_dist = 11250,
                       manually_pick_fiducials=False,
-                      side = None,
-                      expected_angle=90.0,
-                      angle_threshold=0.2):
+                      side = None):
                       
     """
     Function to preprocess images from NAGAP archive in batch.
@@ -313,9 +357,7 @@ def preprocess_images(template_directory,
                                                             invisible_fiducial=invisible_fiducial,
                                                             crop_from_pp_dist=crop_from_pp_dist,
                                                             manually_pick_fiducials=manually_pick_fiducials,
-                                                            side = side,
-                                                            expected_angle=expected_angle,
-                                                            angle_threshold=angle_threshold)
+                                                            side = side)
             intersections.append(intersection_angle)
             file_names.append(file_name)
     
@@ -334,14 +376,12 @@ def preprocess_images(template_directory,
                                                             invisible_fiducial=invisible_fiducial,
                                                             crop_from_pp_dist=crop_from_pp_dist,
                                                             manually_pick_fiducials=manually_pick_fiducials,
-                                                            side = side,
-                                                            expected_angle=expected_angle,
-                                                            angle_threshold=angle_threshold)
+                                                            side = side)
             intersections.append(intersection_angle)
             file_names.append(file_name)
         
     if qc == True:
-        hsfm.plot.plot_intersection_angles_qc(intersections, file_names,expected_angle=expected_angle)
+        hsfm.plot.plot_intersection_angles_qc(intersections, file_names)
     
     return output_directory
 
@@ -564,9 +604,13 @@ def metaflow(project_name,
              image_matching_accuracy = 1,
              densecloud_quality      = 1,
              output_dem_resolution   = 0.5,
+             generate_ortho          = False,
              metashape_licence_file  = None,
              verbose                 = False,
              cleanup                 = False):
+    
+    # TODO
+    # compute output_dem_resolution based on GSD
     
     out = hsfm.batch.run_metashape(project_name,
                                    images_path,
@@ -593,54 +637,25 @@ def metaflow(project_name,
     tr_ba_CE90,\
     tr_ba_LE90 = out
     
-    for i in np.arange(1,4,1):
-        if ba_CE90 > 0.01 or ba_LE90 > 0.01:
-            out = hsfm.batch.run_metashape(project_name,
-                                           images_path,
-                                           aligned_bundle_adjusted_metadata_file,
-                                           reference_dem,
-                                           output_path,
-                                           focal_length,
-                                           pixel_pitch,
-                                           output_dem_resolution   = output_dem_resolution,
-                                           image_matching_accuracy = image_matching_accuracy,
-                                           densecloud_quality      = densecloud_quality,
-                                           rotation_enabled        = False,
-                                           generate_ortho          = False,
-                                           metashape_licence_file  = metashape_licence_file,
-                                           verbose                 = verbose,
-                                           iteration               = i)
-            
-            bundle_adjusted_metadata_file,\
-            ba_CE90,\
-            ba_LE90,\
-            aligned_dem_file,\
-            transform,\
-            aligned_bundle_adjusted_metadata_file,\
-            tr_ba_CE90,\
-            tr_ba_LE90 = out
-            
-#     out = hsfm.batch.run_metashape(project_name,
-#                                    images_path,
-#                                    bundle_adjusted_metadata_file,
-#                                    reference_dem,
-#                                    output_path,
-#                                    focal_length,
-#                                    pixel_pitch,
-#                                    output_dem_resolution   = output_dem_resolution,
-#                                    image_matching_accuracy = image_matching_accuracy,
-#                                    densecloud_quality      = densecloud_quality,
-#                                    rotation_enabled        = True,
-#                                    generate_ortho          = False,
-#                                    metashape_licence_file  = metashape_licence_file,
-#                                    verbose                 = verbose,
-#                                    iteration               = '_final')
-            
+    if generate_ortho:
+        # need to reprocess in order to get correct cameras and project ortho images
+        hsfm.batch.run_metashape(project_name,
+                                 images_path,
+                                 aligned_bundle_adjusted_metadata_file,
+                                 reference_dem,
+                                 output_path,
+                                 focal_length,
+                                 pixel_pitch,
+                                 output_dem_resolution   = output_dem_resolution,
+                                 image_matching_accuracy = image_matching_accuracy,
+                                 densecloud_quality      = densecloud_quality,
+                                 rotation_enabled        = True,
+                                 generate_ortho          = generate_ortho,
+                                 metashape_licence_file  = metashape_licence_file,
+                                 verbose                 = verbose,
+                                 iteration               = '_final')
+ 
     if cleanup == True:
         las_files = glob.glob('./**/*.las', recursive=True)
         for i in las_files:
             os.remove(i)
-    
-    
-    
-    
