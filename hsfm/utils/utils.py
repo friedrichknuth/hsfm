@@ -40,7 +40,31 @@ def dem_align_custom(reference_dem,
                      max_offset = 1000,
                      verbose=False,
                      print_call=False):
-    
+    """ 
+    Align DEMs using the Nuth and Kaab (2011) method
+    Parameters
+    -----------
+    reference_dem: str
+        path to fixed DEM to be used as reference for alignment
+    dem_to_be_aligned: str
+        path to floating DEM, which will be aligned wrt reference_dem
+    output_directory: str
+        path to directory where alignment results will be saved
+    mode: str
+        alignment flavor to use (only Nuth is operational right now)
+    max_offset: numeric
+        maximum allowable cummulative offset between DEMs when running the iterative algorithm
+    verbose: bool
+        If True, print full alignment alogrithm log 
+    print_call: bool
+        If True, will print the subprocess command before execution
+    Returns
+    ---------
+    dem_difference_file: str
+        path to DEM difference file (reference_dem-dem_to_be_aligned) after alignment
+    aligned_dem_file: str
+        path to "aligned" dem_to_be_aligned
+    """    
     call = ['dem_align.py',reference_dem,
             dem_to_be_aligned,
             '-max_offset',str(max_offset),
