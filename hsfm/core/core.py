@@ -10,6 +10,12 @@ import os
 from osgeo import gdal
 import utm
 import itertools
+import geopandas as gpd
+import pathlib
+import matplotlib.pyplot as plt
+import matplotlib._color_data as mcd
+import contextily as ctx
+cycle = list(mcd.XKCD_COLORS.values())
 
 import hsfm.image
 import hsfm.utils
@@ -439,20 +445,79 @@ def subset_input_image_list(image_list, subset=None):
         subset_image_list = image_list_df['image_file_path'].to_list()
         return subset_image_list
     
-def pre_select_target_images(input_csv, prefix, image_suffix_list,output_directory=None):
-    df = pd.read_csv(input_csv)
-    df = df[df['fileName'].str.contains(prefix)]
-    image_suffix_list = list(map(str, image_suffix_list))
-    image_suffix_list = [x.rjust(3,'0') for x in image_suffix_list]
-    df = df[df['fileName'].str.endswith(tuple(image_suffix_list), na=False)]
-    if output_directory:
-        hsfm.io.create_dir(output_directory)
-        output_file_name = os.path.join(output_directory, 'targets.csv')
-        df.to_csv(output_file_name,index=False)
+def pre_select_NAGAP_images(nagap_metadata_csv,
+                            bounds=None,
+                            roll=None,
+                            year=None,
+                            month=None,
+                            day=None,
+                            output_directory=None,
+                            verbose=True):
+    """
+    bounds = (ULLON, ULLAT, LRLON, LRLAT)
+    year   = 77 # e.g. for year 1977
+    """
+    
+    df = pd.read_csv(nagap_metadata_csv)
+    
+    if not isinstance(bounds,type(None)):
+        df = df[(df['Longitude']>bounds[0]) & 
+                (df['Longitude']<bounds[2]) & 
+                (df['Latitude']>bounds[3]) & 
+                (df['Latitude']<bounds[1])]
+    
+    if not isinstance(roll,type(None)):
+        df = df[df['Roll'] == roll]
+        
+    if not isinstance(year,type(None)):
+        df = df[df['Year'] == int(year)]
+        
+    if not isinstance(month,type(None)):
+        df = df[df['Month'] == int(month)]
+        
+    if not isinstance(day,type(None)):
+        df = df[df['Day'] == int(day)]
+        
+    df = df.reset_index(drop=True)
+    
+    if len(list(set(df['Roll'].values))) > 1:
+        print('Multiple camera rolls detected:')
+        for i in list(set(df['Roll'].values)):
+            print(i)
+        if verbose:
+            print('\nDifferent camera rolls may mean different cameras were used.')
+            t = """
+Recommended:
+Examine the focal length and fiducial markers in the 
+thumbnail images to determine if different cameras were used.
+            
+Optionally:
+Specify a given camera roll for processing, if different cameras were used."""
+            print(t)
+        
+    if len(list(set(df['Year'].values))) > 1:
+        print('Years with data:')
+        for i in list(set(df['Year'].values)):
+            print(i)
+            
+    if len(list(set(df['Year'].values))) == 1 and len(list(set(df['Month'].values))) > 1:
+        print('\n\nMultiple months with data in year '+ "'"+ str(int(year))+':')
+        for i in list(set(df['Month'].values)):
+            print(str(int(i)))
+        if verbose:
+            t = """
+Optionally:
+Specify a given month for processing, if changes to the surface elevation (e.g. due to snow)
+between months are expected."""
+            print(t)
+        
+    if not isinstance(output_directory,type(None)):
+        out = os.path.join(output_directory,'targets.csv')
+        df.to_csv(out, index=False)
+        return out
+    
     else:
-        output_file_name = 'input_data/targets.csv'
-        df.to_csv(output_file_name,index=False)
-    return output_file_name
+        return df
     
     
 def subset_images_for_download(df, subset=None):
@@ -1013,8 +1078,12 @@ def prepare_metashape_metadata(camera_positions_file_name,
                                output_directory='input_data',
                                reference_dem    = None,
                                flight_altitude_m = 1500):
+                               
 
-    df = pd.read_csv(camera_positions_file_name)
+    if isinstance(camera_positions_file_name, type(pd.DataFrame())):
+        df = camera_positions_file_name
+    else:
+        df = pd.read_csv(camera_positions_file_name)
     
     hsfm.io.create_dir(output_directory)
     
@@ -1159,9 +1228,125 @@ def compute_point_offsets(metadata_file_1,
     return x_offset, y_offset, z_offset
     
 
+def find_sets(lsts):
+    sets = [set(lst) for lst in lsts if lst]
+    merged = True
+    while merged:
+        merged = False
+        results = []
+        while sets:
+            common, rest = sets[0], sets[1:]
+            sets = []
+            for x in rest:
+                if x.isdisjoint(common):
+                    sets.append(x)
+                else:
+                    merged = True
+                    common |= x
+            results.append(common)
+        sets = results
+    return [sorted(list(s)) for s in sets]
     
     
     
+def determine_image_clusters(image_metadata,
+                             image_directory = None,
+                             buffer_m = 1200,
+                             flight_altitude_m = 1500,
+                             reference_dem = None,
+                             output_directory = None,
+                             image_extension = '.tif',
+                             image_file_name_column= 'fileName',
+                             move_images = False,
+                             qc = True):
+    
+    """
+    buffer_m = Approximate image footprint diameter in meters.
+    move_images = True # images are moved instead of copied.
+    """
+    
+    # TODO
+    # Approximate footprints based on flight altitude and ground sample distance
     
     
+    if not isinstance(image_metadata, type(pd.DataFrame())):
+        df = pd.read_csv(image_metadata)
+    else:
+        df = image_metadata
     
+    # convert to geopandas.GeoDataFrame() and UTM
+    gdf = hsfm.geospatial.df_xy_coords_to_gdf(df, lon='Longitude', lat='Latitude')
+    lon = df['Longitude'].iloc[0]
+    lat = df['Latitude'].iloc[0]
+    epsg_code = 'epsg:' + hsfm.geospatial.wgs_lon_lat_to_epsg_code(lon, lat)
+    gdf = gdf.to_crs({'init' :epsg_code})
+    
+    # approximate circular image foot print
+    buffer_m = buffer_m/2
+    gdf['polygon'] = gdf.geometry.buffer(buffer_m)
+    
+    footprints = []
+    for i in gdf.polygon.values:
+        d = gpd.GeoDataFrame(gpd.GeoSeries(i),
+                             columns=['geometry'],
+                             crs={'init':epsg_code}) 
+        footprints.append(d)
+    
+    file_names = list(df[image_file_name_column].values)
+    footprints = np.array(list(zip(file_names, footprints)))
+    
+    # find intersecting image pairs
+    threshold = 200000
+    matches = []
+    areas = []
+    for a, b in itertools.combinations(footprints, 2):
+        intersection = gpd.overlay(a[1], b[1], how='intersection') 
+        if len(intersection) > 0 and intersection.area[0] > threshold:
+            areas.append(intersection.area[0])
+            matches.append((a[0], b[0]))
+            
+    clusters = hsfm.core.find_sets(matches)
+    
+    if qc:
+        
+        p = pathlib.Path('qc/')
+        p.mkdir(parents=True, exist_ok=True)
+        
+        gdf['geometry'] = gdf['polygon']
+        fig, ax = plt.subplots(1,figsize=(10,10))
+        for i,v in enumerate(clusters):
+            gdf[gdf['fileName'].isin(v)].plot(ax=ax,alpha=0.5,color=cycle[i])
+
+        ctx.add_basemap(ax, 
+                        url = 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+                        crs = {'init' :epsg_code})
+        
+        plt.savefig('qc/image_clusters.png')
+        
+    if isinstance(output_directory, type(str())):
+        for i,v in enumerate(clusters):
+            outdir = os.path.join(output_directory, 'cluster_' + str(i).zfill(3))
+            p = pathlib.Path(outdir)
+            p.mkdir(parents=True, exist_ok=True)
+
+            tmp = gdf[gdf['fileName'].isin(v)].copy()
+            hsfm.core.prepare_metashape_metadata(tmp,
+                                                 reference_dem=reference_dem,
+                                                 output_directory=outdir,
+                                                 flight_altitude_m = flight_altitude_m)
+
+            
+            if isinstance(image_directory, type(str())):
+                images = []
+                for i in tmp['fileName'].values:
+                    images.append(os.path.join(image_directory,i+'.tif'))
+
+                p = pathlib.Path(os.path.join(outdir,'images'))
+                p.mkdir(parents=True, exist_ok=True)
+
+                for i in images:
+                    if move_images:
+                        shutil.move(i,os.path.join(outdir,'images'))
+                    else:
+                        shutil.copy2(i,os.path.join(outdir,'images'))
+                  

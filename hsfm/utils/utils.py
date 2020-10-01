@@ -107,11 +107,14 @@ def optimize_geotif(geotif_file_name,
     return output_file_name
 
 
-def download_srtm(LLLON,LLLAT,URLON,URLAT,
+def download_srtm(bounds,
                   output_directory='./input_data/reference_dem/',
                   utm=False,
                   verbose=False,
                   cleanup=True):
+    """
+    bounds = (ULLON, ULLAT, LRLON, LRLAT)
+    """
     # TODO
     # - Add function to determine extent automatically from input cameras
     # - Make geoid adjustment and converstion to UTM optional
@@ -126,9 +129,8 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
 
     cache_dir=output_directory
     product='SRTM3'
-    dem_bounds = (LLLON, LLLAT, URLON, URLAT)
 
-    elevation.seed(bounds=dem_bounds,
+    elevation.seed(bounds=(bounds[0], bounds[3], bounds[2], bounds[1]),
                    cache_dir=cache_dir,
                    product=product,
                    max_download_tiles=999)
@@ -146,7 +148,7 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
     vrt_subset_file_name = os.path.join(output_directory,'SRTM3/cache/srtm_subset.vrt')
     ds = gdal.Translate(vrt_subset_file_name,
                         ds, 
-                        projWin = [LLLON, URLAT, URLON, LLLAT])
+                        projWin = [bounds[0], bounds[1], bounds[2], bounds[3]])
                         
     
     # Adjust from EGM96 geoid to WGS84 ellipsoid
@@ -162,7 +164,7 @@ def download_srtm(LLLON,LLLAT,URLON,URLAT,
     
     if utm:
         # Get UTM EPSG code
-        epsg_code = hsfm.geospatial.wgs_lon_lat_to_epsg_code(LLLON, LLLAT)
+        epsg_code = hsfm.geospatial.wgs_lon_lat_to_epsg_code(bounds[0], bounds[3])
     
         # Convert to UTM
         utm_vrt_subset_file_name = os.path.join(output_directory,'SRTM3/cache/srtm_subset_utm_geoid_adj.tif')

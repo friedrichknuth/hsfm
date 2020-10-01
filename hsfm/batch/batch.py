@@ -289,22 +289,25 @@ def calculate_heading_from_metadata(df,
     else:
         return df
 
-def download_images_to_disk(camera_positions_file_name, 
-                            subset=None, 
-                            output_directory='output_data/raw_images',
-                            image_type='pid_tiff'):
+def download_images_to_disk(image_metadata, 
+                            output_directory = 'output_data/raw_images',
+                            image_type = 'pid_tiff',
+                            image_file_name_column = 'fileName',
+                            image_extension = '.tif'):
                             
+    if not isinstance(image_metadata, type(pd.DataFrame())):
+        df = pd.read_csv(image_metadata)
+    else:
+        df = image_metadata
+    
     hsfm.io.create_dir(output_directory)
-    df = pd.read_csv(camera_positions_file_name)
     
-    if not isinstance(subset,type(None)):
-        df = hsfm.core.subset_images_for_download(df, subset)
     
-    targets = dict(zip(df[image_type], df['fileName']))
+    targets = dict(zip(df[image_type], df[image_file_name_column]))
     for pid, file_name in targets.items():
         print('Downloading',file_name, image_type)
         img_gray = hsfm.core.download_image(pid)
-        out = os.path.join(output_directory, file_name+'.tif')
+        out = os.path.join(output_directory, file_name+image_extension)
         cv2.imwrite(out,img_gray)
         final_output = hsfm.utils.optimize_geotif(out)
         os.remove(out)
@@ -313,7 +316,7 @@ def download_images_to_disk(camera_positions_file_name,
     return output_directory
     
 def preprocess_images(template_directory,
-                      camera_positions_file_name=None,
+                      image_metadata=None,
                       image_directory=None,
                       image_type='pid_tiff', 
                       output_directory='input_data/images',
@@ -342,9 +345,11 @@ def preprocess_images(template_directory,
     intersections =[]
     file_names = []
     
-    if not isinstance(camera_positions_file_name,type(None)):
-        df = pd.read_csv(camera_positions_file_name)
-        df = hsfm.core.subset_images_for_download(df, subset)
+    if not isinstance(image_metadata,type(None)):
+        if not isinstance(image_metadata, type(pd.DataFrame())):
+            df = pd.read_csv(image_metadata)
+        else:
+            df = image_metadata
         targets = dict(zip(df[image_type], df['fileName']))
         for pid, file_name in targets.items():
             print('Processing',file_name)
