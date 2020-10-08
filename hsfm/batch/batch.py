@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
+import concurrent.futures
+import psutil
 
 
 import hsfm.io
@@ -76,18 +78,28 @@ def rescale_images(image_directory,
                    verbose=False):
     
     output_directory = os.path.join(output_directory, 'images'+'_sub'+str(scale))
-    hsfm.io.create_dir(output_directory)
+    
     
     image_files  = sorted(glob.glob(os.path.join(image_directory,'*'+ extension)))
     
+#     n = len(psutil.Process().cpu_affinity())
+#     pool = concurrent.futures.ThreadPoolExecutor(max_workers=n)
+    
+#     parallel_data = {pool.submit(hsfm.utils.rescale_geotif,
+#                                  image_file,
+#                                  output_directory=output_directory,
+#                                  scale=scale): \
+#                      image_file for image_file in image_files}
+    
+#     for future in concurrent.futures.as_completed(parallel_data):
+#         r = future.result()
+#         if verbose:
+#             print(r)
+
     for image_file in image_files:
         
-        file_path, file_name, file_extension = hsfm.io.split_file(image_file)
-        output_file = os.path.join(output_directory, 
-                                   file_name +'_sub'+str(scale)+file_extension)
-        
         hsfm.utils.rescale_geotif(image_file,
-                                  output_file_name=output_file,
+                                  output_directory=output_directory,
                                   scale=scale,
                                   verbose=verbose)
 
@@ -532,7 +544,6 @@ def run_metashape(project_name,
     dem = hsfm.asp.point2dem(point_cloud_file,
                              '--nodata-value','-9999',
                              '--tr',str(output_dem_resolution),
-                             '--threads', '10',
                              '--t_srs', epsg_code,
                              verbose=verbose)
     
