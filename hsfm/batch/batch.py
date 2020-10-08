@@ -154,7 +154,7 @@ def batch_generate_cameras(image_directory,
     
     if manual_heading_selection == False:
         df = hsfm.batch.calculate_heading_from_metadata(camera_positions_file_name,
-                                                        output_directory, 
+                                                        output_directory=output_directory, 
                                                         subset=subset,
                                                         reverse_order=reverse_order)
     else:
@@ -211,6 +211,9 @@ def calculate_heading_from_metadata(df,
     # TODO
     # - Add flightline seperation function
     # - Generalize beyond NAGAP keys
+    if not isinstance(df, type(pd.DataFrame())):
+        df = pd.read_csv(df)
+        
     if subset:
         df = hsfm.core.subset_images_for_download(df, subset)
         
