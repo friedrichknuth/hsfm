@@ -511,13 +511,22 @@ def run_metashape(project_name,
     
 
     ba_CE90, ba_LE90 = hsfm.geospatial.CE90(x_offset,y_offset), hsfm.geospatial.LE90(z_offset)
-    hsfm.plot.plot_offsets(ba_LE90,
-                           ba_CE90,
-                           x_offset, 
-                           y_offset, 
-                           z_offset,
-                           title = 'Initial vs Bundle Adjusted',
-                           plot_file_name = os.path.join(output_path, 'qc_ba_ce90le90.png'))
+    
+    #This might help to stop errors from being thrown in the case of a bad (?) image
+    if np.isfinite(x_offset).all() & np.isfinite(y_offset).all() & np.isfinite(z_offset).all():
+        hsfm.plot.plot_offsets(ba_LE90,
+                                ba_CE90,
+                                x_offset,
+                                y_offset,
+                                z_offset,
+                                title = 'Initial vs Bundle Adjusted',
+                                plot_file_name = os.path.join(output_path, 'qc_ba_ce90le90.png'))
+    else:
+        print("Cannot plot offsets because x, y, and/or z offset is non finite:")
+        print(f"x offset: {x_offset}")
+        print(f"y offset: {y_offset}")
+        print(f"z offset: {z_offset}")
+
     
     if ba_CE90 < 0.01 and ba_LE90 < 0.01:
         if generate_ortho:
