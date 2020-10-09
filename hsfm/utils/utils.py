@@ -61,13 +61,26 @@ def dem_align_custom(reference_dem,
     
 
 def rescale_geotif(geotif_file_name,
+                   output_directory=None,
                    output_file_name=None,
                    scale=1,
                    verbose=False):
                    
     percent = str(100/scale) +'%'
     
-    if output_file_name is None:
+    if not isinstance(output_directory,type(None)):
+        hsfm.io.create_dir(output_directory)
+        
+        file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
+        
+        if file_path != output_directory:
+            output_file_name = os.path.join(output_directory, file_name+file_extension)
+        else:
+            output_file_name = os.path.join(file_path,
+                                            file_name+'_sub'+str(scale)+file_extension)
+        
+    
+    elif isinstance(output_file_name,type(None)):
         file_path, file_name, file_extension = hsfm.io.split_file(geotif_file_name)
         output_file_name = os.path.join(file_path, 
                                         file_name+'_sub'+str(scale)+file_extension)

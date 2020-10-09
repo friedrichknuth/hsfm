@@ -273,7 +273,7 @@ def point2dem(point_cloud_file,
               verbose=False):
     
     args = list(args)
-    call =['point2dem']
+    call =['point2dem', '--threads', str(len(os.sched_getaffinity(0)))]
     call.extend(args)
     
     call.append(point_cloud_file)
@@ -305,7 +305,7 @@ def pc_align(input_dem_file,
     transform = output_directory_prefix+'-transform.txt'
     
     args = list(args)
-    call = ['pc_align']
+    call = ['pc_align', '--threads', str(len(os.sched_getaffinity(0)))]
     call.extend(args)
     call.extend([reference_dem_file,
                  input_dem_file,
@@ -352,7 +352,7 @@ def pc_align_p2p_sp2p(input_dem_file,
                                                     output_directory,
                                                     '--save-transformed-source-points',
                                                     '--max-displacement',
-                                                    '1000',
+                                                    '3000',
                                                     '--alignment-method', 
                                                     'point-to-plane',
                                                     print_call=print_call,
