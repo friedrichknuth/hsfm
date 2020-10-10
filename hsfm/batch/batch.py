@@ -341,7 +341,8 @@ def preprocess_images(template_directory,
                       invisible_fiducial=None,
                       crop_from_pp_dist = 11250,
                       manually_pick_fiducials=False,
-                      side = None):
+                      side = None,
+                      angle_threshold = 0.2):
                       
     """
     Function to preprocess images from NAGAP archive in batch.
@@ -377,7 +378,8 @@ def preprocess_images(template_directory,
                                                             invisible_fiducial=invisible_fiducial,
                                                             crop_from_pp_dist=crop_from_pp_dist,
                                                             manually_pick_fiducials=manually_pick_fiducials,
-                                                            side = side)
+                                                            side = side
+                                                            angle_threshold=angle_threshold)
             intersections.append(intersection_angle)
             file_names.append(file_name)
     
