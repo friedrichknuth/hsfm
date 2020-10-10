@@ -102,3 +102,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Example files
+examples/input_data/**
+examples/qc/**

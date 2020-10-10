@@ -943,23 +943,10 @@ def crop_about_principal_point(grayscale_unit8_image_array,
     size_xdim = len(img_gray[0])
     size_ydim = len(img_gray)
 
-    print(size_xdim)
-    print(size_ydim)
-    print()
-
     x_L = int(principal_point[0]-crop_from_pp_dist/2)
     x_R = int(principal_point[0]+crop_from_pp_dist/2)
-
-    print(x_L)
-    print(x_R)
-    print()
-
     y_T = int(principal_point[1]-crop_from_pp_dist/2)
     y_B = int(principal_point[1]+crop_from_pp_dist/2)
-    
-    print(y_T)
-    print(y_B)
-    print()
 
     new_crop_dist_for_x = crop_from_pp_dist
     new_crop_dist_for_y = crop_from_pp_dist
