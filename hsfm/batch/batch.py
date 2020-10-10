@@ -378,7 +378,7 @@ def preprocess_images(template_directory,
                                                             invisible_fiducial=invisible_fiducial,
                                                             crop_from_pp_dist=crop_from_pp_dist,
                                                             manually_pick_fiducials=manually_pick_fiducials,
-                                                            side = side
+                                                            side = side,
                                                             angle_threshold=angle_threshold)
             intersections.append(intersection_angle)
             file_names.append(file_name)
