@@ -875,6 +875,11 @@ def detect_fiducials(padded_slices,
         x = (left_fiducial[0]+2*(top_fiducial[0]-left_fiducial[0]))
         y = left_fiducial[1] + offset
         right_fiducial = (x, y)
+    elif invisible_fiducial == 'top':
+        offset = left_fiducial[1] - right_fiducial[1]
+        x = bottom_fiducial[0] + offset
+        y = bottom_fiducial[1] - 2*(bottom_fiducial[1] - left_fiducial[1])
+        top_fiducial = (x, y)
     
     fiducials = [left_fiducial, top_fiducial, right_fiducial, bottom_fiducial]
     
@@ -934,17 +939,51 @@ def crop_about_principal_point(grayscale_unit8_image_array,
                                principal_point,
                                crop_from_pp_dist = 11250):
     img_gray = grayscale_unit8_image_array
+    
+    size_xdim = len(img_gray[0])
+    size_ydim = len(img_gray)
+
+    print(size_xdim)
+    print(size_ydim)
+    print()
 
     x_L = int(principal_point[0]-crop_from_pp_dist/2)
     x_R = int(principal_point[0]+crop_from_pp_dist/2)
+
+    print(x_L)
+    print(x_R)
+    print()
+
     y_T = int(principal_point[1]-crop_from_pp_dist/2)
     y_B = int(principal_point[1]+crop_from_pp_dist/2)
     
+    print(y_T)
+    print(y_B)
+    print()
+
+    new_crop_dist_for_x = crop_from_pp_dist
+    new_crop_dist_for_y = crop_from_pp_dist
+    if (x_R > size_xdim):
+        new_crop_dist_for_x = 2 * (size_xdim - principal_point[0])
+        print(f'Crop resolution ({crop_from_pp_dist}) is too large for the x-dimension, the image is probably scanned such that the principal point is far from the image center. New crop distance based on x-dimension is {new_crop_dist_for_x}')
+    if (y_B > size_ydim):
+        new_crop_dist_for_y = 2 * (size_ydim - principal_point[1])
+        print(f'Crop resolution ({crop_from_pp_dist}) is too large for the y-dimension, the image is probably scanned such that the principal point is far from the image center. New crop distance based on y-dimension is {new_crop_dist_for_y}')
+        
+        
+    if new_crop_dist_for_x < crop_from_pp_dist or new_crop_dist_for_y < crop_from_pp_dist:
+        min_size = np.array([new_crop_dist_for_y, new_crop_dist_for_x, crop_from_pp_dist]).min()
+        raise ValueError(f"crop_from_pp_dist value {crop_from_pp_dist} is too large for this image, a value of {min_size} is better for this image.")
+
     cropped = img_gray[y_T:y_B, x_L:x_R]
 
     cropped = hsfm.image.clahe_equalize_image(cropped)
     cropped = hsfm.image.img_linear_stretch(cropped)
 
+    print('FINAL DIMENSIONS:')
+    print(len(cropped))
+    print(len(cropped[0]))
+    print()
     return cropped
     
 def move_match_files_in_sequence(bundle_adjust_directory,
