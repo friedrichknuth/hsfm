@@ -967,10 +967,6 @@ def crop_about_principal_point(grayscale_unit8_image_array,
     cropped = hsfm.image.clahe_equalize_image(cropped)
     cropped = hsfm.image.img_linear_stretch(cropped)
 
-    print('FINAL DIMENSIONS:')
-    print(len(cropped))
-    print(len(cropped[0]))
-    print()
     return cropped
     
 def move_match_files_in_sequence(bundle_adjust_directory,
