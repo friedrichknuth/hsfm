@@ -27,6 +27,7 @@ def images2las(project_name,
                output_path,
                focal_length            = None,
                pixel_pitch             = None,
+               camera_model_xml_file   = None,
                crs                     = 'EPSG::4326',
                image_matching_accuracy = 4,
                densecloud_quality      = 4,
@@ -66,7 +67,14 @@ def images2las(project_name,
     images = glob.glob(os.path.join(images_path,'*'))
     chunk.addPhotos(images)
     
-    if focal_length:
+    if isinstance(camera_model_xml_file, type('')) and os.path.exists(camera_model_xml_file):
+        calib = Metashape.Calibration()
+        calib.load(camera_model_xml_file)
+        for sensor in chunk.cameras:
+            sensor.calibration = calib
+#             sensor.user_calib  = calib
+    
+    elif focal_length:
         chunk.cameras[0].sensor.focal_length = focal_length
     
     if pixel_pitch:
@@ -108,7 +116,8 @@ def images2las(project_name,
     
     chunk.exportReport(report_file)
     chunk.exportPoints(path=point_cloud_file,
-                       format=Metashape.PointsFormatLAS, crs = chunk.crs)
+                       format=Metashape.PointsFormatLAS, 
+                       crs=chunk.crs)
 
     return metashape_project_file, point_cloud_file
 
@@ -221,9 +230,7 @@ def get_estimated_camera_centers(metashape_project_file):
 def update_ba_camera_metadata(metashape_project_file, 
                               metashape_metadata_csv,
                               image_file_extension = '.tif',
-                              output_file_name = None,
-                              xyz_acc = 180,
-                              ypr_acc = 10):
+                              output_file_name = None):
     '''
     Returns dataframe with bundle adjusted camera positions and camera positions for cameras
     that were not bundle adjusted in case a match can be made in subsequent runs.
@@ -239,15 +246,15 @@ def update_ba_camera_metadata(metashape_project_file,
             'lon': lons,
             'lat': lats,
             'alt': alts,
-            'lon_acc': xyz_acc,
-            'lat_acc': xyz_acc,
-            'alt_acc': xyz_acc,
+            'lon_acc': 1000,
+            'lat_acc': 1000,
+            'alt_acc': 1000,
             'yaw': yaws,
             'pitch': pitches,
             'roll': rolls,
-            'yaw_acc': ypr_acc,
-            'pitch_acc': ypr_acc,
-            'roll_acc': ypr_acc,
+            'yaw_acc': 180,
+            'pitch_acc': 10,
+            'roll_acc': 10,
            }  
 
     ba_camera_metadata = pd.DataFrame(dict)
