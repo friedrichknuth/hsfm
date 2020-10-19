@@ -96,7 +96,8 @@ def plot_dem_difference_map(masked_array,
                             percentile_min=1,
                             percentile_max=99,
                             spread=None,
-                            extent=None):
+                            extent=None,
+                            ax=None):
                       
     """
     Function to plot difference map between two DEMs from masked array. 
@@ -109,20 +110,29 @@ def plot_dem_difference_map(masked_array,
         lowerbound, upperbound = np.nanpercentile(masked_array,[percentile_min,percentile_max])
         spread = max([abs(lowerbound), abs(upperbound)])
     
-    fig, ax = plt.subplots(1,figsize=(10,10))
-    
-    im = ax.imshow(masked_array,
-                   cmap=cmap,
-                   clim=(-spread, spread),
-                   extent=extent)
-    
-    fig.colorbar(im,extend='both')
-    
-    if output_file_name == None:
-        plt.show()
+    if not isinstance(ax,type(None)):
+        im = ax.imshow(masked_array,
+                       cmap=cmap,
+                       clim=(-spread, spread),
+                       extent=extent)
+
+        return im
     
     else:
-        fig.savefig(output_file_name, dpi=300)
+        fig, ax = plt.subplots(1,figsize=(10,10))
+
+        im = ax.imshow(masked_array,
+                       cmap=cmap,
+                       clim=(-spread, spread),
+                       extent=extent)
+
+        fig.colorbar(im,extend='both')
+
+        if output_file_name == None:
+            plt.show()
+
+        else:
+            fig.savefig(output_file_name, dpi=300)
         
 def plot_dem_difference_from_file_name(dem_difference_file_name,
                                        output_file_name=None,
@@ -131,7 +141,8 @@ def plot_dem_difference_from_file_name(dem_difference_file_name,
                                        percentile_max=99,
                                        spread=None,
                                        extent=None,
-                                       mask_glacier=False):
+                                       mask_glacier=False,
+                                       ax=None):
                       
     """
     Function to plot difference map between two DEMs from file.
@@ -156,7 +167,8 @@ def plot_dem_difference_from_file_name(dem_difference_file_name,
                             percentile_min=percentile_min,
                             percentile_max=percentile_max,
                             spread=spread,
-                            extent=extent)
+                            extent=extent,
+                            ax=ax)
         
 def plot_dem_with_hillshade(masked_array,
                             output_file_name=None,
