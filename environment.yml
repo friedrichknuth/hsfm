@@ -23,11 +23,17 @@ dependencies:
   - rasterstats
   - hvplot
   - rasterstats
+  - rasterio
+  - scikit-image
+  - xarray
+  - datashader
+  - pandas
   - pip:
     - elevation
     - "--editable=git+https://github.com/dshean/pygeotools.git#egg=pygeotools"
     - "--editable=git+https://github.com/dshean/demcoreg.git#egg=demcoreg"
     - "--editable=git+https://github.com/dshean/imview.git#egg=imview"
     - "--editable=git+https://github.com/friedrichknuth/bare.git#egg=bare"
+    - "--editable=git+https://github.com/friedrichknuth/hipp.git#egg=hipp"
     - "--editable=git+https://github.com/friedrichknuth/driveanon.git#egg=driveanon"
 
