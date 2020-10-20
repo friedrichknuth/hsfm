@@ -1279,7 +1279,7 @@ def determine_image_clusters(image_metadata,
     lon = df['Longitude'].iloc[0]
     lat = df['Latitude'].iloc[0]
     epsg_code = 'epsg:' + hsfm.geospatial.wgs_lon_lat_to_epsg_code(lon, lat)
-    gdf = gdf.to_crs({'init' :epsg_code})
+    gdf = gdf.to_crs(epsg_code)
     
     # approximate circular image foot print
     buffer_m = buffer_m/2
@@ -1289,11 +1289,11 @@ def determine_image_clusters(image_metadata,
     for i in gdf.polygon.values:
         d = gpd.GeoDataFrame(gpd.GeoSeries(i),
                              columns=['geometry'],
-                             crs={'init':epsg_code}) 
+                             crs=epsg_code) 
         footprints.append(d)
     
     file_names = list(df[image_file_name_column].values)
-    footprints = np.array(list(zip(file_names, footprints)))
+    footprints = np.array(list(zip(file_names, footprints)),dtype=object)
     
     # find intersecting image pairs
     threshold = 200000
@@ -1318,7 +1318,7 @@ def determine_image_clusters(image_metadata,
             gdf[gdf['fileName'].isin(v)].plot(ax=ax,alpha=0.5,color=cycle[i])
 
         ctx.add_basemap(ax, 
-                        url = 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+                        source = 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
                         crs = {'init' :epsg_code})
         
         plt.savefig('qc/image_clusters.png')
