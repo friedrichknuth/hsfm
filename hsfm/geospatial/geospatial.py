@@ -57,7 +57,7 @@ def df_xyz_coords_to_gdf(df,
     Use df_xy_coords_to_gdf() if elevation data not available.
     """
     geometry = [Point(xyz) for xyz in zip(df[lon], df[lat], df[z])]        
-    gdf = gpd.GeoDataFrame(df, geometry=geometry, crs={'init':'epsg:'+crs})
+    gdf = gpd.GeoDataFrame(df, geometry=geometry, crs='epsg:'+crs)
     
     return gdf
     
@@ -69,7 +69,7 @@ def df_xy_coords_to_gdf(df,
     Function to convert pandas dataframe containing lat, lon coordinates to geopandas dataframe.
     """
     geometry = [Point(xy) for xy in zip(df[lon], df[lat])]
-    gdf = gpd.GeoDataFrame(df,geometry=geometry, crs={'init':'epsg:'+crs})
+    gdf = gpd.GeoDataFrame(df,geometry=geometry, crs='epsg:'+crs)
     
     return gdf
     
@@ -357,7 +357,7 @@ def sample_dem(lons, lats, dem_file_name):
     df = pd.DataFrame(data)
     gdf = hsfm.geospatial.df_xy_coords_to_gdf(df)
     gdf = hsfm.geospatial.extract_gpd_geometry(gdf)
-    gdf = gdf.to_crs({'init':'epsg:'+epsg_code})
+    gdf = gdf.to_crs('epsg:'+epsg_code)
     
     lons = gdf.x.to_list()
     lats = gdf.y.to_list()
