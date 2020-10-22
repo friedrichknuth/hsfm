@@ -9,6 +9,8 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import concurrent.futures
 import psutil
+import pathlib
+import shutil
 
 
 import hsfm.io
@@ -480,20 +482,22 @@ def run_metashape(project_name,
                   images_metadata_file,
                   reference_dem,
                   output_path,
-                  focal_length,
                   pixel_pitch,
+                  focal_length            = None,
                   plot_LE90_CE90          = True,
                   camera_model_xml_file   = None,
-                  output_dem_resolution   = 0.5,
                   image_matching_accuracy = 1,
                   densecloud_quality      = 1,
-                  rotation_enabled        = False,
+                  output_DEM_resolution   = None,
                   generate_ortho          = False,
+                  dem_align               = True,
+                  rotation_enabled        = False,
                   metashape_licence_file  = None,
                   verbose                 = False,
-                  iteration               = 0):
+                  iteration               = 0,
+                  cleanup                 = False):
     
-    # TODO auto determine optimal output_dem_resolution from point cloud density
+    # TODO auto determine optimal output_DEM_resolution from point cloud density
     
     now = datetime.now()
     
@@ -504,6 +508,20 @@ def run_metashape(project_name,
     
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
+        
+    if isinstance(output_DEM_resolution, type(None)):
+        if isinstance(focal_length, type(None)):
+            df_tmp       = pd.read_csv(images_metadata_file)
+            focal_length = df_tmp['focal_length'].values[0]
+        print('No DEM output resolution specified.')
+        print('Using Ground Sample Distance from mean camera altitude above ground to estimate.') 
+        output_DEM_resolution = hsfm.core.estimate_DEM_resolution_from_GSD(images_metadata_file, 
+                                                                           pixel_pitch,
+                                                                           focal_length)
+        
+        output_DEM_resolution = densecloud_quality * output_DEM_resolution
+        print('DEM resolution factored by densecloud quality setting:',output_DEM_resolution)
+        
         
     out = hsfm.metashape.images2las(project_name,
                                     images_path,
@@ -518,17 +536,18 @@ def run_metashape(project_name,
     
     metashape_project_file, point_cloud_file = out
     
-    
-    hsfm.metashape.update_ba_camera_metadata(metashape_project_file,
-                                             images_metadata_file,
-                                             output_file_name=bundle_adjusted_metadata_file)
-    
+    # determine if there are subset clusters of images that do not overlap
+    subsets = hsfm.metashape.determine_clusters(metashape_project_file)
+    ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file,
+                                                                                   images_metadata_file)
+    ba_cameras_df.to_csv(bundle_adjusted_metadata_file, index = False)
+
     x_offset, y_offset, z_offset = hsfm.core.compute_point_offsets(images_metadata_file, 
-                                                                    bundle_adjusted_metadata_file)
-    
+                                                                   bundle_adjusted_metadata_file)
+
 
     ba_CE90, ba_LE90 = hsfm.geospatial.CE90(x_offset,y_offset), hsfm.geospatial.LE90(z_offset)
-    
+
     if plot_LE90_CE90:
         hsfm.plot.plot_offsets(ba_LE90,
                                ba_CE90,
@@ -537,74 +556,87 @@ def run_metashape(project_name,
                                z_offset,
                                title = 'Initial vs Bundle Adjusted',
                                plot_file_name = os.path.join(output_path, 'qc_ba_ce90le90.png'))
-    
-    if ba_CE90 < 0.01 and ba_LE90 < 0.01:
-        if generate_ortho:
-            hsfm.metashape.las2dem(project_name,
-                                   output_path,
-                                   resolution = str(output_dem_resolution))
 
-            hsfm.metashape.images2ortho(project_name,
-                                        output_path)
-    
-    
+
     epsg_code = 'EPSG:'+ hsfm.geospatial.get_epsg_code(reference_dem)
     dem = hsfm.asp.point2dem(point_cloud_file,
                              '--nodata-value','-9999',
-                             '--tr',str(output_dem_resolution),
+                             '--tr',str(output_DEM_resolution),
                              '--t_srs', epsg_code,
                              verbose=verbose)
-    
-    clipped_reference_dem = os.path.join(output_path,'reference_dem_clip.tif')
-    
-    large_to_small_order = hsfm.geospatial.compare_dem_extent(dem, reference_dem)
-    if large_to_small_order == (reference_dem, dem):
-        reference_dem = hsfm.utils.clip_reference_dem(dem,
-                                                      reference_dem,
-                                                      output_file_name = clipped_reference_dem,
-                                                      buff_size        = 2000,
-                                                      verbose = verbose)
 
-    aligned_dem_file, transform =  hsfm.asp.pc_align_p2p_sp2p(dem, 
-                                                              reference_dem,
-                                                              output_path,
-                                                              verbose = verbose)
+    if ba_CE90 > 0.01 and ba_LE90 > 0.01:
+
+        # if the camera positions do not change after bundle adjustment, then
+        # the cameras, DEM, and ortho should all be in the right place. 
+        # further attempted alignment is unlikely to change the result,
+        # if it was unsuccessful to begin with.
+
+        clipped_reference_dem = os.path.join(output_path,'reference_dem_clip.tif')
+
+        large_to_small_order = hsfm.geospatial.compare_dem_extent(dem, reference_dem)
+        if large_to_small_order == (reference_dem, dem):
+            reference_dem = hsfm.utils.clip_reference_dem(dem,
+                                                          reference_dem,
+                                                          output_file_name = clipped_reference_dem,
+                                                          buff_size        = 2000,
+                                                          verbose = verbose)
+
+        aligned_dem_file, transform =  hsfm.asp.pc_align_p2p_sp2p(dem, 
+                                                                  reference_dem,
+                                                                  output_path,
+                                                                  verbose = verbose)
+
+        print("Elapsed time", str(datetime.now() - now))
+
+        hsfm.core.metadata_transform(bundle_adjusted_metadata_file,
+                                     transform,
+                                     output_file_name=aligned_bundle_adjusted_metadata_file)
+
+        x_offset, y_offset, z_offset  = hsfm.core.compute_point_offsets(bundle_adjusted_metadata_file,
+                                                                        aligned_bundle_adjusted_metadata_file)
+
+        tr_ba_CE90, tr_ba_LE90 = hsfm.geospatial.CE90(x_offset,y_offset), hsfm.geospatial.LE90(z_offset)
+
+        if plot_LE90_CE90:
+            hsfm.plot.plot_offsets(tr_ba_LE90,
+                                   tr_ba_CE90,
+                                   x_offset, 
+                                   y_offset, 
+                                   z_offset,
+                                   title = 'Bundle Adjusted vs Transformed',
+                                   plot_file_name = os.path.join(output_path, 'qc_tr_ba_ce90le90.png'))
+
+        output = [bundle_adjusted_metadata_file, 
+                  ba_CE90, 
+                  ba_LE90, 
+                  aligned_dem_file,
+                  transform, 
+                  aligned_bundle_adjusted_metadata_file, 
+                  tr_ba_CE90, 
+                  tr_ba_LE90]
+        
+        return output
+
+
+
+    else:
+        if dem_align:
+            dem_align_output_path,_,_ = hsfm.io.split_file(dem)
+            hsfm.utils.dem_align_custom(reference_dem,
+                                        dem,
+                                        dem_align_output_path,
+                                        verbose = verbose)
+        if generate_ortho:
+            ortho_output_path,_,_ = hsfm.io.split_file(dem)
+            hsfm.metashape.las2dem(project_name,
+                                   ortho_output_path,
+                                   resolution = str(output_DEM_resolution*2))
+
+            hsfm.metashape.images2ortho(project_name,
+                                        ortho_output_path)
     
-    print("Elapsed time", str(datetime.now() - now))
     
-    hsfm.core.metadata_transform(bundle_adjusted_metadata_file,
-                                 transform,
-                                 output_file_name=aligned_bundle_adjusted_metadata_file)
-    
-    x_offset, y_offset, z_offset  = hsfm.core.compute_point_offsets(bundle_adjusted_metadata_file,
-                                                                    aligned_bundle_adjusted_metadata_file)
-    
-    tr_ba_CE90, tr_ba_LE90 = hsfm.geospatial.CE90(x_offset,y_offset), hsfm.geospatial.LE90(z_offset)
-    
-    if plot_LE90_CE90:
-        hsfm.plot.plot_offsets(tr_ba_LE90,
-                               tr_ba_CE90,
-                               x_offset, 
-                               y_offset, 
-                               z_offset,
-                               title = 'Bundle Adjusted vs Transformed',
-                               plot_file_name = os.path.join(output_path, 'qc_tr_ba_ce90le90.png'))
-    
-    hsfm.utils.dem_align_custom(reference_dem,
-                            aligned_dem_file,
-                            output_path,
-                            verbose = verbose)
-    
-    output = [bundle_adjusted_metadata_file, 
-              ba_CE90, 
-              ba_LE90, 
-              aligned_dem_file,
-              transform, 
-              aligned_bundle_adjusted_metadata_file, 
-              tr_ba_CE90, 
-              tr_ba_LE90]
-    
-    return output
 
 
     
@@ -613,69 +645,99 @@ def metaflow(project_name,
              images_metadata_file,
              reference_dem,
              output_path,
-             focal_length,
              pixel_pitch,
+             focal_length            = None,
              plot_LE90_CE90          = True,
              camera_model_xml_file   = None,
              image_matching_accuracy = 1,
              densecloud_quality      = 1,
-             output_dem_resolution   = 0.5,
+             output_DEM_resolution   = None,
              generate_ortho          = False,
+             dem_align               = True,
              metashape_licence_file  = None,
              verbose                 = False,
-             cleanup                 = False):
+             cleanup                 = False,
+             check_subsets           = True):
     
-    # TODO
-    # compute output_dem_resolution based on GSD
-    # IFOV = 2*np.arctan((pixel_pitch/2)/focal_length)
-    # IFOV * alt
     
-    out = hsfm.batch.run_metashape(project_name,
-                                   images_path,
-                                   images_metadata_file,
-                                   reference_dem,
-                                   output_path,
-                                   focal_length,
-                                   pixel_pitch,
-                                   plot_LE90_CE90          = plot_LE90_CE90,
-                                   camera_model_xml_file   = camera_model_xml_file,
-                                   output_dem_resolution   = output_dem_resolution,
-                                   image_matching_accuracy = image_matching_accuracy,
-                                   densecloud_quality      = densecloud_quality,
-                                   rotation_enabled        = False,
-                                   generate_ortho          = False,
-                                   metashape_licence_file  = metashape_licence_file,
-                                   verbose                 = verbose,
-                                   iteration               = 0)
-    
-    bundle_adjusted_metadata_file,\
-    ba_CE90,\
-    ba_LE90,\
-    aligned_dem_file,\
-    transform,\
-    aligned_bundle_adjusted_metadata_file,\
-    tr_ba_CE90,\
-    tr_ba_LE90 = out
-        
-    for i in np.arange(1,4,1):
-        if ba_CE90 > 0.01 or ba_LE90 > 0.01:
+    # determine if there are subset clusters of images that do not overlap and/or unaligned images  
+    if check_subsets:
+        metashape_project_file, point_cloud_file = hsfm.metashape.images2las(project_name,
+                                                                         images_path,
+                                                                         images_metadata_file,
+                                                                         output_path,
+                                                                         focal_length            = focal_length,
+                                                                         pixel_pitch             = pixel_pitch,
+                                                                         camera_model_xml_file   = camera_model_xml_file,
+                                                                         image_matching_accuracy = 2,
+                                                                         densecloud_quality      = 4,
+                                                                         rotation_enabled        = True,
+                                                                         export_point_cloud      = False)
+
+        subsets = hsfm.metashape.determine_clusters(metashape_project_file)
+        ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file,
+                                                                                       images_metadata_file)
+
+        if len(subsets) > 1:
+            print(len(subsets), 'image cluster subsets detected')
+            image_file_names = list(ba_cameras_df['image_file_name'].values)
+            cameras_sub_clusters_dfs = []
+            for sub in subsets:
+                tmp    = hsfm.core.select_strings_with_sub_strings(image_file_names, sub)
+                tmp_df = ba_cameras_df[ba_cameras_df['image_file_name'].isin(tmp)].reset_index(drop=True)
+                cameras_sub_clusters_dfs.append(tmp_df)
+
+            sub_counter = 0
+            for sub_df in cameras_sub_clusters_dfs:
+
+                sub_output_path = os.path.join(output_path,'sub_cluster'+str(sub_counter))
+                p = pathlib.Path(sub_output_path)
+                p.mkdir(parents=True, exist_ok=True)
+
+                sub_images_metadata_file = os.path.join(sub_output_path,'metashape_metadata.csv')
+                sub_df.to_csv(sub_images_metadata_file, index = False)
+
+                hsfm.batch.metaflow(project_name+'_sub_cluster'+str(sub_counter),
+                                    images_path,
+                                    sub_images_metadata_file,
+                                    reference_dem,
+                                    os.path.join(sub_output_path,'metashape'),
+                                    pixel_pitch,
+                                    focal_length            = focal_length,
+                                    plot_LE90_CE90          = plot_LE90_CE90,
+                                    camera_model_xml_file   = camera_model_xml_file,
+                                    image_matching_accuracy = image_matching_accuracy,
+                                    densecloud_quality      = densecloud_quality,
+                                    output_DEM_resolution   = None,
+                                    generate_ortho          = generate_ortho,
+                                    dem_align               = dem_align,
+                                    metashape_licence_file  = metashape_licence_file,
+                                    verbose                 = verbose,
+                                    cleanup                 = cleanup,
+                                    check_subsets           = False)
+
+                sub_counter = sub_counter+1
+        else:
             out = hsfm.batch.run_metashape(project_name,
                                            images_path,
-                                           aligned_bundle_adjusted_metadata_file,
+                                           images_metadata_file,
                                            reference_dem,
                                            output_path,
-                                           focal_length,
                                            pixel_pitch,
+                                           focal_length            = focal_length,
                                            plot_LE90_CE90          = plot_LE90_CE90,
-                                           output_dem_resolution   = output_dem_resolution,
+                                           camera_model_xml_file   = camera_model_xml_file,
                                            image_matching_accuracy = image_matching_accuracy,
                                            densecloud_quality      = densecloud_quality,
+                                           output_DEM_resolution   = 10,
+                                           generate_ortho          = generate_ortho,
+                                           dem_align               = dem_align,
                                            rotation_enabled        = True,
-                                           generate_ortho          = False,
                                            metashape_licence_file  = metashape_licence_file,
                                            verbose                 = verbose,
-                                           iteration               = i)
-            
+                                           iteration               = 0,
+                                           cleanup                 = cleanup)
+
             bundle_adjusted_metadata_file,\
             ba_CE90,\
             ba_LE90,\
@@ -684,27 +746,138 @@ def metaflow(project_name,
             aligned_bundle_adjusted_metadata_file,\
             tr_ba_CE90,\
             tr_ba_LE90 = out
-        
-    if ba_CE90 < 0.01 and ba_LE90 < 0.01 and generate_ortho:
-        # need to reprocess in order to get correct cameras and project ortho images
-        hsfm.batch.run_metashape(project_name,
-                                 images_path,
-                                 aligned_bundle_adjusted_metadata_file,
-                                 reference_dem,
-                                 output_path,
-                                 focal_length,
-                                 pixel_pitch,
-                                 plot_LE90_CE90          = plot_LE90_CE90,
-                                 output_dem_resolution   = output_dem_resolution,
-                                 image_matching_accuracy = image_matching_accuracy,
-                                 densecloud_quality      = densecloud_quality,
-                                 rotation_enabled        = False,
-                                 generate_ortho          = generate_ortho,
-                                 metashape_licence_file  = metashape_licence_file,
-                                 verbose                 = verbose,
-                                 iteration               = '_final_with_ortho')
- 
-    if cleanup == True:
-        las_files = glob.glob('./**/*.las', recursive=True)
-        for i in las_files:
-            os.remove(i)
+
+            for i in np.arange(1,4,1):
+                if ba_CE90 > 0.01 or ba_LE90 > 0.01:
+                    out = hsfm.batch.run_metashape(project_name,
+                                                   images_path,
+                                                   aligned_bundle_adjusted_metadata_file,
+                                                   reference_dem,
+                                                   output_path,
+                                                   pixel_pitch,
+                                                   focal_length            = focal_length,
+                                                   plot_LE90_CE90          = plot_LE90_CE90,
+                                                   image_matching_accuracy = image_matching_accuracy,
+                                                   densecloud_quality      = densecloud_quality,
+                                                   output_DEM_resolution   = output_DEM_resolution,
+                                                   generate_ortho          = generate_ortho,
+                                                   dem_align               = dem_align,
+                                                   rotation_enabled        = False,
+                                                   metashape_licence_file  = metashape_licence_file,
+                                                   verbose                 = verbose,
+                                                   iteration               = i,
+                                                   cleanup                 = cleanup)
+
+                    bundle_adjusted_metadata_file,\
+                    ba_CE90,\
+                    ba_LE90,\
+                    aligned_dem_file,\
+                    transform,\
+                    aligned_bundle_adjusted_metadata_file,\
+                    tr_ba_CE90,\
+                    tr_ba_LE90 = out
+                
+        if len(unaligned_cameras_df) > 3:
+            # launch seperate metaflow for unaligned images
+            print("Processing unaligned cameras seperately")
+
+            unaligned_output_path          = os.path.join(output_path,
+                                                          'unaligned_subset')
+            unaligned_images_metadata_file = os.path.join(output_path,
+                                                          'unaligned_subset',
+                                                          'metashape_metadata.csv')
+
+            p = pathlib.Path(unaligned_output_path)
+            p.mkdir(parents=True, exist_ok=True)
+
+            unaligned_cameras_df.to_csv(unaligned_images_metadata_file, index = False)
+
+
+            hsfm.batch.metaflow(project_name+'_unaligned',
+                                images_path,
+                                unaligned_images_metadata_file,
+                                reference_dem,
+                                os.path.join(unaligned_output_path,'metashape'),
+                                pixel_pitch,
+                                focal_length            = focal_length,
+                                plot_LE90_CE90          = plot_LE90_CE90,
+                                camera_model_xml_file   = camera_model_xml_file,
+                                image_matching_accuracy = image_matching_accuracy,
+                                densecloud_quality      = densecloud_quality,
+                                output_DEM_resolution   = None,
+                                generate_ortho          = generate_ortho,
+                                dem_align               = dem_align,
+                                metashape_licence_file  = metashape_licence_file,
+                                verbose                 = verbose,
+                                cleanup                 = cleanup,
+                                check_subsets           = False)
+        if cleanup == True:
+            las_files = glob.glob('./**/*.las', recursive=True)
+            for i in las_files:
+                os.remove(i)
+                
+    else:
+        out = hsfm.batch.run_metashape(project_name,
+                                       images_path,
+                                       images_metadata_file,
+                                       reference_dem,
+                                       output_path,
+                                       pixel_pitch,
+                                       focal_length            = focal_length,
+                                       plot_LE90_CE90          = plot_LE90_CE90,
+                                       camera_model_xml_file   = camera_model_xml_file,
+                                       image_matching_accuracy = image_matching_accuracy,
+                                       densecloud_quality      = densecloud_quality,
+                                       output_DEM_resolution   = 10,
+                                       generate_ortho          = generate_ortho,
+                                       dem_align               = dem_align,
+                                       rotation_enabled        = True,
+                                       metashape_licence_file  = metashape_licence_file,
+                                       verbose                 = verbose,
+                                       iteration               = 0,
+                                       cleanup                 = cleanup)
+
+        bundle_adjusted_metadata_file,\
+        ba_CE90,\
+        ba_LE90,\
+        aligned_dem_file,\
+        transform,\
+        aligned_bundle_adjusted_metadata_file,\
+        tr_ba_CE90,\
+        tr_ba_LE90 = out
+
+        for i in np.arange(1,4,1):
+            if ba_CE90 > 0.01 or ba_LE90 > 0.01:
+                out = hsfm.batch.run_metashape(project_name,
+                                               images_path,
+                                               aligned_bundle_adjusted_metadata_file,
+                                               reference_dem,
+                                               output_path,
+                                               pixel_pitch,
+                                               focal_length            = focal_length,
+                                               plot_LE90_CE90          = plot_LE90_CE90,
+                                               image_matching_accuracy = image_matching_accuracy,
+                                               densecloud_quality      = densecloud_quality,
+                                               output_DEM_resolution   = output_DEM_resolution,
+                                               generate_ortho          = generate_ortho,
+                                               dem_align               = dem_align,
+                                               rotation_enabled        = False,
+                                               metashape_licence_file  = metashape_licence_file,
+                                               verbose                 = verbose,
+                                               iteration               = i,
+                                               cleanup                 = cleanup)
+
+                bundle_adjusted_metadata_file,\
+                ba_CE90,\
+                ba_LE90,\
+                aligned_dem_file,\
+                transform,\
+                aligned_bundle_adjusted_metadata_file,\
+                tr_ba_CE90,\
+                tr_ba_LE90 = out
+
+        if cleanup == True:
+            las_files = glob.glob('./**/*.las', recursive=True)
+            for i in las_files:
+                os.remove(i)
+

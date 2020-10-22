@@ -33,7 +33,8 @@ def images2las(project_name,
                densecloud_quality      = 4,
                keypoint_limit          = 40000,
                tiepoint_limit          = 4000,
-               rotation_enabled        = True):
+               rotation_enabled        = True,
+               export_point_cloud      = True):
 
     # Levels from https://www.agisoft.com/forum/index.php?topic=11697.msg52455#msg52455
     """
@@ -64,8 +65,20 @@ def images2las(project_name,
     else:
         chunk = doc.addChunk()
 
-    images = glob.glob(os.path.join(images_path,'*'))
-    chunk.addPhotos(images)
+    metashape_metadata_df = pd.read_csv(images_metadata_file)
+    
+    if isinstance(focal_length, type(None)):
+        focal_length = metashape_metadata_df['focal_length'].values[0]
+        print('Focal length:', focal_length)
+        
+    image_file_names = list(metashape_metadata_df['image_file_name'].values)
+    image_file_paths = sorted(glob.glob(os.path.join(images_path,'*.tif')))
+    image_files_subset = []
+    for img_fn in image_file_names:
+        for img_fp in image_file_paths:
+            if img_fn in img_fp:
+                image_files_subset.append(img_fp)
+    chunk.addPhotos(image_files_subset)
     
     if isinstance(camera_model_xml_file, type('')) and os.path.exists(camera_model_xml_file):
         calib = Metashape.Calibration()
@@ -115,9 +128,10 @@ def images2las(project_name,
     doc.save()
     
     chunk.exportReport(report_file)
-    chunk.exportPoints(path=point_cloud_file,
-                       format=Metashape.PointsFormatLAS, 
-                       crs=chunk.crs)
+    if export_point_cloud:
+        chunk.exportPoints(path=point_cloud_file,
+                           format=Metashape.PointsFormatLAS, 
+                           crs=chunk.crs)
 
     return metashape_project_file, point_cloud_file
 
@@ -229,11 +243,10 @@ def get_estimated_camera_centers(metashape_project_file):
 
 def update_ba_camera_metadata(metashape_project_file, 
                               metashape_metadata_csv,
-                              image_file_extension = '.tif',
-                              output_file_name = None):
+                              image_file_extension = '.tif'):
     '''
     Returns dataframe with bundle adjusted camera positions and camera positions for cameras
-    that were not bundle adjusted in case a match can be made in subsequent runs.
+    that were not able to be aligned.
     '''
     
     metashape_metadata_df = pd.read_csv(metashape_metadata_csv)
@@ -257,25 +270,73 @@ def update_ba_camera_metadata(metashape_project_file,
             'roll_acc': 10,
            }  
 
-    ba_camera_metadata = pd.DataFrame(dict)
+    ba_cameras_df = pd.DataFrame(dict)
 
-    unaligned_cameras = ba_camera_metadata[ba_camera_metadata.isnull().any(axis=1)]\
+    unaligned_cameras_file_names = ba_cameras_df[ba_cameras_df.isnull().any(axis=1)]\
     ['image_file_name'].values
     
-    # replace unaligned cameras with values from original input metadata
-    for i in unaligned_cameras:
-        ba_camera_metadata[ba_camera_metadata['image_file_name'].str.contains(i)] = \
-        metashape_metadata_df[metashape_metadata_df['image_file_name'].str.contains(i)].values
+    ba_cameras_df = ba_cameras_df.dropna().reset_index(drop=True)
+#     for i in unaligned_cameras_file_names:
+#         ba_cameras_df[ba_cameras_df['image_file_name'].str.contains(i)] = \
+#         metashape_metadata_df[metashape_metadata_df['image_file_name'].str.contains(i)].values
     
-    if not isinstance(output_file_name, type(None)):
-        ba_camera_metadata.to_csv(output_file_name, index = False)
+    unaligned_cameras_df = metashape_metadata_df[metashape_metadata_df['image_file_name'].isin(unaligned_cameras_file_names)]
+    unaligned_cameras_df = unaligned_cameras_df.reset_index(drop=True)
     
-    return ba_camera_metadata
+    return ba_cameras_df, unaligned_cameras_df
 
-
-
-
-
+def determine_clusters(metashape_project_file):
+    import Metashape
     
+    print('Determining if seperate image cluster subsets present.')
     
+    # adapted from https://www.agisoft.com/forum/index.php?topic=6989.0
+          
+    doc = Metashape.Document()
+    doc.open(metashape_project_file)
+    chunk = doc.chunk
+
+    point_cloud = chunk.point_cloud
+    points = point_cloud.points
+    point_proj = point_cloud.projections
+    npoints = len(points)
+
+    photo_matches = {}
+
+    for photo in chunk.cameras:
+        try:
+            total = set() #only valid
+            point_index = 0
+            proj = point_proj[photo]
+
+            for cur_point in proj:
+                track_id = cur_point.track_id
+                while point_index < npoints and points[point_index].track_id < track_id:
+                    point_index += 1
+                    if point_index < npoints and points[point_index].track_id == track_id:
+                        if point_cloud.points[point_index].valid:
+                            total.add(point_index)
+            photo_matches[photo] = total
+        except:
+            print('Skipping unaligned image:', photo)
+
+    m = []
+    for i in range(0, len(chunk.cameras) - 1):
+        if chunk.cameras[i] not in photo_matches.keys():
+            continue
+        for j in range(i + 1, len(chunk.cameras)):
+            if chunk.cameras[j] not in photo_matches.keys():
+                continue
+            matches = photo_matches[chunk.cameras[i]] & photo_matches[chunk.cameras[j]]
+            if len(matches) > 3:
+                try:
+                    pos_i = chunk.crs.project(chunk.transform.matrix.mulp(chunk.cameras[i].center))
+                    pos_j = chunk.crs.project(chunk.transform.matrix.mulp(chunk.cameras[j].center))
+                    m.append((chunk.cameras[i].label, chunk.cameras[j].label))
+                except:
+                    continue
+            else:
+                continue
     
+    subsets = hsfm.core.find_sets(m)
+    return subsets

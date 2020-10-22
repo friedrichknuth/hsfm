@@ -50,14 +50,16 @@ def dem_align_custom(reference_dem,
     if print_call==True:
         print(*call)
     else:         
-        log_file = run_command(call, verbose=verbose, log_directory=os.path.join(output_directory,'qc/dem_align'))
+        path, file_name, _    = hsfm.io.split_file(dem_to_be_aligned)
+        dem_align_output_path = os.path.join(path,file_name+'_dem_align')
+        log_file              = run_command(call, verbose=verbose, log_directory=dem_align_output_path)
+        try:
+            dem_difference_file   = glob.glob(os.path.join(dem_align_output_path,'*_align_diff.tif'))[0]
+            aligned_dem_file      = glob.glob(os.path.join(dem_align_output_path,'*_align.tif'))[0]
 
-        with open(log_file, 'r') as file:
-            output_plot_file = file.read().split()[-3]
-        dem_difference_file = glob.glob(os.path.split(output_plot_file)[0]+'/*_align_diff.tif')[0]
-        aligned_dem_file = glob.glob(os.path.split(output_plot_file)[0]+'/*align.tif')[0]
-
-        return dem_difference_file , aligned_dem_file
+            return dem_difference_file , aligned_dem_file
+        except:
+            print('Unable to align dem using dem_align.py. See', log_file, 'for additional details.')
     
 
 def rescale_geotif(geotif_file_name,

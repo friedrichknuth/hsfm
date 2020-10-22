@@ -368,7 +368,7 @@ def initialize_cameras(camera_positions_file_name,
     df['elevation'] = df['elevation'].max()
     gdf = hsfm.geospatial.df_xyz_coords_to_gdf(df,lon='Longitude',lat='Latitude')
     
-    gdf = gdf.to_crs({'init':'epsg:4978'})
+    gdf = gdf.to_crs('epsg:4978')
     gdf = hsfm.geospatial.extract_gpd_geometry(gdf)
     
     for index, row in gdf.iterrows():
@@ -1040,8 +1040,8 @@ def metashape_cameras_to_tsai(project_file_path,
                                                lon='lon',
                                                lat='lat',
                                                z='alt',
-                                               crs='4326')
-    gdf = gdf.to_crs({'init' :'epsg:4978'})
+                                               epsg_code='4326')
+    gdf = gdf.to_crs('epsg:4978')
     
     gdf = hsfm.geospatial.extract_gpd_geometry(gdf)
     
@@ -1105,9 +1105,9 @@ def prepare_metashape_metadata(camera_positions_file_name,
 
     df['lon']             = df['Longitude'].astype(float).round(6)
     df['lat']             = df['Latitude'].astype(float).round(6)
-    df['lon_acc']         = 1000
-    df['lat_acc']         = 1000
-    df['alt_acc']         = 1000
+    df['lon_acc']         = 3000
+    df['lat_acc']         = 3000
+    df['alt_acc']         = 3000
     df['yaw_acc']         = 180
     df['pitch_acc']       = 20
     df['roll_acc']        = 20
@@ -1124,7 +1124,8 @@ def prepare_metashape_metadata(camera_positions_file_name,
              'roll',
              'yaw_acc',
              'pitch_acc',
-             'roll_acc']]
+             'roll_acc',
+             'focal_length']]
     
     out = os.path.join(output_directory,'metashape_metadata.csv')
     df.to_csv(out,index=False)
@@ -1141,7 +1142,7 @@ def metadata_transform(metadata_file,
     '''
     metadata_df = pd.read_csv(metadata_file)
     df = hsfm.geospatial.df_xyz_coords_to_gdf(metadata_df, z='alt')
-    df = df.to_crs({'init':'epsg:4978'})
+    df = df.to_crs('epsg:4978')
     hsfm.geospatial.extract_gpd_geometry(df)
     
     df_tmp = pd.DataFrame()
@@ -1157,9 +1158,9 @@ def metadata_transform(metadata_file,
                                                                 lon='x', 
                                                                 lat= 'y', 
                                                                 z='z',
-                                                                crs='4978')
+                                                                epsg_code='4978')
 
-    transformed_metadata = transformed_metadata.to_crs({'init':'epsg:4326'})
+    transformed_metadata = transformed_metadata.to_crs('epsg:4326')
     hsfm.geospatial.extract_gpd_geometry(transformed_metadata)
 
     transformed_metadata[['lon', 'lat','alt']] = transformed_metadata[['x', 'y','z']]
@@ -1208,17 +1209,25 @@ def compute_point_offsets(metadata_file_1,
                           metadata_file_2,
                           lon       = 'lon',
                           lat       = 'lat',
-                          alt       = 'alt',
-                          epsg_code = '32610'):
+                          alt       = 'alt'):
     
     df1 = pd.read_csv(metadata_file_1)
-    gdf1 = hsfm.geospatial.df_xy_coords_to_gdf(df1, lon='lon', lat='lat')
-    gdf1 = gdf1.to_crs({'init' :'epsg:'+epsg_code})
+    df2 = pd.read_csv(metadata_file_2)
+    
+    # make dataframes contain only entries for union of image file names in each. 
+    if len(df1) > len(df2):
+        df1 = df1[df1['image_file_name'].isin(df2['image_file_name'].values)].reset_index(drop=True)
+    elif len(df1) < len(df2):
+        df2 = df2[df2['image_file_name'].isin(df1['image_file_name'].values)].reset_index(drop=True)
+        
+    epsg_code = hsfm.geospatial.wgs_lon_lat_to_epsg_code(df2[lon].values[0], df2[lat].values[0])
+    gdf1 = hsfm.geospatial.df_xy_coords_to_gdf(df1, lon=lon, lat=lat)
+    gdf1 = gdf1.to_crs('epsg:'+epsg_code)
     hsfm.geospatial.extract_gpd_geometry(gdf1)
     
-    df2 = pd.read_csv(metadata_file_2)
-    gdf2 = hsfm.geospatial.df_xy_coords_to_gdf(df2, lon='lon', lat='lat')
-    gdf2 = gdf2.to_crs({'init' :'epsg:'+epsg_code})
+    
+    gdf2 = hsfm.geospatial.df_xy_coords_to_gdf(df2, lon=lon, lat=lat)
+    gdf2 = gdf2.to_crs('epsg:'+epsg_code)
     hsfm.geospatial.extract_gpd_geometry(gdf2)
     
     x_offset = gdf1.x - gdf2.x
@@ -1278,8 +1287,8 @@ def determine_image_clusters(image_metadata,
     gdf = hsfm.geospatial.df_xy_coords_to_gdf(df, lon='Longitude', lat='Latitude')
     lon = df['Longitude'].iloc[0]
     lat = df['Latitude'].iloc[0]
-    epsg_code = 'epsg:' + hsfm.geospatial.wgs_lon_lat_to_epsg_code(lon, lat)
-    gdf = gdf.to_crs(epsg_code)
+    epsg_code = hsfm.geospatial.wgs_lon_lat_to_epsg_code(lon, lat)
+    gdf = gdf.to_crs('epsg:' +epsg_code)
     
     # approximate circular image foot print
     buffer_m = buffer_m/2
@@ -1289,7 +1298,7 @@ def determine_image_clusters(image_metadata,
     for i in gdf.polygon.values:
         d = gpd.GeoDataFrame(gpd.GeoSeries(i),
                              columns=['geometry'],
-                             crs=epsg_code) 
+                             crs='epsg:' +epsg_code) 
         footprints.append(d)
     
     file_names = list(df[image_file_name_column].values)
@@ -1308,8 +1317,8 @@ def determine_image_clusters(image_metadata,
     clusters = hsfm.core.find_sets(matches)
     
     if qc:
-        
-        p = pathlib.Path('qc/')
+        qc_output_directory = os.path.join(output_directory,'qc')
+        p = pathlib.Path(qc_output_directory)
         p.mkdir(parents=True, exist_ok=True)
         
         gdf['geometry'] = gdf['polygon']
@@ -1319,9 +1328,9 @@ def determine_image_clusters(image_metadata,
 
         ctx.add_basemap(ax, 
                         source = 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-                        crs = {'init' :epsg_code})
+                        crs = 'epsg:' +epsg_code)
         
-        plt.savefig('qc/image_clusters.png')
+        plt.savefig(os.path.join(qc_output_directory,'image_clusters.png'))
         
     if isinstance(output_directory, type(str())):
         for i,v in enumerate(clusters):
@@ -1349,4 +1358,30 @@ def determine_image_clusters(image_metadata,
                         shutil.move(i,os.path.join(outdir,'images'))
                     else:
                         shutil.copy2(i,os.path.join(outdir,'images'))
-                  
+                        
+def compute_GSD(alt, pixel_pitch, focal_length):
+    IFOV = 2*np.arctan((pixel_pitch/2)/focal_length)
+    GSD = IFOV * alt
+    print('GSD:', GSD)
+    return GSD
+
+def estimate_DEM_resolution_from_GSD(images_metadata_file, 
+                                     pixel_pitch, 
+                                     focal_length,
+                                     factor=2.5):
+    
+    df = pd.read_csv(images_metadata_file)
+    elevations = hsfm.geospatial.USGS_elevation_function(df['lat'].values, df['lon'].values)
+    mean_camera_alt_above_ground = (df['alt'].values - np.array(elevations)).mean()
+    GSD = hsfm.core.compute_GSD(mean_camera_alt_above_ground, pixel_pitch, focal_length)
+    DEM_res = round(factor * GSD,2)
+    print('DEM resolution:', DEM_res)
+    return DEM_res
+
+def select_strings_with_sub_strings(strings_list, sub_strings_list):
+    subset = []
+    for sub_string in sub_strings_list:
+        for string in strings_list:
+            if sub_string in string:
+                subset.append(string)
+    return subset

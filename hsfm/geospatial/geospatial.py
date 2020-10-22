@@ -13,6 +13,8 @@ from osgeo import gdal
 import pyproj
 import pandas as pd
 import panel as pn
+import requests
+import urllib
 import rasterio
 from shapely.geometry import Point, Polygon, LineString, mapping
 import utm
@@ -34,7 +36,7 @@ def compare_footprints(gdf1, gdf2):
 def df_points_to_polygon_gdf(df, 
                              lon='lon',
                              lat='lat',
-                             crs='4326'):
+                             epsg_code='4326'):
     vertices = []
 
     for i in range(len(df)):
@@ -44,32 +46,32 @@ def df_points_to_polygon_gdf(df,
     polygon = Polygon(vertices)
     polygon_gdf = gpd.GeoDataFrame(gpd.GeoSeries(polygon), 
                                           columns=['geometry'],
-                                          crs={'init':'epsg:'+crs}) 
+                                          crs='epsg:'+epsg_code) 
     return polygon_gdf
 
 def df_xyz_coords_to_gdf(df, 
                          lon='lon',
                          lat='lat',
                          z='elevation',
-                         crs='4326'):
+                         epsg_code='4326'):
     """
     Function to convert pandas dataframe containing lat, lon, elevation coordinates to geopandas dataframe.
     Use df_xy_coords_to_gdf() if elevation data not available.
     """
     geometry = [Point(xyz) for xyz in zip(df[lon], df[lat], df[z])]        
-    gdf = gpd.GeoDataFrame(df, geometry=geometry, crs='epsg:'+crs)
+    gdf = gpd.GeoDataFrame(df, geometry=geometry, crs='epsg:'+epsg_code)
     
     return gdf
     
 def df_xy_coords_to_gdf(df, 
                          lon='lon',
                          lat='lat',
-                         crs='4326'):
+                         epsg_code='4326'):
     """
     Function to convert pandas dataframe containing lat, lon coordinates to geopandas dataframe.
     """
     geometry = [Point(xy) for xy in zip(df[lon], df[lat])]
-    gdf = gpd.GeoDataFrame(df,geometry=geometry, crs='epsg:'+crs)
+    gdf = gpd.GeoDataFrame(df,geometry=geometry, crs='epsg:'+epsg_code)
     
     return gdf
     
@@ -410,3 +412,21 @@ def compare_dem_extent(dem1_file,
         return dem1_file, dem2_file
     else:
         return dem2_file, dem1_file
+    
+def USGS_elevation_function(lats_list, lons_list):
+    """
+    Query USGS Elevation Point Service using lat, lon lists. Return elevations as list.
+    """
+    print('Requesting elevations from USGS Elevation Point Service...')
+    url = r'https://nationalmap.gov/epqs/pqs.php?'
+    elevations = []
+    for lat, lon in zip(lats_list, lons_list):
+        params = {
+            'output': 'json',
+            'x': lon,
+            'y': lat,
+            'units': 'Meters'
+        }
+        result = requests.get((url + urllib.parse.urlencode(params)))
+        elevations.append(result.json()['USGS_Elevation_Point_Query_Service']['Elevation_Query']['Elevation'])
+    return elevations
