@@ -1098,16 +1098,16 @@ def prepare_metashape_metadata(camera_positions_file_name,
         
         df['alt']             = hsfm.geospatial.sample_dem(lons, lats, reference_dem)
         df['alt']             = df['alt'] + flight_altitude_m
-        df['alt']             = df['alt'].max()
+        df['alt']             = round(df['alt'].max())
 
     else:
         df['alt']             = flight_altitude_m
 
     df['lon']             = df['Longitude'].astype(float).round(6)
     df['lat']             = df['Latitude'].astype(float).round(6)
-    df['lon_acc']         = 3000
-    df['lat_acc']         = 3000
-    df['alt_acc']         = 3000
+    df['lon_acc']         = 1000
+    df['lat_acc']         = 1000
+    df['alt_acc']         = 1000
     df['yaw_acc']         = 180
     df['pitch_acc']       = 20
     df['roll_acc']        = 20

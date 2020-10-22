@@ -497,22 +497,21 @@ def run_metashape(project_name,
                   iteration               = 0,
                   cleanup                 = False):
     
-    # TODO auto determine optimal output_DEM_resolution from point cloud density
-    
     now = datetime.now()
     
     output_path = output_path.rstrip('/') + str(iteration)
     bundle_adjusted_metadata_file = os.path.join(output_path, project_name + "_bundle_adjusted_metadata.csv")
     aligned_bundle_adjusted_metadata_file = os.path.join(output_path, project_name + "_aligned_bundle_adjusted_metadata.csv")
     
-    
+    if isinstance(focal_length, type(None)):
+        df_tmp       = pd.read_csv(images_metadata_file)
+        focal_length = df_tmp['focal_length'].values[0]
+        print('Focal length:', focal_length)
+        
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
         
     if isinstance(output_DEM_resolution, type(None)):
-        if isinstance(focal_length, type(None)):
-            df_tmp       = pd.read_csv(images_metadata_file)
-            focal_length = df_tmp['focal_length'].values[0]
         print('No DEM output resolution specified.')
         print('Using Ground Sample Distance from mean camera altitude above ground to estimate.') 
         output_DEM_resolution = hsfm.core.estimate_DEM_resolution_from_GSD(images_metadata_file, 
@@ -635,6 +634,16 @@ def run_metashape(project_name,
 
             hsfm.metashape.images2ortho(project_name,
                                         ortho_output_path)
+        
+        output = [bundle_adjusted_metadata_file, 
+                  ba_CE90, 
+                  ba_LE90, 
+                  dem,
+                  None, 
+                  None, 
+                  None, 
+                  None]
+        return
     
     
 
@@ -659,7 +668,18 @@ def metaflow(project_name,
              cleanup                 = False,
              check_subsets           = True):
     
-    
+#     # check positions
+#     df_tmp = pd.read_csv(images_metadata_file)
+#     if len(set(df_tmp['lon'].values)) == 1:
+#         print('CRITICAL: All cameras have identical longitude values in:',images_metadata_file)
+#         print('CRITICAL: This will fail. Exiting.')
+#         sys.exit(0)
+        
+    if isinstance(focal_length, type(None)):
+        df_tmp       = pd.read_csv(images_metadata_file)
+        focal_length = df_tmp['focal_length'].values[0]
+        print('Focal length:', focal_length)
+        
     # determine if there are subset clusters of images that do not overlap and/or unaligned images  
     if check_subsets:
         metashape_project_file, point_cloud_file = hsfm.metashape.images2las(project_name,

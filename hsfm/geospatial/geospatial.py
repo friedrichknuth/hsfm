@@ -373,6 +373,7 @@ def sample_dem(lons, lats, dem_file_name):
 # From https://github.com/dshean/pygeotools/blob/master/pygeotools/lib/geolib.py
 # Formulas for CE90/LE90 here:
 # http://www.fgdc.gov/standards/projects/FGDC-standards-projects/accuracy/part3/chapter3
+
 def CE90(x_offset,y_offset):
     RMSE_x = np.sqrt(np.sum(x_offset**2)/x_offset.size) 
     RMSE_y = np.sqrt(np.sum(y_offset**2)/y_offset.size) 

@@ -596,6 +596,7 @@ def pick_fiducials(image_file_name):
     
 ## TODO move to hsfm.io and add docs
 def run_command(command, verbose=False, log_directory=None, shell=False):
+    print(*command)
     
     p = Popen(command,
               stdout=PIPE,
@@ -622,6 +623,7 @@ def run_command(command, verbose=False, log_directory=None, shell=False):
                 print(line)
                 
 def run_command2(command, verbose=False, log=False):
+    print(*command)
     
     log_directory='logs'
     
