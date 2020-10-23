@@ -89,7 +89,7 @@ for roll in rolls:
                                                image_directory = os.path.join(out_dir, 
                                                                               'input_data',
                                                                               roll,
-                                                                              v+'_cropped_images')
+                                                                              v+'_cropped_images'))
 
                                                
 project_name               = 'baker'
