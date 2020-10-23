@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import hipp
+import hsfm
 
 from datetime import datetime
 import os
