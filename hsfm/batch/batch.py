@@ -643,7 +643,8 @@ def run_metashape(project_name,
                   None, 
                   None, 
                   None]
-        return
+        
+        return output
     
     
 
@@ -728,7 +729,7 @@ def metaflow(project_name,
                                     camera_model_xml_file   = camera_model_xml_file,
                                     image_matching_accuracy = image_matching_accuracy,
                                     densecloud_quality      = densecloud_quality,
-                                    output_DEM_resolution   = None,
+                                    output_DEM_resolution   = output_DEM_resolution,
                                     generate_ortho          = generate_ortho,
                                     dem_align               = dem_align,
                                     metashape_licence_file  = metashape_licence_file,
@@ -824,7 +825,7 @@ def metaflow(project_name,
                                 camera_model_xml_file   = camera_model_xml_file,
                                 image_matching_accuracy = image_matching_accuracy,
                                 densecloud_quality      = densecloud_quality,
-                                output_DEM_resolution   = None,
+                                output_DEM_resolution   = output_DEM_resolution,
                                 generate_ortho          = generate_ortho,
                                 dem_align               = dem_align,
                                 metashape_licence_file  = metashape_licence_file,
