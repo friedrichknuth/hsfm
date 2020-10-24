@@ -13,6 +13,7 @@ import pathlib
 import shutil
 
 
+import hipp
 import hsfm.io
 import hsfm.core
 import hsfm.image
@@ -332,79 +333,72 @@ def download_images_to_disk(image_metadata,
     
     return output_directory
     
-def preprocess_images(template_directory,
-                      image_metadata=None,
-                      image_directory=None,
-                      image_type='pid_tiff', 
-                      output_directory='input_data/images',
-                      subset=None, 
-                      scale=None,
-                      qc=False,
-                      invisible_fiducial=None,
-                      crop_from_pp_dist = 11250,
-                      manually_pick_fiducials=False,
-                      side = None):
-                      
-    """
-    Function to preprocess images from NAGAP archive in batch.
+def NAGAP_pre_process_images(project_name,
+                             bounds,
+                             roll                = None,
+                             template_parent_dir = '../input_data/fiducials/nagap',
+                             nagap_metadata_csv  = '../input_data/nagap_image_metadata.csv',
+                             output_directory    = '../'):
     
-    side : 'left', 'right', top', 'bottom' # side opposite flight direction in image
-    """
-    # TODO
-    # - Make io faster with gdal
-    # - Generalize for other types of images
-    # - Add affine transformation (if needed)
-                      
-    hsfm.io.create_dir(output_directory)
+    # TODO Generalize to input EarthExplorer. Best to standardize metadata sourced from EE to match 
+    #      nagap_image_metadata.csv
     
-    templates = hsfm.core.gather_templates(template_directory)         
-                      
-    intersections =[]
-    file_names = []
+    output_directory = os.path.join(output_directory, project_name, 'input_data')
     
-    if not isinstance(image_metadata,type(None)):
-        if not isinstance(image_metadata, type(pd.DataFrame())):
-            df = pd.read_csv(image_metadata)
-        else:
-            df = image_metadata
-        targets = dict(zip(df[image_type], df['fileName']))
-        for pid, file_name in targets.items():
-            print('Processing',file_name)
-            img_gray = hsfm.core.download_image(pid)
-            intersection_angle = hsfm.core.preprocess_image(img_gray,
-                                                            file_name,
-                                                            templates, 
-                                                            qc=qc,
-                                                            output_directory=output_directory,
-                                                            invisible_fiducial=invisible_fiducial,
-                                                            crop_from_pp_dist=crop_from_pp_dist,
-                                                            manually_pick_fiducials=manually_pick_fiducials,
-                                                            side = side)
-            intersections.append(intersection_angle)
-            file_names.append(file_name)
-    
-    elif not isinstance(image_directory,type(None)):
-        image_files = sorted(glob.glob(os.path.join(image_directory,'*.tif')))
-        for image_file in image_files:
-            file_path, file_name, file_extension = hsfm.io.split_file(image_file)
-            print('Processing',file_name)
-            img_gray = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
-            
-            intersection_angle = hsfm.core.preprocess_image(img_gray, 
-                                                            file_name,
-                                                            templates, 
-                                                            qc=qc,
-                                                            output_directory=output_directory,
-                                                            invisible_fiducial=invisible_fiducial,
-                                                            crop_from_pp_dist=crop_from_pp_dist,
-                                                            manually_pick_fiducials=manually_pick_fiducials,
-                                                            side = side)
-            intersections.append(intersection_angle)
-            file_names.append(file_name)
+    template_dirs = sorted(glob.glob(os.path.join(template_parent_dir, '*')))
+    template_types = []
+    for i in template_dirs:
+        template_types.append(i.split('/')[-1])
         
-    if qc == True:
-        hsfm.plot.plot_intersection_angles_qc(intersections, file_names)
+    df = pd.read_csv(nagap_metadata_csv)
+    df = df[df['fiducial_proxy_type'].isin(template_types)]
+    df = hipp.dataquery.NAGAP_pre_select_images(df, bounds = bounds)
     
+    if isinstance(roll, type(None)):
+        rolls = sorted(list(set(df['Roll'].values)))
+    else:
+        rolls = [roll,]
+    print('Processing rolls:', rolls)
+
+    for roll in rolls:
+        df_roll = df[df['Roll']  == roll].copy()
+
+        for i,v in enumerate(template_types):
+            df_tmp = df_roll[df_roll['fiducial_proxy_type']  == v].copy()
+
+            if not df_tmp.empty:
+
+                image_directory = hipp.dataquery.NAGAP_download_images_to_disk(
+                                                 df_tmp,
+                                                 output_directory=os.path.join(output_directory,
+                                                                               roll,
+                                                                               v+'_raw_images'))
+
+                template_directory = template_dirs[i]
+
+                hipp.batch.preprocess_with_fiducial_proxies(
+                           image_directory,
+                           template_directory,
+                           output_directory=os.path.join(output_directory,
+                                                         roll,
+                                                         v+'_cropped_images'),
+
+                           qc_df_output_directory=os.path.join(output_directory,
+                                                               roll,
+                                                               'qc',
+                                                               v+'_proxy_detection_data_frames'),
+                           qc_plots_output_directory=os.path.join(output_directory,
+                                                                  roll,
+                                                                  'qc',
+                                                                  v+'_proxy_detection'))
+
+                hsfm.core.determine_image_clusters(df_tmp,
+                                                   output_directory=os.path.join(output_directory,
+                                                                                 roll, 
+                                                                                 'sfm'),
+                                                   image_directory = os.path.join(output_directory,
+                                                                                  roll,
+                                                                                  v+'_cropped_images'))
     return output_directory
 
 def plot_match_overlap(match_files_directory, images_directory, output_directory='qc/matches/'):
@@ -675,6 +669,9 @@ def metaflow(project_name,
 #         print('CRITICAL: All cameras have identical longitude values in:',images_metadata_file)
 #         print('CRITICAL: This will fail. Exiting.')
 #         sys.exit(0)
+
+    if not isinstance(metashape_licence_file, type(None)):
+        hsfm.metashape.authentication(metashape_licence_file)
         
     if isinstance(focal_length, type(None)):
         df_tmp       = pd.read_csv(images_metadata_file)
@@ -901,4 +898,50 @@ def metaflow(project_name,
             las_files = glob.glob('./**/*.las', recursive=True)
             for i in las_files:
                 os.remove(i)
+
+def batch_process(project_name,
+                  reference_dem,
+                  input_directory         ='../',
+                  pixel_pitch             = 0.02,
+                  output_DEM_resolution   = 2,
+                  image_matching_accuracy = 1,
+                  densecloud_quality      = 2,
+                  metashape_licence_file  = '/opt/metashape-pro/uw_agisoft.lic',
+                  verbose                 = True,
+                  cleanup                 = True):
+    
+    output_directory = os.path.join(input_directory, project_name, 'input_data')
+    
+    input_directories = os.path.join(output_directory,'*','sfm/cl*')
+    batches = sorted(glob.glob(input_directories))
+
+    for i in batches:
+        try:
+            print('\n\n'+i)
+
+            now = datetime.now()
+
+            cluster_project_name = project_name+'_'+i.split('/')[-1]
+
+            images_path          = os.path.join(i,'images')
+            images_metadata_file = os.path.join(i,'metashape_metadata.csv')
+            output_path          = os.path.join(i,'metashape')
+
+            hsfm.batch.metaflow(cluster_project_name,
+                                images_path,
+                                images_metadata_file,
+                                reference_dem,
+                                output_path,
+                                pixel_pitch,
+                                output_DEM_resolution   = output_DEM_resolution,
+                                image_matching_accuracy = image_matching_accuracy,
+                                densecloud_quality      = densecloud_quality,
+                                metashape_licence_file  = metashape_licence_file,
+                                verbose                 = verbose,
+                                cleanup                 = cleanup)
+        except:
+            print('FAIL:', i)
+
+        print('\n\n'+i)
+        print("Elapsed time", str(datetime.now() - now), '\n\n')
 
