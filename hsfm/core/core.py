@@ -1076,7 +1076,6 @@ def metashape_cameras_to_tsai(project_file_path,
 
 def prepare_metashape_metadata(camera_positions_file_name,
                                output_directory='input_data',
-                               reference_dem    = None,
                                flight_altitude_m = 1500):
                                
 
@@ -1092,16 +1091,12 @@ def prepare_metashape_metadata(camera_positions_file_name,
     df['roll']            = 0.0
     df['image_file_name'] = df['fileName']+'.tif'
 
-    if reference_dem:
-        lons = df['Longitude'].values
-        lats = df['Latitude'].values
-        
-        df['alt']             = hsfm.geospatial.sample_dem(lons, lats, reference_dem)
-        df['alt']             = df['alt'] + flight_altitude_m
-        df['alt']             = round(df['alt'].max())
+    lons = df['Longitude'].values
+    lats = df['Latitude'].values
 
-    else:
-        df['alt']             = flight_altitude_m
+    df['alt']             = hsfm.geospatial.USGS_elevation_function(lats, lons)
+    df['alt']             = df['alt'] + flight_altitude_m
+    df['alt']             = round(df['alt'].max())
 
     df['lon']             = df['Longitude'].astype(float).round(6)
     df['lat']             = df['Latitude'].astype(float).round(6)
@@ -1262,7 +1257,6 @@ def determine_image_clusters(image_metadata,
                              image_directory = None,
                              buffer_m = 1200,
                              flight_altitude_m = 1500,
-                             reference_dem = None,
                              output_directory = None,
                              image_extension = '.tif',
                              image_file_name_column= 'fileName',
@@ -1340,7 +1334,6 @@ def determine_image_clusters(image_metadata,
 
             tmp = gdf[gdf['fileName'].isin(v)].copy()
             hsfm.core.prepare_metashape_metadata(tmp,
-                                                 reference_dem=reference_dem,
                                                  output_directory=outdir,
                                                  flight_altitude_m = flight_altitude_m)
 
