@@ -5,6 +5,7 @@ import pandas as pd
 from urllib.request import urlopen
 import cv2
 from skimage import exposure
+import shapely
 import glob
 import os
 from osgeo import gdal
@@ -1215,7 +1216,7 @@ def compute_point_offsets(metadata_file_1,
     elif len(df1) < len(df2):
         df2 = df2[df2['image_file_name'].isin(df1['image_file_name'].values)].reset_index(drop=True)
         
-    epsg_code = hsfm.geospatial.wgs_lon_lat_to_epsg_code(df2[lon].values[0], df2[lat].values[0])
+    epsg_code = hsfm.geospatial.lon_lat_to_utm_epsg_code(df2[lon].values[0], df2[lat].values[0])
     gdf1 = hsfm.geospatial.df_xy_coords_to_gdf(df1, lon=lon, lat=lat)
     gdf1 = gdf1.to_crs('epsg:'+epsg_code)
     hsfm.geospatial.extract_gpd_geometry(gdf1)
@@ -1254,40 +1255,58 @@ def find_sets(lsts):
     
     
 def determine_image_clusters(image_metadata,
-                             image_directory = None,
-                             buffer_m = 1200,
-                             flight_altitude_m = 1500,
-                             output_directory = None,
-                             image_extension = '.tif',
-                             image_file_name_column= 'fileName',
-                             move_images = False,
-                             qc = True):
+                             image_square_dim       = None,
+                             pixel_pitch            = 0.02,
+                             focal_length           = None,
+                             image_directory        = None,
+                             buffer_m               = 1200,
+                             flight_altitude_m      = 1500,
+                             output_directory       = None,
+                             image_extension        = '.tif',
+                             image_file_name_column = 'fileName',
+                             move_images            = False,
+                             qc                     = True):
     
     """
     buffer_m = Approximate image footprint diameter in meters.
     move_images = True # images are moved instead of copied.
     """
     
-    # TODO
-    # Approximate footprints based on flight altitude and ground sample distance
-    
-    
     if not isinstance(image_metadata, type(pd.DataFrame())):
         df = pd.read_csv(image_metadata)
     else:
         df = image_metadata
-    
+        
+    if isinstance(focal_length, type(None)):
+        focal_length = df['focal_length'].values[0]
+        
     # convert to geopandas.GeoDataFrame() and UTM
     gdf = hsfm.geospatial.df_xy_coords_to_gdf(df, lon='Longitude', lat='Latitude')
     lon = df['Longitude'].iloc[0]
     lat = df['Latitude'].iloc[0]
-    epsg_code = hsfm.geospatial.wgs_lon_lat_to_epsg_code(lon, lat)
+    epsg_code = hsfm.geospatial.lon_lat_to_utm_epsg_code(lon, lat)
     gdf = gdf.to_crs('epsg:' +epsg_code)
     
-    # approximate circular image foot print
-    buffer_m = buffer_m/2
-    gdf['polygon'] = gdf.geometry.buffer(buffer_m)
+    # approximate square altitude dependant footprint
+    # this does not work very well for clustering due to variable
+    # flight altitudes and distance above ground.
+#     if isinstance(image_square_dim, type(None)) and isinstance(image_directory, type(str())):
+#         img = glob.glob(os.path.join(image_directory,'*.tif'))[0]
+#         img = cv2.imread(img, cv2.IMREAD_GRAYSCALE)
+#         image_square_dim = img.shape[0]
+#     gdf['polygon'] = hsfm.core.compute_square_footprint(gdf,
+#                                                     image_square_dim,
+#                                                     pixel_pitch,
+#                                                     focal_length,
+#                                                     flight_altitude_m)
     
+#     return gdf
+    
+    # approximate circular image foot print
+    print('Estimated footprint diameter:', buffer_m)
+    radius_m = buffer_m/2
+    gdf['polygon'] = gdf.geometry.buffer(radius_m)
+
     footprints = []
     for i in gdf.polygon.values:
         d = gpd.GeoDataFrame(gpd.GeoSeries(i),
@@ -1308,23 +1327,65 @@ def determine_image_clusters(image_metadata,
             areas.append(intersection.area[0])
             matches.append((a[0], b[0]))
             
+    matched_files   = list(set(np.array(matches).flatten()))
+    unmatched_files = hsfm.core.diff_lists(matched_files, file_names)
+
+    # expand footprint radius for single images until the belong to a set
+    while len(unmatched_files) > 0:
+        print('Images not part of a cluster:', *unmatched_files, sep = "\n")
+        radius_m = radius_m + 500
+        print('Increasing estimated footprint diameter to:', int(2*radius_m))
+        gdf.loc[gdf['fileName'].isin(unmatched_files),'polygon'] = \
+        gdf.loc[gdf['fileName'].isin(unmatched_files),'geometry'].buffer(radius_m)
+
+        footprints = []
+        for i in gdf.polygon.values:
+            d = gpd.GeoDataFrame(gpd.GeoSeries(i),
+                                 columns=['geometry'],
+                                 crs='epsg:' +epsg_code) 
+            footprints.append(d)
+        file_names = list(df[image_file_name_column].values)
+        footprints = np.array(list(zip(file_names, footprints)),dtype=object)
+
+        matches = []
+        areas = []
+
+        for a, b in itertools.combinations(footprints, 2):
+            intersection = gpd.overlay(a[1], b[1], how='intersection') 
+            if len(intersection) > 0 and intersection.area[0] > threshold:
+                areas.append(intersection.area[0])
+                matches.append((a[0], b[0]))
+
+        matched_files   = list(set(np.array(matches).flatten()))
+        unmatched_files = hsfm.core.diff_lists(matched_files, file_names)
+            
+    print('All images are part of a cluster.')
     clusters = hsfm.core.find_sets(matches)
     
     if qc:
-        qc_output_directory = os.path.join(output_directory,'qc')
-        p = pathlib.Path(qc_output_directory)
-        p.mkdir(parents=True, exist_ok=True)
-        
         gdf['geometry'] = gdf['polygon']
         fig, ax = plt.subplots(1,figsize=(10,10))
         for i,v in enumerate(clusters):
-            gdf[gdf['fileName'].isin(v)].plot(ax=ax,alpha=0.5,color=cycle[i])
+            c = gdf[gdf['fileName'].isin(v)].copy()
+            c.plot(ax=ax,alpha=0.5,color=cycle[i])
+            
+            # label cluster
+            p = gpd.GeoSeries(shapely.ops.cascaded_union(c['polygon']))
+            p = (p.representative_point().x[0], p.representative_point().y[0])
+            ax.annotate(s=str(i).zfill(3),
+                        xy=p,
+                        horizontalalignment='center',
+                        size=15)
 
         ctx.add_basemap(ax, 
                         source = 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
                         crs = 'epsg:' +epsg_code)
         
-        plt.savefig(os.path.join(qc_output_directory,'image_clusters.png'))
+        if isinstance(output_directory, type(str())):
+            qc_output_directory = os.path.join(output_directory,'qc')
+            p = pathlib.Path(qc_output_directory)
+            p.mkdir(parents=True, exist_ok=True)
+            plt.savefig(os.path.join(qc_output_directory,'image_clusters.png'))
         
     if isinstance(output_directory, type(str())):
         for i,v in enumerate(clusters):
@@ -1351,11 +1412,64 @@ def determine_image_clusters(image_metadata,
                         shutil.move(i,os.path.join(outdir,'images'))
                     else:
                         shutil.copy2(i,os.path.join(outdir,'images'))
+
+def compute_square_footprint(gdf,
+                             image_square_dim,
+                             pixel_pitch,
+                             focal_length,
+                             flight_altitude_m):
+    
+    lons = gdf['Longitude'].values
+    lats = gdf['Latitude'].values
+    epsg_code = hsfm.geospatial.lon_lat_to_utm_epsg_code(lons[0], lats[0])
+    
+    gdf['elev']             = hsfm.geospatial.USGS_elevation_function(lats, lons)
+    gdf['alt']              = gdf['elev'] + flight_altitude_m
+#     gdf['alt']              = round(gdf['alt'].max())
+    gdf['alt_above_ground'] = gdf['alt'] - gdf['elev']
+    
+    gdf['GSD'] = gdf['alt_above_ground'].apply(hsfm.core.compute_GSD, 
+                                               args=(pixel_pitch, 
+                                                     focal_length,
+                                                     False))
+    
+    gdf['lon_utm'], gdf['lat_utm'] = utm.from_latlon(lats,lons)[:2]
+    
+    gdf['footprint_square_dim'] = gdf['GSD'] * image_square_dim
+    
+    gdf['ULLON'] = gdf['lon_utm'] - gdf['footprint_square_dim'] /2
+    gdf['ULLAT'] = gdf['lat_utm'] + gdf['footprint_square_dim'] /2
+    gdf['UL']    = list(zip(gdf['ULLON'].values, gdf['ULLAT'].values))
+
+    gdf['URLON'] = gdf['lon_utm'] + gdf['footprint_square_dim'] /2
+    gdf['URLAT'] = gdf['lat_utm'] + gdf['footprint_square_dim'] /2
+    gdf['UR']    = list(zip(gdf['URLON'].values, gdf['URLAT'].values))
+
+    gdf['LRLON'] = gdf['lon_utm'] + gdf['footprint_square_dim'] /2
+    gdf['LRLAT'] = gdf['lat_utm'] - gdf['footprint_square_dim'] /2
+    gdf['LR']    = list(zip(gdf['LRLON'].values, gdf['LRLAT'].values))
+
+    gdf['LLLON'] = gdf['lon_utm'] - gdf['footprint_square_dim'] /2
+    gdf['LLLAT'] = gdf['lat_utm'] - gdf['footprint_square_dim'] /2
+    gdf['LL']    = list(zip(gdf['LLLON'].values, gdf['LLLAT'].values))
+    
+    footprints = []
+    for i in range(len(gdf)):
+        vertices = (gdf.iloc[i]['UL'], 
+                    gdf.iloc[i]['UR'], 
+                    gdf.iloc[i]['LR'], 
+                    gdf.iloc[i]['LL'])
+    
+        polygon = shapely.geometry.Polygon(vertices)
+        footprints.append(polygon)
+        
+    return footprints
                         
-def compute_GSD(alt, pixel_pitch, focal_length):
+def compute_GSD(alt_above_ground, pixel_pitch, focal_length, verbose=True):
     IFOV = 2*np.arctan((pixel_pitch/2)/focal_length)
-    GSD = IFOV * alt
-    print('GSD:', GSD)
+    GSD = IFOV * alt_above_ground
+    if verbose:
+        print('GSD:', GSD)
     return GSD
 
 def estimate_DEM_resolution_from_GSD(images_metadata_file, 
@@ -1378,3 +1492,6 @@ def select_strings_with_sub_strings(strings_list, sub_strings_list):
             if sub_string in string:
                 subset.append(string)
     return subset
+
+def diff_lists(list1, list2):
+    return (list(list(set(list1)-set(list2)) + list(set(list2)-set(list1))))

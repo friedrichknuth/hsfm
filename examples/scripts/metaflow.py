@@ -6,15 +6,16 @@ import hsfm
 project_name = 'easton'
 roll         = '77V6'
 out_dir      = '../'
-bounds              = (-121.846, 48.76, -121.823, 48.70) # easton
 
+bounds              = (-121.846, 48.76, -121.823, 48.70) # easton
 # bounds              = (-121.94, 48.84, -121.70, 48.70) # baker
 # bounds              = (-121.7, 48.43, -120.97, 48.28) # south cascade
 
 
 hsfm.batch.NAGAP_pre_process_images(project_name,
                                     bounds,
-                                    roll = '77V6')
+                                    roll = roll,
+                                    output_directory=out_dir)
 
 
 reference_dem           = '/mnt/Backups/knuth/hsfm_processing/nagap/data/reference_dems/baker_1_m/baker_2015_utm_m.tif'

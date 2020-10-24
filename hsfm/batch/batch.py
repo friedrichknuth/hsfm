@@ -336,12 +336,13 @@ def download_images_to_disk(image_metadata,
 def NAGAP_pre_process_images(project_name,
                              bounds,
                              roll                = None,
+                             pixel_pitch         = 0.02,
+                             focal_length        = None,
                              template_parent_dir = '../input_data/fiducials/nagap',
                              nagap_metadata_csv  = '../input_data/nagap_image_metadata.csv',
                              output_directory    = '../'):
     
-    # TODO Generalize to input EarthExplorer. Best to standardize metadata sourced from EE to match 
-    #      nagap_image_metadata.csv
+    # TODO Generalize to input EarthExplorer. Standardize metadata sourced from EE to match nagap_image_metadata.csv
     
     output_directory = os.path.join(output_directory, project_name, 'input_data')
     
@@ -352,13 +353,15 @@ def NAGAP_pre_process_images(project_name,
         
     df = pd.read_csv(nagap_metadata_csv)
     df = df[df['fiducial_proxy_type'].isin(template_types)]
-    df = hipp.dataquery.NAGAP_pre_select_images(df, bounds = bounds)
+    df = hipp.dataquery.NAGAP_pre_select_images(df, 
+                                                bounds = bounds,
+                                                roll=roll)
     
     if isinstance(roll, type(None)):
         rolls = sorted(list(set(df['Roll'].values)))
     else:
         rolls = [roll,]
-    print('Processing rolls:', rolls)
+    print('Processing rolls:', *rolls, sep = "\n")
 
     for roll in rolls:
         df_roll = df[df['Roll']  == roll].copy()
@@ -367,7 +370,7 @@ def NAGAP_pre_process_images(project_name,
             df_tmp = df_roll[df_roll['fiducial_proxy_type']  == v].copy()
 
             if not df_tmp.empty:
-
+                
                 image_directory = hipp.dataquery.NAGAP_download_images_to_disk(
                                                  df_tmp,
                                                  output_directory=os.path.join(output_directory,
@@ -375,24 +378,28 @@ def NAGAP_pre_process_images(project_name,
                                                                                v+'_raw_images'))
 
                 template_directory = template_dirs[i]
+                image_square_dim = hipp.batch.preprocess_with_fiducial_proxies(
+                                              image_directory,
+                                              template_directory,
+                                              output_directory=os.path.join(output_directory,
+                                                                            roll,
+                                                                            v+'_cropped_images'),
 
-                hipp.batch.preprocess_with_fiducial_proxies(
-                           image_directory,
-                           template_directory,
-                           output_directory=os.path.join(output_directory,
-                                                         roll,
-                                                         v+'_cropped_images'),
-
-                           qc_df_output_directory=os.path.join(output_directory,
-                                                               roll,
-                                                               'qc',
-                                                               v+'_proxy_detection_data_frames'),
-                           qc_plots_output_directory=os.path.join(output_directory,
-                                                                  roll,
-                                                                  'qc',
-                                                                  v+'_proxy_detection'))
-
+                                              qc_df_output_directory=os.path.join(output_directory,
+                                                                                  roll,
+                                                                                  'qc',
+                                                                                  v+'_proxy_detection_data_frames'),
+                                              qc_plots_output_directory=os.path.join(output_directory,
+                                                                                     roll,
+                                                                                     'qc',
+                                                                                     v+'_proxy_detection'))
+                
+                if isinstance(focal_length, type(None)):
+                    focal_length = df_tmp['focal_length'].values[0]
                 hsfm.core.determine_image_clusters(df_tmp,
+                                                   image_square_dim = image_square_dim,
+                                                   pixel_pitch      = pixel_pitch,
+                                                   focal_length     = focal_length,
                                                    output_directory=os.path.join(output_directory,
                                                                                  roll, 
                                                                                  'sfm'),

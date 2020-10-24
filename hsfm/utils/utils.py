@@ -179,7 +179,7 @@ def download_srtm(bounds,
     
     if utm:
         # Get UTM EPSG code
-        epsg_code = hsfm.geospatial.wgs_lon_lat_to_epsg_code(bounds[0], bounds[3])
+        epsg_code = hsfm.geospatial.lon_lat_to_utm_epsg_code(bounds[0], bounds[3])
     
         # Convert to UTM
         utm_vrt_subset_file_name = os.path.join(output_directory,'SRTM3/cache/srtm_subset_utm_geoid_adj.tif')

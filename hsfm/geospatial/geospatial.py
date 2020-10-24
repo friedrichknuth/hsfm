@@ -108,7 +108,7 @@ def extract_gpd_geometry(point_gdf):
         point_gdf['z'] = z
     return point_gdf
         
-def wgs_lon_lat_to_epsg_code(lon, lat):
+def lon_lat_to_utm_epsg_code(lon, lat):
     """
     Function to retrieve local UTM EPSG code from WGS84 geographic coordinates.
     """
