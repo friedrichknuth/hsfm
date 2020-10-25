@@ -428,6 +428,14 @@ def USGS_elevation_function(lats_list, lons_list):
             'y': lat,
             'units': 'Meters'
         }
-        result = requests.get((url + urllib.parse.urlencode(params)))
-        elevations.append(result.json()['USGS_Elevation_Point_Query_Service']['Elevation_Query']['Elevation'])
+        c = 0
+        while(c < 5):
+            try:
+                result = requests.get((url + urllib.parse.urlencode(params)))
+                elevations.append(result.json()['USGS_Elevation_Point_Query_Service']['Elevation_Query']['Elevation'])
+                break
+            except:
+                print('Waiting on 200 response from USGS Elevation Point Service...')
+                time.sleep(3)
+                c = c+1
     return elevations
