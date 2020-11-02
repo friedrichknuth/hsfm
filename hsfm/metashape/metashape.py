@@ -42,13 +42,14 @@ def images2las(project_name,
     densecloud_quality      = Ultra/High/Medium/Low/Lowest   -> 1/2/4/8/16
     """
     
-
+    import Metashape
+    
+    # PROJECT SETUP
+    
     # TODO
     # check if project already exists and prompt for overwrite or pickup where left off
     # doc.open(output_path + project_name + ".psx")
     
-    import Metashape
-
     os.makedirs(output_path)
     metashape_project_file = os.path.join(output_path, project_name  + ".psx")
     report_file            = os.path.join(output_path, project_name  + "_report.pdf")
@@ -66,10 +67,6 @@ def images2las(project_name,
         chunk = doc.addChunk()
 
     metashape_metadata_df = pd.read_csv(images_metadata_file)
-    
-    if isinstance(focal_length, type(None)):
-        focal_length = metashape_metadata_df['focal_length'].values[0]
-        print('Focal length:', focal_length)
         
     image_file_names = list(metashape_metadata_df['image_file_name'].values)
     image_file_paths = sorted(glob.glob(os.path.join(images_path,'*.tif')))
@@ -79,53 +76,111 @@ def images2las(project_name,
             if img_fn in img_fp:
                 image_files_subset.append(img_fp)
     chunk.addPhotos(image_files_subset)
-    
-    if isinstance(camera_model_xml_file, type('')) and os.path.exists(camera_model_xml_file):
-        calib = Metashape.Calibration()
-        calib.load(camera_model_xml_file)
-        for sensor in chunk.cameras:
-            sensor.calibration = calib
-#             sensor.user_calib  = calib
-    
-    elif focal_length:
-        chunk.cameras[0].sensor.focal_length = focal_length
-    
-    if pixel_pitch:
-        chunk.cameras[0].sensor.pixel_height = pixel_pitch
-        chunk.cameras[0].sensor.pixel_width  = pixel_pitch
 
+    # DEFINE EXTRINSICS
     chunk.importReference(images_metadata_file,
                           columns="nxyzXYZabcABC", # from metashape py api docs
                           delimiter=',',
                           format=Metashape.ReferenceFormatCSV)
 
-    # optionally orient first camera
-#     chunk.cameras[1].reference.rotation_enabled = rotation_enabled
-    
-    # need to iterate to orient all cameras if desired
-    for i,v in enumerate(chunk.cameras):
-        v.reference.rotation_enabled = rotation_enabled
-
     chunk.crs = crs
     chunk.updateTransform()
+    
+    for i,v in enumerate(chunk.cameras):
+        v.reference.rotation_enabled = rotation_enabled
+        
+    # DEFINE INTRINSICS
+    if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
+        try:
+            df_tmp       = pd.read_csv(images_metadata_file)
+            focal_length = df_tmp['focal_length'].values[0]
+            print('Focal length:', focal_length)
+        except:
+            print('Please specify focal length.')
+            sys.exit()
+    
+    if not isinstance(camera_model_xml_file, type(None)):
+        calib = Metashape.Calibration()
+        calib.load(camera_model_xml_file)
+        for i,v in enumerate(chunk.cameras):
+#             v.sensor.calibration = calib
+            v.sensor.user_calib  = calib
+#             v.sensor.fixed_calibration = True
+            v.sensor.fixed_params=['F','K1','K2','K3']
+#             v.sensor.fixed_params=['F','Cx','Cy','K1','K2','K3','P1','P2']
+        
+    elif not isinstance(focal_length, type(None)):
+        for i,v in enumerate(chunk.cameras):
+            # Optionally assign seperate camera model to each image
+#             sensor = chunk.addSensor()
+#             sensor.label = "Calibration Group "+str(i)
+#             sensor.type = Metashape.Sensor.Type.Frame
+#             sensor.width = v.photo.image().width
+#             sensor.height = v.photo.image().height
+#             v.sensor = sensor
+            v.sensor.focal_length = focal_length
+            v.sensor.fixed_params = ['F']
+    
+    if not isinstance(pixel_pitch, type(None)):
+        for i,v in enumerate(chunk.cameras):
+            v.sensor.pixel_height = pixel_pitch
+            v.sensor.pixel_width  = pixel_pitch
+    else:
+        print('Please specify pixel pitch.')
+        sys.exit()
 
     doc.save()
-
+    
+    # BUNDLE ADJUSTMENT
+    
     chunk.matchPhotos(downscale=image_matching_accuracy,
                       generic_preselection=True,
                       reference_preselection=False,
                       keypoint_limit=keypoint_limit,
                       tiepoint_limit=tiepoint_limit)
-
+    
     chunk.alignCameras()
 
-
     doc.save()
+
+    # FILTER SPARSE CLOUD AND OPTIMIZE CAMERAS
+    
+#     threshold = 3
+#     f = Metashape.PointCloud.Filter()
+#     f.init(chunk, criterion = Metashape.PointCloud.Filter.ImageCount)
+#     f.removePoints(threshold)
+#     chunk.optimizeCameras()
+
+#     threshold = 15
+#     f = Metashape.PointCloud.Filter()
+#     f.init(chunk, criterion = Metashape.PointCloud.Filter.ReconstructionUncertainty)
+#     f.removePoints(threshold)
+#     chunk.optimizeCameras()
+
+    
+#     threshold = 5
+#     f = Metashape.PointCloud.Filter()
+#     f.init(chunk, criterion = Metashape.PointCloud.Filter.ProjectionAccuracy)
+#     f.removePoints(threshold)
+#     chunk.optimizeCameras()
+
+    
+#     threshold = 1
+#     f = Metashape.PointCloud.Filter()
+#     f.init(chunk, criterion = Metashape.PointCloud.Filter.ReprojectionError)
+#     f.removePoints(threshold)
+#     chunk.optimizeCameras()
+
+#     doc.save()
+    
+    # BUILD DENSE CLOUD
 
     chunk.buildDepthMaps(downscale=densecloud_quality,
                          filter_mode=Metashape.MildFiltering)
     chunk.buildDenseCloud()
     doc.save()
+    
+    # EXPORT
     
     chunk.exportReport(report_file)
     if export_point_cloud:
