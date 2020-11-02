@@ -60,6 +60,24 @@ def dem_align_custom(reference_dem,
             return dem_difference_file , aligned_dem_file
         except:
             print('Unable to align dem using dem_align.py. See', log_file, 'for additional details.')
+            
+def mask_dem(dem,
+             output_directory = None,
+             masks = ['--nlcd', '--glaciers'],
+             verbose = True):
+    
+    path, base, ext = hsfm.io.split_file(dem)
+    if output_directory == None:
+        output_directory = path
+    
+    call = ['dem_mask.py', '--outdir']
+    call.extend([output_directory])
+    call.extend(masks)
+    call.extend([dem])
+    
+    hsfm.utils.run_command(call,verbose=verbose)
+    
+    return os.path.join(output_directory, base+'_ref.tif')
     
 
 def rescale_geotif(geotif_file_name,
@@ -596,7 +614,10 @@ def pick_fiducials(image_file_name):
     
 ## TODO move to hsfm.io and add docs
 def run_command(command, verbose=False, log_directory=None, shell=False):
-    print(command)
+    if isinstance(command, type(str())):
+        print(command)
+    else:
+        print(*command)
     
     p = Popen(command,
               stdout=PIPE,
@@ -623,7 +644,11 @@ def run_command(command, verbose=False, log_directory=None, shell=False):
                 print(line)
                 
 def run_command2(command, verbose=False, log=False):
-    print(command)
+    if isinstance(command, type(str())):
+        print(command)
+    else:
+        print(*command)
+                  
     
     log_directory='logs'
     
