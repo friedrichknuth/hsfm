@@ -955,34 +955,34 @@ def batch_process(project_name,
     batches = sorted(glob.glob(input_directories))
 
     for i in batches:
-#         try:
-        print('\n\n'+i)
+        try:
+            print('\n\n'+i)
 
-        now = datetime.now()
+            now = datetime.now()
 
-        cluster_project_name = project_name+'_'+i.split('/')[-1]
+            cluster_project_name = project_name+'_'+i.split('/')[-1]
 
-        images_path          = os.path.join(i,'images')
-        images_metadata_file = os.path.join(i,'metashape_metadata.csv')
-        output_path          = os.path.join(i,'metashape')
+            images_path          = os.path.join(i,'images')
+            images_metadata_file = os.path.join(i,'metashape_metadata.csv')
+            output_path          = os.path.join(i,'metashape')
 
-        hsfm.batch.metaflow(cluster_project_name,
-                            images_path,
-                            images_metadata_file,
-                            reference_dem,
-                            output_path,
-                            pixel_pitch,
-                            output_DEM_resolution   = output_DEM_resolution,
-                            generate_ortho          = generate_ortho,
-                            dem_align_all           = dem_align_all,
-                            image_matching_accuracy = image_matching_accuracy,
-                            densecloud_quality      = densecloud_quality,
-                            metashape_licence_file  = metashape_licence_file,
-                            verbose                 = verbose,
-                            cleanup                 = cleanup,
-                            attempts_to_adjust_cams = attempts_to_adjust_cams)
-#         except:
-#             print('FAIL:', i)
+            hsfm.batch.metaflow(cluster_project_name,
+                                images_path,
+                                images_metadata_file,
+                                reference_dem,
+                                output_path,
+                                pixel_pitch,
+                                output_DEM_resolution   = output_DEM_resolution,
+                                generate_ortho          = generate_ortho,
+                                dem_align_all           = dem_align_all,
+                                image_matching_accuracy = image_matching_accuracy,
+                                densecloud_quality      = densecloud_quality,
+                                metashape_licence_file  = metashape_licence_file,
+                                verbose                 = verbose,
+                                cleanup                 = cleanup,
+                                attempts_to_adjust_cams = attempts_to_adjust_cams)
+        except:
+            print('FAIL:', i)
 
         print('\n\n'+i)
         print("Elapsed time", str(datetime.now() - now), '\n\n')
