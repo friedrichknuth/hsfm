@@ -184,8 +184,8 @@ def calculate_distance_principal_point_to_image_edge(focal_length_mm,
                                                      image_height_px,
                                                      camera_lat_lon_wgs84_center_coordinates,
                                                      reference_dem,
-                                                     flight_altitude_m=2750,
-                                                     pixel_pitch=0.02):
+                                                     flight_altitude_above_ground_m=1500,
+                                                     pixel_pitch=None):
                                                      
     """
     Function to calculate distance on ground from principal point to image edge.
@@ -200,10 +200,10 @@ def calculate_distance_principal_point_to_image_edge(focal_length_mm,
                                            [camera_lat_lon_wgs84_center_coordinates[0],],
                                            reference_dem)
                                            
-    altitude_above_ground_m = flight_altitude_m - elevation[0]
+    altitude_above_ground_m = flight_altitude_above_ground_m - elevation[0]
     c = 500
     while altitude_above_ground_m < 500:
-        altitude_above_ground_m = flight_altitude_m + c  - elevation[0]
+        altitude_above_ground_m = flight_altitude_above_ground_m + c  - elevation[0]
         c = c+500
     # print(elevation[0], altitude_above_ground_m)
         
@@ -236,14 +236,14 @@ def calculate_corner_coordinates(camera_lat_lon_wgs84_center_coordinates,
                                  image_width_px,
                                  image_height_px,
                                  heading,
-                                 flight_altitude_m=2750):
+                                 flight_altitude_above_ground_m=1500):
                             
     out = calculate_distance_principal_point_to_image_edge(focal_length_mm,
                                                            image_width_px,
                                                            image_height_px,
                                                            camera_lat_lon_wgs84_center_coordinates,
                                                            reference_dem,
-                                                           flight_altitude_m = flight_altitude_m)
+                                                           flight_altitude_above_ground_m = flight_altitude_above_ground_m)
     half_width_m, half_height_m  = out
     
     # Convert camera center coordinates to utm
@@ -277,7 +277,7 @@ def prep_and_generate_gcp(image_file_name,
                           focal_length_mm,
                           heading,
                           output_directory,
-                          pixel_pitch_mm=0.02):
+                          pixel_pitch_mm=None):
     
     # Get the image base name to name the output camera
     image_base_name = os.path.splitext(os.path.split(image_file_name)[-1])[0]
@@ -1077,7 +1077,9 @@ def metashape_cameras_to_tsai(project_file_path,
 
 def prepare_metashape_metadata(camera_positions_file_name,
                                output_directory='input_data',
-                               flight_altitude_m = 1500):
+                               flight_altitude_above_ground_m = 1500,
+                               flight_altitude_m = None,
+                               focal_length = None):
                                
 
     if isinstance(camera_positions_file_name, type(pd.DataFrame())):
@@ -1094,10 +1096,13 @@ def prepare_metashape_metadata(camera_positions_file_name,
 
     lons = df['Longitude'].values
     lats = df['Latitude'].values
-
-    df['alt']             = hsfm.geospatial.USGS_elevation_function(lats, lons)
-    df['alt']             = df['alt'] + flight_altitude_m
-    df['alt']             = round(df['alt'].max())
+    
+    if isinstance(flight_altitude_m, type(None)):
+        df['alt'] = hsfm.geospatial.USGS_elevation_function(lats, lons)
+        df['alt'] = df['alt'] + flight_altitude_above_ground_m
+        df['alt'] = round(df['alt'].max())
+    else:
+        df['alt'] = flight_altitude_m
 
     df['lon']             = df['Longitude'].astype(float).round(6)
     df['lat']             = df['Latitude'].astype(float).round(6)
@@ -1105,8 +1110,11 @@ def prepare_metashape_metadata(camera_positions_file_name,
     df['lat_acc']         = 1000
     df['alt_acc']         = 1000
     df['yaw_acc']         = 180
-    df['pitch_acc']       = 20
-    df['roll_acc']        = 20
+    df['pitch_acc']       = 10
+    df['roll_acc']        = 10
+    
+    if not isinstance(focal_length, type(None)):
+        df['focal_length'] = focal_length
 
     df = df[['image_file_name',
              'lon',
@@ -1255,17 +1263,17 @@ def find_sets(lsts):
     
     
 def determine_image_clusters(image_metadata,
-                             image_square_dim       = None,
-                             pixel_pitch            = 0.02,
-                             focal_length           = None,
-                             image_directory        = None,
-                             buffer_m               = 1200,
-                             flight_altitude_m      = 1500,
-                             output_directory       = None,
-                             image_extension        = '.tif',
-                             image_file_name_column = 'fileName',
-                             move_images            = False,
-                             qc                     = True):
+                             image_square_dim               = None,
+                             pixel_pitch                    = None,
+                             focal_length                   = None,
+                             image_directory                = None,
+                             buffer_m                       = 1200,
+                             flight_altitude_above_ground_m = 1500,
+                             output_directory               = None,
+                             image_extension                = '.tif',
+                             image_file_name_column         = 'fileName',
+                             move_images                    = False,
+                             qc                             = True):
     
     """
     buffer_m = Approximate image footprint diameter in meters.
@@ -1298,7 +1306,7 @@ def determine_image_clusters(image_metadata,
 #                                                     image_square_dim,
 #                                                     pixel_pitch,
 #                                                     focal_length,
-#                                                     flight_altitude_m)
+#                                                     flight_altitude_above_ground_m)
     
 #     return gdf
     
@@ -1396,7 +1404,8 @@ def determine_image_clusters(image_metadata,
             tmp = gdf[gdf['fileName'].isin(v)].copy()
             hsfm.core.prepare_metashape_metadata(tmp,
                                                  output_directory=outdir,
-                                                 flight_altitude_m = flight_altitude_m)
+                                                 flight_altitude_above_ground_m = flight_altitude_above_ground_m,
+                                                 focal_length=focal_length)
 
             
             if isinstance(image_directory, type(str())):
@@ -1417,14 +1426,14 @@ def compute_square_footprint(gdf,
                              image_square_dim,
                              pixel_pitch,
                              focal_length,
-                             flight_altitude_m):
+                             flight_altitude_above_ground_m):
     
     lons = gdf['Longitude'].values
     lats = gdf['Latitude'].values
     epsg_code = hsfm.geospatial.lon_lat_to_utm_epsg_code(lons[0], lats[0])
     
     gdf['elev']             = hsfm.geospatial.USGS_elevation_function(lats, lons)
-    gdf['alt']              = gdf['elev'] + flight_altitude_m
+    gdf['alt']              = gdf['elev'] + flight_altitude_above_ground_m
 #     gdf['alt']              = round(gdf['alt'].max())
     gdf['alt_above_ground'] = gdf['alt'] - gdf['elev']
     
