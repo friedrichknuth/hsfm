@@ -112,14 +112,21 @@ def create_overlap_list_from_match_files(match_files_directory,
             
     return filename_out
 
-def determine_flight_lines(df, cutoff_angle = 30):
+def determine_flight_lines(df, 
+                           cutoff_angle          = 30,
+                           file_base_name_column = 'fileName',
+                           longitude_column      = 'Longitude',
+                           latitude_column       = 'Latitude'):
     
-    df = hsfm.batch.calculate_heading_from_metadata(df)
+    df = hsfm.batch.calculate_heading_from_metadata(df,
+                                                    file_base_name_column = file_base_name_column,
+                                                    longitude_column = longitude_column,
+                                                    latitude_column = latitude_column)
     
     df['next_heading'] = df['heading'].shift(-1)
     df['heading_diff'] = abs(df['next_heading'] - df['heading'])
     df['heading_diff'] = df['heading_diff'].fillna(0)
-    df = df.reset_index()
+    df = df.reset_index(drop=True)
     
     flights_tmp = []
     tmp_df = pd.DataFrame()
@@ -134,16 +141,16 @@ def determine_flight_lines(df, cutoff_angle = 30):
             tmp_df = pd.DataFrame()
     tmp_df = tmp_df.T
     if not tmp_df.empty:
-        flights_tmp.append(tmp_df)
+        flights_tmp.append(tmp_df.reset_index(drop=True))
 
     flights = []
     for i,v in enumerate(flights_tmp):
         if len(v) == 1:
             tmp_df = pd.concat([flights_tmp[i-1],v])
             flights.pop()
-            flights.append(tmp_df)
+            flights.append(tmp_df.reset_index(drop=True))
         else:
-            flights.append(v)
+            flights.append(v.reset_index(drop=True))
     
     return flights
     
@@ -1110,8 +1117,8 @@ def prepare_metashape_metadata(camera_positions_file_name,
     df['lat_acc']         = 1000
     df['alt_acc']         = 1000
     df['yaw_acc']         = 180
-    df['pitch_acc']       = 10
-    df['roll_acc']        = 10
+    df['pitch_acc']       = 20
+    df['roll_acc']        = 20
     
     if not isinstance(focal_length, type(None)):
         df['focal_length'] = focal_length
