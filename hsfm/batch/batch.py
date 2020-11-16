@@ -222,21 +222,23 @@ def calculate_heading_from_metadata(df,
                                     for_metashape                  = False,
                                     reference_dem                  = None,
                                     flight_altitude_above_ground_m = 1500,
-                                    sorting_column                 = 'fileName'):
+                                    file_base_name_column          = 'fileName',
+                                    longitude_column               = 'Longitude',
+                                    latitude_column                = 'Latitude'):
     # TODO
     # - Add flightline seperation function
     # - Generalize beyond NAGAP keys
     if not isinstance(df, type(pd.DataFrame())):
         df = pd.read_csv(df)
         
-    if subset:
+    if not isinstance(subset, type(None)):
         df = hsfm.core.subset_images_for_download(df, subset)
         
-    df = df.sort_values(by=[sorting_column])
+    df = df.sort_values(by=[file_base_name_column])
     if reverse_order:
-        df = df.sort_values(by=[sorting_column], ascending=False)
-    lons = df['Longitude'].values
-    lats = df['Latitude'].values
+        df = df.sort_values(by=[file_base_name_column], ascending=False)
+    lons = df[longitude_column].values
+    lats = df[latitude_column].values
     
     headings = []
     for i, v in enumerate(lats):
@@ -257,7 +259,7 @@ def calculate_heading_from_metadata(df,
             # direction did not change
             headings.append(heading)
             
-    df = df.sort_values(by=[sorting_column], ascending=True)   
+    df = df.sort_values(by=[file_base_name_column], ascending=True)   
     df['heading'] = headings
     
     if for_metashape:
@@ -265,7 +267,7 @@ def calculate_heading_from_metadata(df,
         df['yaw']             = df['heading'].round()
         df['pitch']           = 1.0
         df['roll']            = 1.0
-        df['image_file_name'] = df['fileName']+'.tif'
+        df['image_file_name'] = df[file_base_name_column]+'.tif'
         
         if reference_dem:
             df['alt']             = hsfm.geospatial.sample_dem(lons, lats, reference_dem)
@@ -275,8 +277,8 @@ def calculate_heading_from_metadata(df,
         else:
             df['alt']             = flight_altitude_above_ground_m
             
-        df['lon']             = df['Longitude'].round(6)
-        df['lat']             = df['Latitude'].round(6)
+        df['lon']             = df[longitude_column].round(6)
+        df['lat']             = df[latitude_column].round(6)
         df['lon_acc']         = 1000
         df['lat_acc']         = 1000
         df['alt_acc']         = 1000
@@ -504,15 +506,15 @@ def run_metashape(project_name,
     bundle_adjusted_metadata_file = os.path.join(output_path, project_name + "_bundle_adjusted_metadata.csv")
     aligned_bundle_adjusted_metadata_file = os.path.join(output_path, project_name + "_aligned_bundle_adjusted_metadata.csv")
     
-    # read from metadata file if not specified
-    if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
-        try:
-            df_tmp       = pd.read_csv(images_metadata_file)
-            focal_length = df_tmp['focal_length'].values[0]
-            print('Focal length:', focal_length)
-        except:
-            print('Please specify focal length.')
-            sys.exit()
+#     # read from metadata file if not specified
+#     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
+#         try:
+#             df_tmp       = pd.read_csv(images_metadata_file)
+#             focal_length = df_tmp['focal_length'].values[0]
+#             print('Focal length:', focal_length)
+#         except:
+#             print('Please specify focal length.')
+#             sys.exit()
         
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
@@ -692,15 +694,15 @@ def metaflow(project_name,
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
         
-    # read from metadata file if not specified
-    if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
-        try:
-            df_tmp       = pd.read_csv(images_metadata_file)
-            focal_length = df_tmp['focal_length'].values[0]
-            print('Focal length:', focal_length)
-        except:
-            print('Please specify focal length.')
-            sys.exit()
+#     # read from metadata file if not specified
+#     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
+#         try:
+#             df_tmp       = pd.read_csv(images_metadata_file)
+#             focal_length = df_tmp['focal_length'].values[0]
+#             print('Focal length:', focal_length)
+#         except:
+#             print('Please specify focal length.')
+#             sys.exit()
         
     # determine if there are subset clusters of images that do not overlap and/or unaligned images  
     if check_subsets:
@@ -774,7 +776,7 @@ def metaflow(project_name,
                                            camera_model_xml_file   = camera_model_xml_file,
                                            image_matching_accuracy = image_matching_accuracy,
                                            densecloud_quality      = densecloud_quality,
-                                           output_DEM_resolution   = 10,
+                                           output_DEM_resolution   = output_DEM_resolution,
                                            generate_ortho          = generate_ortho,
                                            dem_align_all           = dem_align_all,
                                            rotation_enabled        = True,
@@ -861,7 +863,7 @@ def metaflow(project_name,
                                 check_subsets           = False,
                                 attempts_to_adjust_cams = attempts_to_adjust_cams)
         if cleanup == True:
-            las_files = glob.glob('./**/*.las', recursive=True)
+            las_files = glob.glob(output_path+'**/*.las', recursive=True)
             for i in las_files:
                 os.remove(i)
                 
@@ -879,7 +881,7 @@ def metaflow(project_name,
                                        camera_model_xml_file   = camera_model_xml_file,
                                        image_matching_accuracy = image_matching_accuracy,
                                        densecloud_quality      = densecloud_quality,
-                                       output_DEM_resolution   = 10,
+                                       output_DEM_resolution   = output_DEM_resolution,
                                        generate_ortho          = generate_ortho,
                                        dem_align_all           = dem_align_all,
                                        rotation_enabled        = True,
@@ -931,7 +933,7 @@ def metaflow(project_name,
                     tr_ba_LE90 = out
 
         if cleanup == True:
-            las_files = glob.glob('./**/*.las', recursive=True)
+            las_files = glob.glob(output_path+'**/*.las', recursive=True)
             for i in las_files:
                 os.remove(i)
 
