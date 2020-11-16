@@ -32,8 +32,8 @@ def images2las(project_name,
                crs                     = 'EPSG::4326',
                image_matching_accuracy = 4,
                densecloud_quality      = 4,
-               keypoint_limit          = 40000,
-               tiepoint_limit          = 4000,
+               keypoint_limit          = 80000,
+               tiepoint_limit          = 8000,
                rotation_enabled        = True,
                export_point_cloud      = True):
 
@@ -90,15 +90,15 @@ def images2las(project_name,
     for i,v in enumerate(chunk.cameras):
         v.reference.rotation_enabled = rotation_enabled
         
-    # DEFINE INTRINSICS
+    #DEFINE INTRINSICS
     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
         try:
             df_tmp       = pd.read_csv(images_metadata_file)
             focal_length = df_tmp['focal_length'].values[0]
             print('Focal length:', focal_length)
         except:
-            print('Please specify focal length.')
-            sys.exit()
+            print('No focal length specified.')
+            pass
     
     if not isinstance(camera_model_xml_file, type(None)):
         calib = Metashape.Calibration()
@@ -111,8 +111,9 @@ def images2las(project_name,
 #             v.sensor.fixed_params=['F','Cx','Cy','K1','K2','K3','P1','P2']
         
     elif not isinstance(focal_length, type(None)):
+        print('Focal length:', focal_length)
         for i,v in enumerate(chunk.cameras):
-            # Optionally assign seperate camera model to each image
+# #             Optionally assign seperate camera model to each image
 #             sensor = chunk.addSensor()
 #             sensor.label = "Calibration Group "+str(i)
 #             sensor.type = Metashape.Sensor.Type.Frame
@@ -134,6 +135,9 @@ def images2las(project_name,
     
     # BUNDLE ADJUSTMENT
     
+#     for i,v in enumerate(chunk.cameras):
+#         v.sensor.photo_params = ['Cx', 'Cy']
+    
     chunk.matchPhotos(downscale=image_matching_accuracy,
                       generic_preselection=True,
                       reference_preselection=False,
@@ -141,6 +145,11 @@ def images2las(project_name,
                       tiepoint_limit=tiepoint_limit)
     
     chunk.alignCameras()
+    
+#     chunk.optimizeCameras(fit_f=False, 
+#                           fit_k1=True, 
+#                           fit_k2=True, 
+#                           fit_k3=True)
 
     doc.save()
 
@@ -192,7 +201,7 @@ def images2las(project_name,
     return metashape_project_file, point_cloud_file
 
 
-def las2dem(project_name,
+def oc32dem(project_name,
             output_path,
             split_in_blocks = False,
             resolution = 2):
@@ -206,19 +215,19 @@ def las2dem(project_name,
     chunk = doc.chunk
 
     chunk.buildDem(source_data=Metashape.DenseCloudData, 
-                   interpolation=Metashape.DisabledInterpolation,
-                   resolution=resolution)
+                   interpolation=Metashape.DisabledInterpolation)
 
     doc.save()
 
-#     chunk.exportRaster(output_path + project_name + "_DEM.tif", 
-#                        source_data= Metashape.ElevationData,
-#                        image_format=Metashape.ImageFormatTIFF, 
-#                        format=Metashape.RasterFormatTiles, 
-#                        nodata_value=-32767, 
-#                        save_kml=False, 
-#                        save_world=False,
-#                        split_in_blocks = split_in_blocks)
+    chunk.exportRaster(output_path + project_name + "_DEM.tif", 
+                       source_data= Metashape.ElevationData,
+                       image_format=Metashape.ImageFormatTIFF, 
+                       format=Metashape.RasterFormatTiles, 
+                       nodata_value=-32767, 
+                       save_kml=False, 
+                       save_world=False,
+                       split_in_blocks = split_in_blocks,
+                       resolution=resolution)
 
 def images2ortho(project_name,
                  output_path,
@@ -234,7 +243,8 @@ def images2ortho(project_name,
     doc.read_only = False
 
     chunk = doc.chunk
-
+    
+    chunk.buildDem(source_data=Metashape.DenseCloudData)
     chunk.buildOrthomosaic(surface_data=Metashape.ElevationData)
 
     doc.save()
