@@ -11,15 +11,11 @@ import concurrent.futures
 import psutil
 import pathlib
 import shutil
+import time
 
 
 import hipp
-import hsfm.io
-import hsfm.core
-import hsfm.image
-import hsfm.plot
-import hsfm.utils
-import hsfm.metashape
+import hsfm
 
 """
 Wrappers around other hsfm functions for batch processing. 
@@ -338,8 +334,14 @@ def download_images_to_disk(image_metadata,
 def NAGAP_pre_process_images(project_name,
                              bounds,
                              roll                = None,
+                             year                = None,
+                             month               = None,
+                             day                 = None,
                              pixel_pitch         = None,
                              focal_length        = None,
+                             buffer_m            = 2000,
+                             missing_proxy       = None,
+                             keep_raw            = True,
                              template_parent_dir = '../input_data/fiducials/nagap',
                              nagap_metadata_csv  = '../input_data/nagap_image_metadata.csv',
                              output_directory    = '../'):
@@ -353,62 +355,113 @@ def NAGAP_pre_process_images(project_name,
     for i in template_dirs:
         template_types.append(i.split('/')[-1])
         
-    df = pd.read_csv(nagap_metadata_csv)
-    df = df[df['fiducial_proxy_type'].isin(template_types)]
-    df = hipp.dataquery.NAGAP_pre_select_images(df, 
+    df = hipp.dataquery.NAGAP_pre_select_images(nagap_metadata_csv, 
                                                 bounds = bounds,
-                                                roll=roll)
+                                                roll   = roll,
+                                                year   = year,
+                                                month  = month,
+                                                day    = day)
+    df = df[df['fiducial_proxy_type'].isin(template_types)]
+    
     
     if isinstance(roll, type(None)):
         rolls = sorted(list(set(df['Roll'].values)))
     else:
         rolls = [roll,]
-    print('Processing rolls:', *rolls, sep = "\n")
 
     for roll in rolls:
         df_roll = df[df['Roll']  == roll].copy()
-
-        for i,v in enumerate(template_types):
-            df_tmp = df_roll[df_roll['fiducial_proxy_type']  == v].copy()
-
-            if not df_tmp.empty:
+        print('Processing roll:', roll, sep = "\n")
+        out_dir_roll = os.path.join(output_directory,roll)
+        
+        if len(list(set(df_roll['Month'].values))) >=1:
+            for month in sorted(list(set(df_roll['Month'].values))):
+                print('Processing month:', month, sep = "\n")
+                out_dir_month = os.path.join(out_dir_roll,str(int(month)))
+                df_month = df_roll[df_roll['Month']  == month].copy()
                 
+                
+                if len(list(set(df_month['Day'].values))) >=1:
+                    for day in sorted(list(set(df_month['Day'].values))):
+                        print('Processing day:', day, sep = "\n")
+                        out_dir_day = os.path.join(out_dir_month,str(int(day)).zfill(2))
+                        df_day = df_month[df_month['Day']  == day].copy()
+                        hsfm.batch.NAGAP_pre_process_set(df_day,
+                                                         template_types,
+                                                         template_dirs,
+                                                         out_dir_day,
+                                                         pixel_pitch   = pixel_pitch,
+                                                         focal_length  = focal_length,
+                                                         missing_proxy = missing_proxy,
+                                                         buffer_m      = buffer_m,
+                                                         keep_raw      = keep_raw)
+                
+                # in case no day specified in metadata
+                else:
+                    out_dir_month = os.path.join(output_directory,roll,str(int(month)).zfill(2),'day_unknown')
+                    hsfm.batch.NAGAP_pre_process_set(df_month,
+                                                     template_types,
+                                                     template_dirs,
+                                                     out_dir_month,
+                                                     pixel_pitch   = pixel_pitch,
+                                                     focal_length  = focal_length,
+                                                     missing_proxy = missing_proxy,
+                                                     buffer_m      = buffer_m,
+                                                     keep_raw      = keep_raw)
+        # in case no month specified in metadata                
+        else:
+            out_dir_roll = os.path.join(output_directory,roll,'month_unknown','day_unknown')
+            hsfm.batch.NAGAP_pre_process_set(df_roll,
+                                             template_types,
+                                             template_dirs,
+                                             out_dir_roll,
+                                             pixel_pitch   = pixel_pitch,
+                                             focal_length  = focal_length,
+                                             missing_proxy = missing_proxy,
+                                             buffer_m      = buffer_m,
+                                             keep_raw      = keep_raw)
+                    
+
+                    
+def NAGAP_pre_process_set(df,
+                          template_types,
+                          template_dirs,
+                          output_directory,
+                          pixel_pitch         = None,
+                          focal_length        = None,
+                          missing_proxy       = None,
+                          buffer_m            = 2000,
+                          keep_raw            = True):
+                          
+        for i,v in enumerate(template_types):
+            df_tmp = df[df['fiducial_proxy_type']  == v].copy()
+            if not df_tmp.empty:
                 image_directory = hipp.dataquery.NAGAP_download_images_to_disk(
                                                  df_tmp,
                                                  output_directory=os.path.join(output_directory,
-                                                                               roll,
                                                                                v+'_raw_images'))
-
                 template_directory = template_dirs[i]
                 image_square_dim = hipp.batch.preprocess_with_fiducial_proxies(
                                               image_directory,
                                               template_directory,
                                               output_directory=os.path.join(output_directory,
-                                                                            roll,
                                                                             v+'_cropped_images'),
+                                              missing_proxy = missing_proxy,
 
                                               qc_df_output_directory=os.path.join(output_directory,
-                                                                                  roll,
-                                                                                  'qc',
-                                                                                  v+'_proxy_detection_data_frames'),
+                                                                                  'qc', v+'_proxy_detection_data_frames'),
                                               qc_plots_output_directory=os.path.join(output_directory,
-                                                                                     roll,
-                                                                                     'qc',
-                                                                                     v+'_proxy_detection'))
-                
+                                                                                     'qc', v+'_proxy_detection_plots'))
                 if isinstance(focal_length, type(None)):
                     focal_length = df_tmp['focal_length'].values[0]
                 hsfm.core.determine_image_clusters(df_tmp,
-                                                   image_square_dim = image_square_dim,
+#                                                    image_square_dim = image_square_dim,
                                                    pixel_pitch      = pixel_pitch,
                                                    focal_length     = focal_length,
-                                                   output_directory=os.path.join(output_directory,
-                                                                                 roll, 
-                                                                                 'sfm'),
-                                                   image_directory = os.path.join(output_directory,
-                                                                                  roll,
-                                                                                  v+'_cropped_images'))
-    return output_directory
+                                                   output_directory = os.path.join(output_directory,'sfm'),
+                                                   buffer_m         = buffer_m)
+                if keep_raw == False:
+                    shutil.rmtree(image_directory) 
 
 def plot_match_overlap(match_files_directory, images_directory, output_directory='qc/matches/'):
     
@@ -506,20 +559,10 @@ def run_metashape(project_name,
     bundle_adjusted_metadata_file = os.path.join(output_path, project_name + "_bundle_adjusted_metadata.csv")
     aligned_bundle_adjusted_metadata_file = os.path.join(output_path, project_name + "_aligned_bundle_adjusted_metadata.csv")
     
-#     # read from metadata file if not specified
-#     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
-#         try:
-#             df_tmp       = pd.read_csv(images_metadata_file)
-#             focal_length = df_tmp['focal_length'].values[0]
-#             print('Focal length:', focal_length)
-#         except:
-#             print('Please specify focal length.')
-#             sys.exit()
-        
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
         
-    if isinstance(output_DEM_resolution, type(None)):
+    if isinstance(output_DEM_resolution, type(None)) and not isinstance(focal_length, type(None)):
         print('No DEM output resolution specified.')
         print('Using Ground Sample Distance from mean camera altitude above ground to estimate.') 
         output_DEM_resolution = hsfm.core.estimate_DEM_resolution_from_GSD(images_metadata_file, 
@@ -528,6 +571,11 @@ def run_metashape(project_name,
         
         output_DEM_resolution = densecloud_quality * output_DEM_resolution
         print('DEM resolution factored by densecloud quality setting:',output_DEM_resolution)
+    elif isinstance(output_DEM_resolution, type(None)) and isinstance(focal_length, type(None)):
+        print('No DEM output resolution specified. No focal length specified.')
+        print('Cannot compute GSD to estimate an optimal DEM resolution without a focal length.')
+        print('Setting output DEM resolution to 10 m. You can regrid the las file to a higher resolution as desired.')
+        output_DEM_resolution = 10
         
         
     out = hsfm.metashape.images2las(project_name,
@@ -642,9 +690,6 @@ def run_metashape(project_name,
                                     verbose = verbose)
         if generate_ortho:
             ortho_output_path,_,_ = hsfm.io.split_file(dem)
-            hsfm.metashape.las2dem(project_name,
-                                   ortho_output_path,
-                                   resolution = output_DEM_resolution)
 
             hsfm.metashape.images2ortho(project_name,
                                         ortho_output_path)
@@ -682,7 +727,7 @@ def metaflow(project_name,
              verbose                 = False,
              cleanup                 = False,
              check_subsets           = True,
-             attempts_to_adjust_cams = 3):
+             attempts_to_adjust_cams = 2):
     
 #     # check positions
 #     df_tmp = pd.read_csv(images_metadata_file)
@@ -694,17 +739,17 @@ def metaflow(project_name,
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
         
-#     # read from metadata file if not specified
-#     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
-#         try:
-#             df_tmp       = pd.read_csv(images_metadata_file)
-#             focal_length = df_tmp['focal_length'].values[0]
-#             print('Focal length:', focal_length)
-#         except:
-#             print('Please specify focal length.')
-#             sys.exit()
+    # read from metadata file if not specified
+    if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
+        try:
+            df_tmp       = pd.read_csv(images_metadata_file)
+            focal_length = df_tmp['focal_length'].values[0]
+            print('Focal length:', focal_length)
+        except:
+            print('No focal length specified.')
+            pass
         
-    # determine if there are subset clusters of images that do not overlap and/or unaligned images  
+    # low res run to determine if there are subset clusters of images that do not overlap and/or unaligned images  
     if check_subsets:
         metashape_project_file, point_cloud_file = hsfm.metashape.images2las(project_name,
                                                                          images_path,
@@ -713,8 +758,10 @@ def metaflow(project_name,
                                                                          focal_length            = focal_length,
                                                                          pixel_pitch             = pixel_pitch,
                                                                          camera_model_xml_file   = camera_model_xml_file,
-                                                                         image_matching_accuracy = 2,
+                                                                         image_matching_accuracy = 1,
                                                                          densecloud_quality      = 4,
+                                                                         keypoint_limit          = 40000,
+                                                                         tiepoint_limit          = 4000,
                                                                          rotation_enabled        = True,
                                                                          export_point_cloud      = False)
 
@@ -758,7 +805,7 @@ def metaflow(project_name,
                                     metashape_licence_file  = metashape_licence_file,
                                     verbose                 = verbose,
                                     cleanup                 = cleanup,
-                                    check_subsets           = False,
+                                    check_subsets           = True,
                                     attempts_to_adjust_cams = attempts_to_adjust_cams)
 
                 sub_counter = sub_counter+1
@@ -795,7 +842,6 @@ def metaflow(project_name,
             tr_ba_LE90 = out
             
             if attempts_to_adjust_cams > 0:
-
                 for i in np.arange(1,attempts_to_adjust_cams+1,1):
                     if ba_CE90 > 0.01 or ba_LE90 > 0.01:
                         out = hsfm.batch.run_metashape(project_name,
@@ -860,7 +906,7 @@ def metaflow(project_name,
                                 metashape_licence_file  = metashape_licence_file,
                                 verbose                 = verbose,
                                 cleanup                 = cleanup,
-                                check_subsets           = False,
+                                check_subsets           = True,
                                 attempts_to_adjust_cams = attempts_to_adjust_cams)
         if cleanup == True:
             las_files = glob.glob(output_path+'**/*.las', recursive=True)
@@ -868,8 +914,6 @@ def metaflow(project_name,
                 os.remove(i)
                 
     else:
-        # initial run at low res with rotation enabled to ensure DEM does not flip and cameras
-        # in roughly correct position before iterative refinement in for loop below.
         out = hsfm.batch.run_metashape(project_name,
                                        images_path,
                                        images_metadata_file,
@@ -900,7 +944,6 @@ def metaflow(project_name,
         tr_ba_LE90 = out
         
         if attempts_to_adjust_cams > 0:
-
             for i in np.arange(1,attempts_to_adjust_cams+1,1):
                 if ba_CE90 > 0.01 or ba_LE90 > 0.01:
                     out = hsfm.batch.run_metashape(project_name,
@@ -949,11 +992,15 @@ def batch_process(project_name,
                   metashape_licence_file  = '/opt/metashape-pro/uw_agisoft.lic',
                   verbose                 = True,
                   cleanup                 = True,
-                  attempts_to_adjust_cams = 2):
+                  attempts_to_adjust_cams = 2,
+                  check_subsets           = True):
     
     output_directory = os.path.join(input_directory, project_name, 'input_data')
     
-    input_directories = os.path.join(output_directory,'*','sfm/cl*')
+    image_files = os.path.join(output_directory,'*','*','*','*cropped_images','*.tif')
+    image_files = sorted(glob.glob(image_files))
+    
+    input_directories = os.path.join(output_directory,'*','*','*','sfm/cl*')
     batches = sorted(glob.glob(input_directories))
 
     for i in batches:
@@ -964,12 +1011,12 @@ def batch_process(project_name,
 
             cluster_project_name = project_name+'_'+i.split('/')[-1]
 
-            images_path          = os.path.join(i,'images')
+#             images_path          = os.path.join(i,'images')
             images_metadata_file = os.path.join(i,'metashape_metadata.csv')
             output_path          = os.path.join(i,'metashape')
 
             hsfm.batch.metaflow(cluster_project_name,
-                                images_path,
+                                image_files,
                                 images_metadata_file,
                                 reference_dem,
                                 output_path,
@@ -982,7 +1029,8 @@ def batch_process(project_name,
                                 metashape_licence_file  = metashape_licence_file,
                                 verbose                 = verbose,
                                 cleanup                 = cleanup,
-                                attempts_to_adjust_cams = attempts_to_adjust_cams)
+                                attempts_to_adjust_cams = attempts_to_adjust_cams,
+                                check_subsets           = check_subsets)
         except:
             print('FAIL:', i)
 
