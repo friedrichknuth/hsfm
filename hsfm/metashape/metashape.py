@@ -68,9 +68,14 @@ def images2las(project_name,
         chunk = doc.addChunk()
 
     metashape_metadata_df = pd.read_csv(images_metadata_file)
-        
     image_file_names = list(metashape_metadata_df['image_file_name'].values)
-    image_file_paths = sorted(glob.glob(os.path.join(images_path,'*.tif')))
+    
+    # can pass directory or list of image files if spread accross directories
+    if isinstance(images_path, type('')):
+        image_file_paths = sorted(glob.glob(os.path.join(images_path,'*.tif')))
+    elif isinstance(images_path, type([])):
+        image_file_paths = images_path
+        
     image_files_subset = []
     for img_fn in image_file_names:
         for img_fp in image_file_paths:
@@ -90,7 +95,7 @@ def images2las(project_name,
     for i,v in enumerate(chunk.cameras):
         v.reference.rotation_enabled = rotation_enabled
         
-    #DEFINE INTRINSICS
+#     # DEFINE INTRINSICS
     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
         try:
             df_tmp       = pd.read_csv(images_metadata_file)
@@ -231,6 +236,7 @@ def oc32dem(project_name,
 
 def images2ortho(project_name,
                  output_path,
+                 build_dem       = True,
                  split_in_blocks = False,
                  iteration       = 0):
                  
@@ -244,7 +250,9 @@ def images2ortho(project_name,
 
     chunk = doc.chunk
     
-    chunk.buildDem(source_data=Metashape.DenseCloudData)
+    if build_dem:
+        chunk.buildDem(source_data=Metashape.DenseCloudData)
+    
     chunk.buildOrthomosaic(surface_data=Metashape.ElevationData)
 
     doc.save()
