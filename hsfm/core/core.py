@@ -16,12 +16,10 @@ import pathlib
 import matplotlib.pyplot as plt
 import matplotlib._color_data as mcd
 import contextily as ctx
+import time
 cycle = list(mcd.XKCD_COLORS.values())
 
-import hsfm.image
-import hsfm.utils
-import hsfm.plot
-import hsfm.geospatial
+import hsfm
 import bare
 
 """
@@ -1110,6 +1108,10 @@ def prepare_metashape_metadata(camera_positions_file_name,
         df['alt'] = round(df['alt'].max())
     else:
         df['alt'] = flight_altitude_m
+    
+    # get values from nagap_image_metadata_updated.csv if it is being used as the input
+    df.loc[~df['Altitude'].str.contains('unknown'),'alt'] = \
+    df.loc[~df['Altitude'].str.contains('unknown')]['Altitude'].values
 
     df['lon']             = df['Longitude'].astype(float).round(6)
     df['lat']             = df['Latitude'].astype(float).round(6)
@@ -1491,7 +1493,7 @@ def compute_GSD(alt_above_ground, pixel_pitch, focal_length, verbose=True):
 def estimate_DEM_resolution_from_GSD(images_metadata_file, 
                                      pixel_pitch, 
                                      focal_length,
-                                     factor=2.5):
+                                     factor=3):
     
     df = pd.read_csv(images_metadata_file)
     elevations = hsfm.geospatial.USGS_elevation_function(df['lat'].values, df['lon'].values)
