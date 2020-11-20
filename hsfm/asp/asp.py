@@ -341,7 +341,7 @@ def pc_align_p2p_sp2p(input_dem_file,
                       reference_dem_file,
                       output_directory,
                       prefix     = 'run',
-                      p2p_max_displacement = 1000,
+                      p2p_max_displacement = 2000,
                       sp2p_max_displacement = 100,
                       print_call = False,
                       verbose    = False):
