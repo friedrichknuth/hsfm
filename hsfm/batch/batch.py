@@ -342,6 +342,7 @@ def NAGAP_pre_process_images(project_name,
                              buffer_m            = 2000,
                              missing_proxy       = None,
                              keep_raw            = True,
+                             download_images     = True,
                              template_parent_dir = '../input_data/fiducials/nagap',
                              nagap_metadata_csv  = '../input_data/nagap_image_metadata.csv',
                              output_directory    = '../'):
@@ -390,11 +391,12 @@ def NAGAP_pre_process_images(project_name,
                                                          template_types,
                                                          template_dirs,
                                                          out_dir_day,
-                                                         pixel_pitch   = pixel_pitch,
-                                                         focal_length  = focal_length,
-                                                         missing_proxy = missing_proxy,
-                                                         buffer_m      = buffer_m,
-                                                         keep_raw      = keep_raw)
+                                                         pixel_pitch     = pixel_pitch,
+                                                         focal_length    = focal_length,
+                                                         missing_proxy   = missing_proxy,
+                                                         buffer_m        = buffer_m,
+                                                         keep_raw        = keep_raw,
+                                                         download_images = download_images)
                 
                 # in case no day specified in metadata
                 else:
@@ -407,7 +409,8 @@ def NAGAP_pre_process_images(project_name,
                                                      focal_length  = focal_length,
                                                      missing_proxy = missing_proxy,
                                                      buffer_m      = buffer_m,
-                                                     keep_raw      = keep_raw)
+                                                     keep_raw      = keep_raw,
+                                                     download_images = download_images)
         # in case no month specified in metadata                
         else:
             out_dir_roll = os.path.join(output_directory,roll,'month_unknown','day_unknown')
@@ -419,7 +422,8 @@ def NAGAP_pre_process_images(project_name,
                                              focal_length  = focal_length,
                                              missing_proxy = missing_proxy,
                                              buffer_m      = buffer_m,
-                                             keep_raw      = keep_raw)
+                                             keep_raw      = keep_raw,
+                                             download_images = download_images)
                     
 
                     
@@ -431,27 +435,32 @@ def NAGAP_pre_process_set(df,
                           focal_length        = None,
                           missing_proxy       = None,
                           buffer_m            = 2000,
-                          keep_raw            = True):
+                          keep_raw            = True,
+                          download_images     = True):
                           
         for i,v in enumerate(template_types):
             df_tmp = df[df['fiducial_proxy_type']  == v].copy()
             if not df_tmp.empty:
-                image_directory = hipp.dataquery.NAGAP_download_images_to_disk(
-                                                 df_tmp,
-                                                 output_directory=os.path.join(output_directory,
-                                                                               v+'_raw_images'))
-                template_directory = template_dirs[i]
-                image_square_dim = hipp.batch.preprocess_with_fiducial_proxies(
-                                              image_directory,
-                                              template_directory,
-                                              output_directory=os.path.join(output_directory,
-                                                                            v+'_cropped_images'),
-                                              missing_proxy = missing_proxy,
+                if download_images == True:
+                    image_directory = hipp.dataquery.NAGAP_download_images_to_disk(
+                                                     df_tmp,
+                                                     output_directory=os.path.join(output_directory,
+                                                                                   v+'_raw_images'))
+                    template_directory = template_dirs[i]
+                    image_square_dim = hipp.batch.preprocess_with_fiducial_proxies(
+                                                  image_directory,
+                                                  template_directory,
+                                                  output_directory=os.path.join(output_directory,
+                                                                                v+'_cropped_images'),
+                                                  missing_proxy = missing_proxy,
 
-                                              qc_df_output_directory=os.path.join(output_directory,
-                                                                                  'qc', v+'_proxy_detection_data_frames'),
-                                              qc_plots_output_directory=os.path.join(output_directory,
-                                                                                     'qc', v+'_proxy_detection_plots'))
+                                                  qc_df_output_directory=os.path.join(output_directory,
+                                                                                      'qc', v+'_proxy_detection_data_frames'),
+                                                  qc_plots_output_directory=os.path.join(output_directory,
+                                                                                         'qc', v+'_proxy_detection_plots'))
+                    if keep_raw == False:
+                        shutil.rmtree(image_directory)
+                    
                 if isinstance(focal_length, type(None)):
                     focal_length = df_tmp['focal_length'].values[0]
                 hsfm.core.determine_image_clusters(df_tmp,
@@ -460,8 +469,7 @@ def NAGAP_pre_process_set(df,
                                                    focal_length     = focal_length,
                                                    output_directory = os.path.join(output_directory,'sfm'),
                                                    buffer_m         = buffer_m)
-                if keep_raw == False:
-                    shutil.rmtree(image_directory) 
+                
 
 def plot_match_overlap(match_files_directory, images_directory, output_directory='qc/matches/'):
     
