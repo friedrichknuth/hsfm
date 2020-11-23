@@ -378,7 +378,7 @@ def NAGAP_pre_process_images(project_name,
         if len(list(set(df_roll['Month'].values))) >=1:
             for month in sorted(list(set(df_roll['Month'].values))):
                 print('Processing month:', month, sep = "\n")
-                out_dir_month = os.path.join(out_dir_roll,str(int(month)))
+                out_dir_month = os.path.join(out_dir_roll,str(int(month)).zfill(2))
                 df_month = df_roll[df_roll['Month']  == month].copy()
                 
                 
@@ -400,7 +400,7 @@ def NAGAP_pre_process_images(project_name,
                 
                 # in case no day specified in metadata
                 else:
-                    out_dir_month = os.path.join(output_directory,roll,str(int(month)).zfill(2),'day_unknown')
+                    out_dir_month = os.path.join(output_directory,roll,str(int(month)).zfill(2),'dd')
                     hsfm.batch.NAGAP_pre_process_set(df_month,
                                                      template_types,
                                                      template_dirs,
@@ -413,7 +413,7 @@ def NAGAP_pre_process_images(project_name,
                                                      download_images = download_images)
         # in case no month specified in metadata                
         else:
-            out_dir_roll = os.path.join(output_directory,roll,'month_unknown','day_unknown')
+            out_dir_roll = os.path.join(output_directory,roll,'mm','dd')
             hsfm.batch.NAGAP_pre_process_set(df_roll,
                                              template_types,
                                              template_dirs,
@@ -564,8 +564,8 @@ def run_metashape(project_name,
     now = datetime.now()
     
     output_path = output_path.rstrip('/') + str(iteration)
-    bundle_adjusted_metadata_file = os.path.join(output_path, project_name + "_bundle_adjusted_metadata.csv")
-    aligned_bundle_adjusted_metadata_file = os.path.join(output_path, project_name + "_aligned_bundle_adjusted_metadata.csv")
+    bundle_adjusted_metadata_file = os.path.join(output_path,"bundle_adjusted_metadata.csv")
+    aligned_bundle_adjusted_metadata_file = os.path.join(output_path,"aligned_bundle_adjusted_metadata.csv")
     
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
@@ -599,8 +599,6 @@ def run_metashape(project_name,
     
     metashape_project_file, point_cloud_file = out
     
-    # determine if there are subset clusters of images that do not overlap
-#     subsets = hsfm.metashape.determine_clusters(metashape_project_file)
     ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file,
                                                                                    images_metadata_file)
     ba_cameras_df.to_csv(bundle_adjusted_metadata_file, index = False)
@@ -636,7 +634,10 @@ def run_metashape(project_name,
         # if it was unsuccessful to begin with.
 
         clipped_reference_dem = os.path.join(output_path,'reference_dem_clip.tif')
-
+        
+        # if the reference dem is smaller in extent than the to be aligned dem - don't clip it
+        # clipping is done to improve processing time as loading a large high-res reference dem
+        # into memory is costly at various succeeding steps
         large_to_small_order = hsfm.geospatial.compare_dem_extent(dem, reference_dem)
         if large_to_small_order == (reference_dem, dem):
             reference_dem = hsfm.utils.clip_reference_dem(dem,
@@ -727,7 +728,7 @@ def metaflow(project_name,
              plot_LE90_CE90          = True,
              camera_model_xml_file   = None,
              image_matching_accuracy = 1,
-             densecloud_quality      = 1,
+             densecloud_quality      = 2,
              output_DEM_resolution   = None,
              generate_ortho          = False,
              dem_align_all           = False,
@@ -736,13 +737,6 @@ def metaflow(project_name,
              cleanup                 = False,
              check_subsets           = True,
              attempts_to_adjust_cams = 2):
-    
-#     # check positions
-#     df_tmp = pd.read_csv(images_metadata_file)
-#     if len(set(df_tmp['lon'].values)) == 1:
-#         print('CRITICAL: All cameras have identical longitude values in:',images_metadata_file)
-#         print('CRITICAL: This will fail. Exiting.')
-#         sys.exit(0)
 
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
@@ -757,8 +751,9 @@ def metaflow(project_name,
             print('No focal length specified.')
             pass
         
-    # low res run to determine if there are subset clusters of images that do not overlap and/or unaligned images  
+    # determine if there are subset clusters of images that do not overlap and/or unaligned images  
     if check_subsets:
+        print('Checking for subsets using match points detected with metashape...')
         metashape_project_file, point_cloud_file = hsfm.metashape.images2las(project_name,
                                                                          images_path,
                                                                          images_metadata_file,
@@ -778,11 +773,16 @@ def metaflow(project_name,
                                                                                        images_metadata_file)
 
         if len(subsets) > 1:
+            print('Detected and processing', len(subsets), 'subsets...')
             print(len(subsets), 'image cluster subsets detected')
             image_file_names = list(ba_cameras_df['image_file_name'].values)
             cameras_sub_clusters_dfs = []
             for sub in subsets:
                 tmp    = hsfm.core.select_strings_with_sub_strings(image_file_names, sub)
+                ## might be better to restart with the original input positions as subset could be displaced
+                ## after matching without actually connecting to the other cluster.
+                # tmp_df = pd.read_csv(images_metadata_file)
+                # tmp_df = tmp_df[tmp_df['image_file_name'].isin(tmp)].reset_index(drop=True)
                 tmp_df = ba_cameras_df[ba_cameras_df['image_file_name'].isin(tmp)].reset_index(drop=True)
                 cameras_sub_clusters_dfs.append(tmp_df)
 
@@ -813,7 +813,7 @@ def metaflow(project_name,
                                     metashape_licence_file  = metashape_licence_file,
                                     verbose                 = verbose,
                                     cleanup                 = cleanup,
-                                    check_subsets           = True,
+                                    check_subsets           = False,
                                     attempts_to_adjust_cams = attempts_to_adjust_cams)
 
                 sub_counter = sub_counter+1
@@ -883,7 +883,7 @@ def metaflow(project_name,
                 
         if len(unaligned_cameras_df) > 3:
             # launch seperate metaflow for unaligned images
-            print("Processing unaligned cameras seperately")
+            print("Processing unaligned cameras seperately...")
 
             unaligned_output_path          = os.path.join(output_path,
                                                           'unaligned_subset')
@@ -914,10 +914,10 @@ def metaflow(project_name,
                                 metashape_licence_file  = metashape_licence_file,
                                 verbose                 = verbose,
                                 cleanup                 = cleanup,
-                                check_subsets           = True,
+                                check_subsets           = check_subsets,
                                 attempts_to_adjust_cams = attempts_to_adjust_cams)
         if cleanup == True:
-            las_files = glob.glob(output_path+'**/*.las', recursive=True)
+            las_files = glob.glob(os.path.join(output_path,'**/*.las'), recursive=True)
             for i in las_files:
                 os.remove(i)
                 
@@ -984,7 +984,7 @@ def metaflow(project_name,
                     tr_ba_LE90 = out
 
         if cleanup == True:
-            las_files = glob.glob(output_path+'**/*.las', recursive=True)
+            las_files = glob.glob(os.path.join(output_path,'**/*.las'), recursive=True)
             for i in las_files:
                 os.remove(i)
 
