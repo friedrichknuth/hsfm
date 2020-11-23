@@ -342,7 +342,8 @@ def pc_align_p2p_sp2p(input_dem_file,
                       output_directory,
                       prefix     = 'run',
                       p2p_max_displacement = 2000,
-                      sp2p_max_displacement = 100,
+                      sp2p_max_displacement = 1000,
+                      m_sp2p_max_displacement = 100,
                       print_call = False,
                       verbose    = False):
         
@@ -362,22 +363,37 @@ def pc_align_p2p_sp2p(input_dem_file,
                                                     verbose=verbose,
                                                     prefix=prefix)
     
+    prefix0 = '-'.join([prefix,prefix])
+    
+    aligned_dem_file, transform = hsfm.asp.pc_align(input_dem_file,
+                                                    reference_dem_file,
+                                                    output_directory,
+                                                    '--save-transformed-source-points',
+                                                    '--max-displacement',
+                                                    str(sp2p_max_displacement),
+                                                    '--initial-transform', transform,
+                                                    '--alignment-method',
+                                                    'similarity-point-to-point',
+                                                    print_call=print_call,
+                                                    verbose=verbose,
+                                                    prefix=prefix0)
+    
     masked_reference_dem_file = hsfm.utils.mask_dem(reference_dem_file)
 
-    prefix = '-'.join([prefix,prefix])
+    prefix1 = '-'.join([prefix,prefix,prefix])
 
     aligned_dem_file, transform = hsfm.asp.pc_align(input_dem_file,
                                                     masked_reference_dem_file,
                                                     output_directory,
                                                     '--save-transformed-source-points',
                                                     '--max-displacement',
-                                                    str(sp2p_max_displacement),
+                                                    str(m_sp2p_max_displacement),
                                                     '--initial-transform', transform,
                                                     '--alignment-method', 
                                                     'similarity-point-to-point',
                                                     print_call=print_call,
                                                     verbose=verbose,
-                                                    prefix=prefix)
+                                                    prefix=prefix1)
 
     return aligned_dem_file, transform
     
