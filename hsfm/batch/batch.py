@@ -1,10 +1,12 @@
 from osgeo import gdal
 import os
+import traceback; 
 import cv2
 import sys
 import glob
 import numpy as np
 import pandas as pd
+import geopandas as gpd
 from datetime import datetime
 import matplotlib.pyplot as plt
 import concurrent.futures
@@ -12,7 +14,6 @@ import psutil
 import pathlib
 import shutil
 import time
-
 
 import hipp
 import hsfm
@@ -470,6 +471,84 @@ def NAGAP_pre_process_set(df,
                                                    output_directory = os.path.join(output_directory,'sfm'),
                                                    buffer_m         = buffer_m)
                 
+def cluster_preprocessed_images(
+    project_directory,
+    cluster_output_dir_name="sfm",
+    nagap_metadata_csv="../input_data/nagap_image_metadata.csv",
+    bounds=None,
+    polygon=None,
+    pixel_pitch=None,
+    focal_length=None,
+    image_cluster_buffer_m=1200,
+):
+    """Cluster images that have already been downloaded and preprocessed. (ie have run "NAGAP_pre_process_images")
+    Args:
+        project_directory nagap_metadata_csv (str, optional): [description]. Defaults to "../input_data/nagap_image_metadata.csv".
+        bounds ([type], optional): [description]. Defaults to None.
+        polygon ([type], optional): Shapely polygon or multipolygon type. Must be in CRS EPSG:4326. Defaults to None.
+        pixel_pitch ([type], optional): [description]. Defaults to None.
+        focal_length ([type], optional): [description]. Defaults to None.
+    """
+    df = pd.read_csv(nagap_metadata_csv)
+    base_data_directory = os.path.join(project_directory, "input_data")
+    for roll in os.listdir(base_data_directory):
+        print()
+        print(f"Clustering on roll {roll}")
+        data_directory = os.path.join(base_data_directory, roll)
+
+        # get list of all image files downloaded
+        downloaded_files = []
+        cropped_image_directories = [
+            d for d in os.listdir(data_directory) if "cropped_images" in d
+        ]
+
+        # ToDo handle more than one type of image fiducials
+        assert (
+            len(cropped_image_directories) == 1,
+            "More than one type of image fiducials used in this roll. Cannot cluster.",
+        )
+
+        for d in cropped_image_directories:
+            downloaded_files.append(
+                [f for f in os.listdir(os.path.join(data_directory, d)) if "NAGAP_" in f]
+            )
+        downloaded_files = np.array(downloaded_files).flatten()
+        downloaded_file_names = np.array(
+            [f.replace(".tif", "") for f in downloaded_files]
+        )
+
+        # filter nagap_metadata_csv by downloaded files
+        df_filtered = df[df.fileName.isin(downloaded_file_names)]
+        # filter by bounds
+        if bounds is not None:
+            df_filtered = df_filtered
+            # TODO: implement  - see logic in hipp.dataquery.NAGAP_pre_select_images
+        # filter by polygon
+        if polygon is not None:
+            # TODO: implement  - convert to gdf using Latitude/Longitude cols, convert polygon to EPSG:4326, filter GDF
+            gdf = gpd.GeoDataFrame(
+                df_filtered,
+                geometry=gpd.points_from_xy(
+                    df_filtered.Longitude, df_filtered.Latitude
+                ),
+            )
+            gdf_filtered = gdf[gdf.geometry.within(polygon)]
+            df_filtered = df_filtered[df_filtered.fileName.isin(gdf_filtered.fileName)]
+            print(f"Clustering {len(df_filtered)} images.")
+        if not df_filtered.empty:
+            hsfm.core.determine_image_clusters(
+                df_filtered,
+                pixel_pitch=pixel_pitch,
+                focal_length=focal_length,
+                output_directory=os.path.join(data_directory, cluster_output_dir_name),
+                image_directory=os.path.join(
+                    data_directory,
+                    cropped_image_directories[0],
+                ),
+                buffer_m=image_cluster_buffer_m,
+            )
+        else:
+            print(f"Roll {roll} has no images to process after filtering.")
 
 def plot_match_overlap(match_files_directory, images_directory, output_directory='qc/matches/'):
     
@@ -559,7 +638,8 @@ def run_metashape(project_name,
                   metashape_licence_file  = None,
                   verbose                 = False,
                   iteration               = 0,
-                  cleanup                 = False):
+                  cleanup                 = False,
+                  clip_reference_dem_for_align=True):
     
     now = datetime.now()
     
@@ -633,18 +713,16 @@ def run_metashape(project_name,
         # further attempted alignment is unlikely to change the result,
         # if it was unsuccessful to begin with.
 
-        clipped_reference_dem = os.path.join(output_path,'reference_dem_clip.tif')
-        
-        # if the reference dem is smaller in extent than the to be aligned dem - don't clip it
-        # clipping is done to improve processing time as loading a large high-res reference dem
-        # into memory is costly at various succeeding steps
-        large_to_small_order = hsfm.geospatial.compare_dem_extent(dem, reference_dem)
-        if large_to_small_order == (reference_dem, dem):
-            reference_dem = hsfm.utils.clip_reference_dem(dem,
-                                                          reference_dem,
-                                                          output_file_name = clipped_reference_dem,
-                                                          buff_size        = 2000,
-                                                          verbose = verbose)
+        reference_dem = os.path.join(output_path,'reference_dem_clip.tif')
+
+        if clip_reference_dem_for_align:
+            large_to_small_order = hsfm.geospatial.compare_dem_extent(dem, reference_dem)
+            if large_to_small_order == (reference_dem, dem):
+                reference_dem = hsfm.utils.clip_reference_dem(dem,
+                                                            reference_dem,
+                                                            output_file_name = clipped_reference_dem,
+                                                            buff_size        = 2000,
+                                                            verbose = verbose)
 
         aligned_dem_file, transform =  hsfm.asp.pc_align_p2p_sp2p(dem, 
                                                                   reference_dem,
@@ -736,20 +814,36 @@ def metaflow(project_name,
              verbose                 = False,
              cleanup                 = False,
              check_subsets           = True,
-             attempts_to_adjust_cams = 2):
+             attempts_to_adjust_cams = 2,
+             min_image_num=3,
+             clip_reference_dem_for_align=True
+        ):
+    
+#     # check positions
+#     df_tmp = pd.read_csv(images_metadata_file)
+#     if len(set(df_tmp['lon'].values)) == 1:
+#         print('CRITICAL: All cameras have identical longitude values in:',images_metadata_file)
+#         print('CRITICAL: This will fail. Exiting.')
+#         sys.exit(0)
 
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
         
+    images_df = pd.read_csv(images_metadata_file)
+
     # read from metadata file if not specified
     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
         try:
-            df_tmp       = pd.read_csv(images_metadata_file)
-            focal_length = df_tmp['focal_length'].values[0]
+            focal_length = images_df['focal_length'].values[0]
             print('Focal length:', focal_length)
         except:
             print('No focal length specified.')
             pass
+
+    if len(images_df) < min_image_num:
+        raise ValueError(
+            f"Minimum image number set to {min_image_num}, cannot process."
+        )
         
     # determine if there are subset clusters of images that do not overlap and/or unaligned images  
     if check_subsets:
@@ -838,7 +932,8 @@ def metaflow(project_name,
                                            metashape_licence_file  = metashape_licence_file,
                                            verbose                 = verbose,
                                            iteration               = 0,
-                                           cleanup                 = cleanup)
+                                           cleanup                 = cleanup,
+                                           clip_reference_dem_for_align=clip_reference_dem_for_align)
 
             bundle_adjusted_metadata_file,\
             ba_CE90,\
@@ -1001,16 +1096,26 @@ def batch_process(project_name,
                   verbose                 = True,
                   cleanup                 = True,
                   attempts_to_adjust_cams = 2,
-                  check_subsets           = True):
+                  check_subsets           = True,
+                  clip_reference_dem_for_align=True,
+                  clusters_dir="sfm",
+                  min_image_num=3,
+                  filter_roll = None
+):
     
     output_directory = os.path.join(input_directory, project_name, 'input_data')
     
-    image_files = os.path.join(output_directory,'*','*','*','*cropped_images','*.tif')
+    # image_files = os.path.join(output_directory,'*','*','*','*cropped_images','*.tif')
+    image_files = os.path.join(output_directory,'*','*cropped_images','*.tif')
     image_files = sorted(glob.glob(image_files))
-    
-    input_directories = os.path.join(output_directory,'*','*','*','sfm/cl*')
-    batches = sorted(glob.glob(input_directories))
 
+    input_directories = os.path.join(output_directory, "*", f"{clusters_dir}/cl*")
+    batches = sorted(glob.glob(input_directories))
+    print(f"Processing {len(batches)} batches.")
+
+    if filter_roll is not None:
+        batches = [path for path in batches if filter_roll in path]
+        print(f"Filtering batches by roll {filter_roll}. Remaining batches: {batches}")
     for i in batches:
         try:
             print('\n\n'+i)
@@ -1019,7 +1124,7 @@ def batch_process(project_name,
 
             cluster_project_name = project_name+'_'+i.split('/')[-1]
 
-#             images_path          = os.path.join(i,'images')
+            images_path          = os.path.join(i,'images')
             images_metadata_file = os.path.join(i,'metashape_metadata.csv')
             output_path          = os.path.join(i,'metashape')
 
@@ -1038,9 +1143,14 @@ def batch_process(project_name,
                                 verbose                 = verbose,
                                 cleanup                 = cleanup,
                                 attempts_to_adjust_cams = attempts_to_adjust_cams,
-                                check_subsets           = check_subsets)
-        except:
+                                check_subsets           = check_subsets,
+                                min_image_num           = min_image_num,
+                                clip_reference_dem_for_align = clip_reference_dem_for_align
+                                )
+        except Exception as e:
             print('FAIL:', i)
+            print(e)
+            traceback.print_exc()
 
         print('\n\n'+i)
         print("Elapsed time", str(datetime.now() - now), '\n\n')
