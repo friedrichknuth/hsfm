@@ -96,13 +96,16 @@ def images2las(project_name,
         v.reference.rotation_enabled = rotation_enabled
         
 #     # DEFINE INTRINSICS
-    if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
+#     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
+    if isinstance(camera_model_xml_file, type(None)):
+        # try to grab a focal length for every camera from metadata in case run on mix match of cameras
         try:
-            df_tmp       = pd.read_csv(images_metadata_file)
-            focal_length = df_tmp['focal_length'].values[0]
+            df_tmp        = pd.read_csv(images_metadata_file)
+#             focal_length  = df_tmp['focal_length'].values[0]
+            focal_lengths = df_tmp['focal_length'].values
             print('Focal length:', focal_length)
         except:
-            print('No focal length specified.')
+#             print('No focal length specified.')
             pass
     
     if not isinstance(camera_model_xml_file, type(None)):
@@ -125,7 +128,8 @@ def images2las(project_name,
 #             sensor.width = v.photo.image().width
 #             sensor.height = v.photo.image().height
 #             v.sensor = sensor
-            v.sensor.focal_length = focal_length
+#             v.sensor.focal_length = focal_length
+            v.sensor.focal_length = focal_lengths[i]
             v.sensor.fixed_params = ['F']
     
     if not isinstance(pixel_pitch, type(None)):

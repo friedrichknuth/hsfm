@@ -18,9 +18,9 @@ import urllib
 import rasterio
 from shapely.geometry import Point, Polygon, LineString, mapping
 import utm
+import time
 
-import hsfm.io
-import hsfm.utils
+import hsfm
 
 """
 Geospatial data processing functions.

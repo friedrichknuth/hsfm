@@ -1108,11 +1108,7 @@ def prepare_metashape_metadata(camera_positions_file_name,
         df['alt'] = round(df['alt'].max())
     else:
         df['alt'] = flight_altitude_m
-    
-    # get values from nagap_image_metadata_updated.csv if it is being used as the input
-    df.loc[~df['Altitude'].str.contains('unknown'),'alt'] = \
-    df.loc[~df['Altitude'].str.contains('unknown')]['Altitude'].values
-
+        
     df['lon']             = df['Longitude'].astype(float).round(6)
     df['lat']             = df['Latitude'].astype(float).round(6)
     df['lon_acc']         = 1000
@@ -1121,6 +1117,10 @@ def prepare_metashape_metadata(camera_positions_file_name,
     df['yaw_acc']         = 180
     df['pitch_acc']       = 20
     df['roll_acc']        = 20
+    # get values from nagap_image_metadata_updated.csv if it is being used as the input
+    df.loc[~df['Altitude'].str.contains('unknown'),'alt'] = \
+    df.loc[~df['Altitude'].str.contains('unknown')]['Altitude'].values
+
     
     if not isinstance(focal_length, type(None)):
         df['focal_length'] = focal_length
