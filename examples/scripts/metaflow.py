@@ -1,28 +1,27 @@
 #! /usr/bin/env python
 
 import hsfm
+from os.path import join
 
+data_dir = os.environ('hsfm_data_dir')
+license_dir = os.environ('agisoft_LICENSE')
+reference_dem = join(data_dir,'/reference_dem_highres/baker/baker_trimmed_easton_2015_utm_m.tif')
 
 project_name = 'easton'
 roll         = '77V6'
-out_dir      = '../'
-
-bounds              = (-121.846, 48.76, -121.823, 48.70) # easton
-# bounds              = (-121.94, 48.84, -121.70, 48.70) # baker
-# bounds              = (-121.7, 48.43, -120.97, 48.28) # south cascade
-# bounds              = (-121.935, 47.01, -121.435, 46.70) # rainier
+out_dir      = join(data_dir, 'easton_77_metaflow')
+bounds = (-121.846, 48.76, -121.823, 48.70)
 
 hsfm.batch.NAGAP_pre_process_images(project_name,
                                     bounds,
                                     roll = roll,
                                     output_directory=out_dir)
 
-reference_dem           = '/mnt/Backups/knuth/hsfm_processing/nagap/data/reference_dems/baker_1_m/baker_2015_utm_m.tif'
-output_DEM_resolution   = 2
-image_matching_accuracy = 1
-densecloud_quality      = 2
+output_DEM_resolution   = 1
+image_matching_accuracy = 2
+densecloud_quality      = 4
 pixel_pitch             = 0.02
-metashape_licence_file  = '/opt/metashape-pro/uw_agisoft.lic'
+metashape_licence_file  = join(license_dir, 'uw_agisoft.lic')
 
 
 hsfm.batch.batch_process(project_name,

@@ -20,10 +20,13 @@ RUN /opt/conda/envs/hsfm/bin/pip install scikit-image
 
 # Copy in HSFM source code and agisoft license
 COPY .  /root/hsfm/
-COPY uw_agisoft.lic /root/hsfm/
+COPY uw_agisoft.lic /ro/ot/hsfm/
 
 # Set environmental variable for Agisoft license activation
 ENV agisoft_LICENSE='/root/hsfm/'
+
+# Set environmental variable for mounted data drive
+ENV hsfm_data_dir='/root/hsfm_data'
 
 # Install HSFM (in editable mode) and Metashape to conda env
 RUN /opt/conda/envs/hsfm/bin/pip install -e /root/hsfm/
@@ -38,7 +41,7 @@ ENV PATH=${PATH}:/opt/conda/envs/hsfm/bin/
 
 # Move working directory to examples folder
 WORKDIR /root/hsfm/examples/
-EXPOSE 5053 5147
+# EXPOSE 5053 5147s
 
 # Run an app
 ENTRYPOINT ["conda", "run", "-n", "hsfm", "python", "validate_license.py"] 

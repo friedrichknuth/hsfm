@@ -45,6 +45,17 @@ Automated SfM processing of historical aerial photographs for land surface eleva
 ### Examples
 See [notebooks](./examples/) for processing examples.
 
+### Run easily with Docker
+Identify where the appropriate directory of data is on you computer.
+Build the docker image.
+```
+docker build -t elischwat/run-nagap-metashape
+```
+Run the docker image, mounting the data directory into the container.
+```
+docker run -v /path/to/data_dir/on/your/machine/:/root/hsfm_data/e lischwat/run-nagap-metashape:latest
+```
+
 ### Installation
 ```
 $ git clone https://github.com/friedrichknuth/hsfm.git
