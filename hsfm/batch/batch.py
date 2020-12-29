@@ -356,6 +356,7 @@ def NAGAP_pre_process_images(project_name,
     for i in template_dirs:
         template_types.append(i.split('/')[-1])
         
+    print(f'Retrieved template_dirs: {template_dirs}')
     df = hipp.dataquery.NAGAP_pre_select_images(nagap_metadata_csv, 
                                                 bounds = bounds,
                                                 roll   = roll,
@@ -363,12 +364,18 @@ def NAGAP_pre_process_images(project_name,
                                                 month  = month,
                                                 day    = day)
     df = df[df['fiducial_proxy_type'].isin(template_types)]
+
+    print(f'Found {len(df)} images')
+    print(f'Example data:')
+    print(f'{df.head(3)}')
     
     
     if isinstance(roll, type(None)):
         rolls = sorted(list(set(df['Roll'].values)))
     else:
         rolls = [roll,]
+
+    print(f'Processing {len(rolls)} rolls: {rolls}')
 
     for roll in rolls:
         df_roll = df[df['Roll']  == roll].copy()
@@ -1002,7 +1009,7 @@ def batch_process(project_name,
                   cleanup                 = True,
                   attempts_to_adjust_cams = 2,
                   check_subsets           = True):
-    
+    print('BATCH PROCESS RUNNING....')
     output_directory = os.path.join(input_directory, project_name, 'input_data')
     
     image_files = os.path.join(output_directory,'*','*','*','*cropped_images','*.tif')

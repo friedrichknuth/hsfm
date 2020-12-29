@@ -45,15 +45,21 @@ Automated SfM processing of historical aerial photographs for land surface eleva
 ### Examples
 See [notebooks](./examples/) for processing examples.
 
-### Run easily with Docker
-Identify where the appropriate directory of data is on you computer.
-Build the docker image.
+### Run with Docker
+Identify where the appropriate directory of data is on you computer. This directory contains necessary files including an Agisoft Metashape license and depending on what you want to do, a reeference DEM.
+
 ```
-docker build -t elischwat/run-nagap-metashape
-```
-Run the docker image, mounting the data directory into the container.
-```
-docker run -v /path/to/data_dir/on/your/machine/:/root/hsfm_data/e lischwat/run-nagap-metashape:latest
+  # Build the docker image.
+  docker build -t $(whoami)/run-nagap-metashape .
+
+  # Run the docker image, mounting the data directory into the container.
+  docker run -v /path/to/data_dir/on/your/machine/:/root/hsfm_data/ $(whoami)/run-nagap-metashape:latest
+
+  # For me, that's ... 
+  docker run -v /Volumes/GoogleDrive/My\ Drive/hsfm-geomorph/data/:/root/hsfm_data/ $(whoami)/run-nagap-metashape:latest 
+
+  # Enter bash terminal in your running container
+  docker exec -it <currently running docker container ID> /bin/bash
 ```
 
 ### Installation

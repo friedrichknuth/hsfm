@@ -1,3 +1,5 @@
+# Created using some stuff from here 
+# 	https://www.agisoft.com/forum/index.php?topic=12255.0
 FROM continuumio/miniconda
 
 RUN apt-get update -y && \
@@ -20,7 +22,7 @@ RUN /opt/conda/envs/hsfm/bin/pip install scikit-image
 
 # Copy in HSFM source code and agisoft license
 COPY .  /root/hsfm/
-COPY uw_agisoft.lic /ro/ot/hsfm/
+COPY uw_agisoft.lic /root/hsfm/
 
 # Set environmental variable for Agisoft license activation
 ENV agisoft_LICENSE='/root/hsfm/'
@@ -44,4 +46,7 @@ WORKDIR /root/hsfm/examples/
 # EXPOSE 5053 5147s
 
 # Run an app
-ENTRYPOINT ["conda", "run", "-n", "hsfm", "python", "validate_license.py"] 
+ENTRYPOINT ["conda", "run", "-n", "hsfm", "python", "scripts/metaflow.py"] 
+
+# Or sleep so i can exec in
+# CMD ["sleep", "5d"]
