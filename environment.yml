@@ -36,4 +36,6 @@ dependencies:
     - "--editable=git+https://github.com/friedrichknuth/bare.git#egg=bare"
     - "--editable=git+https://github.com/friedrichknuth/hipp.git#egg=hipp"
     - "--editable=git+https://github.com/friedrichknuth/driveanon.git#egg=driveanon"
+    - black
+    - pre-commit
 

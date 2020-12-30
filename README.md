@@ -58,6 +58,18 @@ Download and install the [NASA AMes Stereo Pipeline](https://ti.arc.nasa.gov/tec
 
 Download and install the [Agisoft Metashape Python API](https://agisoft.freshdesk.com/support/solutions/articles/31000148930-how-to-install-metashape-stand-alone-python-module)
 
+Download and install precommit formatting tools.
+
+Install the pre-commit tool.
+```
+brew install pre-commit
+```
+Then set it up
+```
+pre-commit install
+```
+Now when you attempt to make commits, the black linter/formatter tool will be run. If the linter fails, your commit will fail and your files will be formatted. Make sure to stage the automatic changes and try comitting again.
+
 ### Contributing
 
 _hsfm_ contains modular libraries and tools that can be adapted to process various types of historical imagery. At this time, many of the methods have been customized to process NAGAP imagery, but can be deconstructed into more generalized upstream methods and classes.
