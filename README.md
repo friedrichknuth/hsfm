@@ -49,7 +49,7 @@ See [notebooks](./examples/) for processing examples.
 ```
 $ git clone https://github.com/friedrichknuth/hsfm.git
 $ cd ./hsfm
-$ conda create -f environment.yml
+$ conda create -f environment.yml python=3.8.5
 $ conda activate hsfm
 $ pip install -e .
 ```
