@@ -274,7 +274,12 @@ def point2dem(point_cloud_file,
               verbose=False):
     
     args = list(args)
-    call =['point2dem', '--threads', str(psutil.cpu_count(logical=False))]
+    if '--threads' in args:
+        call =['point2dem']
+    else:
+        threads = str(psutil.cpu_count(logical=False))
+        print(f"Using {threads} threads.")
+        call =['point2dem', '--threads', threads]
     call.extend(args)
     
     call.append(point_cloud_file)
