@@ -345,7 +345,6 @@ def pc_align(input_dem_file,
 def pc_align_p2p_sp2p(input_dem_file,
                       reference_dem_file,
                       output_directory,
-                      prefix     = 'run',
                       p2p_max_displacement = 2000,
                       sp2p_max_displacement = 1000,
                       m_sp2p_max_displacement = 100,
@@ -366,9 +365,9 @@ def pc_align_p2p_sp2p(input_dem_file,
                                                     'point-to-plane',
                                                     print_call=print_call,
                                                     verbose=verbose,
-                                                    prefix=prefix)
+                                                    prefix="point2plane")
     
-    prefix0 = '-'.join([prefix,prefix])
+    prefix0 = "spoint2point"
     
     aligned_dem_file, transform = hsfm.asp.pc_align(input_dem_file,
                                                     reference_dem_file,
@@ -385,7 +384,7 @@ def pc_align_p2p_sp2p(input_dem_file,
     
     masked_reference_dem_file = hsfm.utils.mask_dem(reference_dem_file)
 
-    prefix1 = '-'.join([prefix,prefix,prefix])
+    prefix1 = "spoint2point_bareground"
 
     aligned_dem_file, transform = hsfm.asp.pc_align(input_dem_file,
                                                     masked_reference_dem_file,
