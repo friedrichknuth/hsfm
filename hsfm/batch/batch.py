@@ -5,6 +5,8 @@ import sys
 import glob
 import numpy as np
 import pandas as pd
+import geopandas as gpd
+import json
 from datetime import datetime
 import matplotlib.pyplot as plt
 import concurrent.futures
@@ -1044,4 +1046,220 @@ def batch_process(project_name,
 
         print('\n\n'+i)
         print("Elapsed time", str(datetime.now() - now), '\n\n')
+
+
+
+def pipeline(
+    license_path = 'uw_agisoft.lic',
+    input_images_path           = "/data2/elilouis/rainier_carbon/input_data/73V3/00/00/block_cropped_images/",
+    reference_dem               = "/data2/elilouis/hsfm-geomorph/data/reference_dem_highres/rainier_lidar_dsm-adj.tif",
+    verbose               = True,
+    rotation_enabled      = True,
+    pixel_pitch           = 0.02,
+    image_matching_accuracy = 4,
+    densecloud_quality      = 3,
+    project_name                = "rainier_carbon_73"
+    output_path                 = "/data2/elilouis/rainier_carbon_73/",
+    input_images_metadata_file  = "/data2/elilouis/rainier_carbon/input_data/73V3/00/00/sfm/cluster_000/metashape_metadata.csv",
+):
+
+    def get_focal_length_from_metadata_file(file):
+        return pd.read_csv(file)['focal_length'][0]
+    def is_metashape_activated():
+        import Metashape
+        print(Metashape.app.activated)
+
+    print('Determining focal length from input images metadata file... ')
+    clipped_reference_dem_file = os.path.join(output_path,'reference_dem_clipped.tif')
+    focal_length = get_focal_length_from_metadata_file(input_images_metadata_file)
+    print(f'{focal_length}')
+
+    bundle_adjusted_metadata_file                = os.path.join(output_path, 'metaflow_bundle_adj_metadata.csv')
+    aligned_bundle_adjusted_metadata_file        = os.path.join(output_path, 'aligned_bundle_adj_metadata.csv')
+    nuthed_aligned_bundle_adjusted_metadata_file = os.path.join(output_path, 'nuth_aligned_bundle_adj_metadata.csv')
+    
+    print('Checking Metashape authentication...')
+    hsfm.metashape.authentication(license_path)
+    print(is_metashape_activated())
+
+    print('Run Metashape - Camera Bundle Adjustment and Point Cloud Creation')
+    project_file, point_cloud_file = hsfm.metashape.images2las(
+        project_name,
+        input_images_path,
+        input_images_metadata_file,
+        output_path,
+        focal_length            = focal_length,
+        pixel_pitch             = pixel_pitch,
+        image_matching_accuracy = image_matching_accuracy,
+        densecloud_quality      = densecloud_quality,
+        rotation_enabled        = rotation_enabled
+    )
+
+    print('Extract DEM and Orthomosaic')
+    hsfm.metashape.images2ortho(
+        project_name,
+        output_path,
+        build_dem       = True,
+        split_in_blocks = False,
+        iteration       = 0)
+    epsg_code = 'EPSG:'+ hsfm.geospatial.get_epsg_code(reference_dem)
+    dem = hsfm.asp.point2dem(
+        point_cloud_file, 
+        '--nodata-value','-9999',
+        '--tr','0.5',
+        #  '--threads', '10',
+        '--t_srs', epsg_code,
+        verbose=verbose
+    )
+
+    print('Update and examine camera data')
+    ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(
+        metashape_project_file = project_file, 
+        metashape_metadata_csv = input_images_metadata_file
+    )
+    ba_cameras_df.to_csv(bundle_adjusted_metadata_file, index = False)
+    ba_cameras_df
+
+
+    print('Compare original camera positions and metaflow-bundle adjusted camera positions')
+    x_offset, y_offset, z_offset = hsfm.core.compute_point_offsets(
+        input_images_metadata_file, 
+        bundle_adjusted_metadata_file
+    )
+    ba_CE90, ba_LE90 = hsfm.geospatial.CE90(x_offset,y_offset), hsfm.geospatial.LE90(z_offset)
+    hsfm.plot.plot_offsets(
+        ba_LE90,
+        ba_CE90,
+        x_offset, 
+        y_offset, 
+        z_offset,
+        title = 'Initial vs Bundle Adjusted'
+        plot_file_name = os.path.join(output_path, 'initial_vs_bundle_adj_offsets.png')
+    )
+
+    print('Clip a Reference DEM for the PC Alignment Routine')
+    clipped_reference_dem_file = hsfm.utils.clip_reference_dem(dem, 
+                                                        reference_dem,
+                                                        output_file_name = clipped_reference_dem_file,
+                                                        buff_size        = 2000,
+                                                        verbose = verbose)
+
+    print('Run PC Alignment Routine')
+    aligned_dem_file, transform =  hsfm.asp.pc_align_p2p_sp2p(dem,
+                                                    clipped_reference_dem_file,
+                                                    output_path,
+                                                    verbose = verbose)
+
+    print('Apply transform from pc_align to metashape-updated camera positions DF')
+    hsfm.core.metadata_transform(
+        bundle_adjusted_metadata_file,
+        transform,
+        output_file_name = aligned_bundle_adjusted_metadata_file
+    )
+    df = pd.read_csv(aligned_bundle_adjusted_metadata_file)
+    df['focal_length'] = pd.read_csv(input_images_metadata_file)['focal_length']
+
+    print('Compare metaflow-bundle adjusted camera positions pre and post pc_align routine')
+    x_offset, y_offset, z_offset = hsfm.core.compute_point_offsets(
+        bundle_adjusted_metadata_file, 
+        aligned_bundle_adjusted_metadata_file
+    )
+    ba_CE90, ba_LE90 = hsfm.geospatial.CE90(x_offset,y_offset), hsfm.geospatial.LE90(z_offset)
+    hsfm.plot.plot_offsets(
+        ba_LE90,
+        ba_CE90,
+        x_offset, 
+        y_offset, 
+        z_offset,
+        title = 'Bundle Adjusted vs Bundle Adjusted and Aligned',
+        plot_file_name = os.path.join(output_path, 'bundle_adj__vs_bundle_adj_and_aligned_offsets.png')
+    )
+
+
+    print('Run Nuuth and Kaab Alignment Routine')
+    hsfm.utils.dem_align_custom(
+        clipped_reference_dem_file,
+        aligned_dem_file,
+        output_path,
+        verbose = verbose
+    )
+
+    print('Apply transform from nuth and kaab to aligned + bundle adjusted camera positions')
+    print('Requires converting to and from crs\'s...')
+    gdf = gpd.GeoDataFrame(
+        df, geometry=gpd.points_from_xy(x=df.lon, y=df.lat)
+    )
+    gdf.crs = 'EPSG:4326'
+    gdf = gdf.to_crs('EPSG:32610')
+
+
+    def find_first_json_file_in_nested_directory(directory):
+        file_list = []
+        dir_list = []
+        for root, dirs, files in os.walk(directory):
+            if len(dirs) > 0:
+                dir_list.append(dirs[0])
+            json_files = [file for file in files if 'json' in file]
+            if len(json_files) > 0:
+                file_list.append(json_files[0])
+        if len(file_list) > 0:
+            return os.path.join(dir_list[0],file_list[0])
+    path = find_first_json_file_in_nested_directory(os.path.join(output_path, 'pc_align'))
+    with open(os.path.join(output_path, 'pc_align', path)) as src:
+        data = json.load(src)
+    gdf = gpd.GeoDataFrame(
+        df, geometry=gpd.points_from_xy(x=df.lon, y=df.lat)
+    )
+    gdf.crs = 'EPSG:4326'
+    gdf = gdf.to_crs('EPSG:32610')
+
+    gdf['new_lat'] = gdf.geometry.y + data['shift']['dy']
+    gdf['new_lon'] = gdf.geometry.x + data['shift']['dx']
+    gdf = gpd.GeoDataFrame(
+        df, geometry=gpd.points_from_xy(x=gdf.new_lon, y=gdf.new_lat)
+    )
+    gdf.crs = 'EPSG:32610'
+    gdf = gdf.to_crs('EPSG:4326')
+
+    df.lat = gdf.geometry.y
+    df.lon = gdf.geometry.x
+    df.alt = df.alt + data['shift']['dz']
+
+    df.drop(['geometry'], axis=1).to_csv(nuthed_aligned_bundle_adjusted_metadata_file, index = False)
+    
+
+    print('Compare (aligned + bundle adjusted) and (nuth&kaab-aligned + aligned + bundle adjusted)')
+    x_offset, y_offset, z_offset = hsfm.core.compute_point_offsets(
+        aligned_bundle_adjusted_metadata_file,
+        nuthed_aligned_bundle_adjusted_metadata_file
+    )
+    ba_CE90, ba_LE90 = hsfm.geospatial.CE90(x_offset,y_offset), hsfm.geospatial.LE90(z_offset)
+    hsfm.plot.plot_offsets(
+        ba_LE90,
+        ba_CE90,
+        x_offset, 
+        y_offset, 
+        z_offset,
+        title = 'Bundle Adjusted + Aligned vs Bundle Adjusted + Aligned + Nuth-Aligned',
+        plot_file_name = os.path.join(output_path, 'bundle_adj_and_aligned_vs_bundle_adj_and_aligned_and_nuthed_offsets.png')
+    )
+    
+    print('Compare Original and (nuth&kaab-aligned + aligned + bundle adjusted)')
+    x_offset, y_offset, z_offset = hsfm.core.compute_point_offsets(
+        input_images_metadata_file,
+        nuthed_aligned_bundle_adjusted_metadata_file
+    )
+    ba_CE90, ba_LE90 = hsfm.geospatial.CE90(x_offset,y_offset), hsfm.geospatial.LE90(z_offset)
+    hsfm.plot.plot_offsets(
+        ba_LE90,
+        ba_CE90,
+        x_offset, 
+        y_offset, 
+        z_offset,
+        title = 'Original vs Bundle Adjusted + Aligned + Nuth-Aligned',
+        plot_file_name = os.path.join(output_path, 'og_vs_final_offsets.png')
+    )
+
+
+        
 
