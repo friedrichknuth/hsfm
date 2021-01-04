@@ -1050,17 +1050,17 @@ def batch_process(project_name,
 
 
 def pipeline(
+    input_images_path,
+    reference_dem,
+    pixel_pitch,
+    image_matching_accuracy,
+    densecloud_quality,
+    project_name,
+    output_path,
+    input_images_metadata_file,
     license_path = 'uw_agisoft.lic',
-    input_images_path           = "/data2/elilouis/rainier_carbon/input_data/73V3/00/00/block_cropped_images/",
-    reference_dem               = "/data2/elilouis/hsfm-geomorph/data/reference_dem_highres/rainier_lidar_dsm-adj.tif",
     verbose               = True,
     rotation_enabled      = True,
-    pixel_pitch           = 0.02,
-    image_matching_accuracy = 4,
-    densecloud_quality      = 3,
-    project_name                = "rainier_carbon_73"
-    output_path                 = "/data2/elilouis/rainier_carbon_73/",
-    input_images_metadata_file  = "/data2/elilouis/rainier_carbon/input_data/73V3/00/00/sfm/cluster_000/metashape_metadata.csv",
 ):
 
     def get_focal_length_from_metadata_file(file):
@@ -1133,7 +1133,7 @@ def pipeline(
         x_offset, 
         y_offset, 
         z_offset,
-        title = 'Initial vs Bundle Adjusted'
+        title = 'Initial vs Bundle Adjusted',
         plot_file_name = os.path.join(output_path, 'initial_vs_bundle_adj_offsets.png')
     )
 
