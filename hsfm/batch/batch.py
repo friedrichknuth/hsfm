@@ -1062,6 +1062,27 @@ def pipeline(
     verbose               = True,
     rotation_enabled      = True,
 ):
+    """Runs Metashape SfM algorithm and a series alignment steps to produce a DEM from historical aerial images.
+    Can be run multiple times, each time with the updated camera locations from the previous run, to align more perfectly.
+
+    Args:
+        input_images_path (str): Path to directory containing input images referenced in the input_images_metadata_file.
+        reference_dem (str): Path to reference DEM file. Should overlap the area where the aerial images cover.
+        pixel_pitch (float): Scanning resolution of the images. 0.02 is a good guess for NAGAP images.
+        image_matching_accuracy (int): Metashape parameter. 1-4 from highest to lowest quality. 
+        densecloud_quality (int): Metashape parameter. 1-4 from highest to lowest quality.
+        project_name (str): Name for Metashape project and files.
+        output_path (str): Output path for the pipeline run.
+        input_images_metadata_file (str): Path to file containing list of preprocessed aerial image file names and the metadata necessary for Metashape.
+        license_path (str, optional): Path to Agisoft license. Defaults to 'uw_agisoft.lic'.
+        verbose (bool, optional): Defaults to True.
+        rotation_enabled (bool, optional): Defaults to True.
+
+    Returns:
+        (str): Path to a CSV file containing list of preprocessed aerial image files names and the metadata necessary for Metashape. Similar to the input
+            input_images_metadata_file however the camera/image locations have been updated/replaced with the most aligned locations found after all pipeline
+            steps are completed.
+    """
 
     def get_focal_length_from_metadata_file(file):
         return pd.read_csv(file)['focal_length'][0]
@@ -1076,7 +1097,7 @@ def pipeline(
 
     bundle_adjusted_metadata_file                = os.path.join(output_path, 'metaflow_bundle_adj_metadata.csv')
     aligned_bundle_adjusted_metadata_file        = os.path.join(output_path, 'aligned_bundle_adj_metadata.csv')
-    nuthed_aligned_bundle_adjusted_metadata_file = os.path.join(output_path, 'nuth_aligned_bundle_adj_metadata.csv')
+    s = os.path.join(output_path, 'nuth_aligned_bundle_adj_metadata.csv')
     
     print('Checking Metashape authentication...')
     hsfm.metashape.authentication(license_path)
@@ -1259,6 +1280,8 @@ def pipeline(
         title = 'Original vs Bundle Adjusted + Aligned + Nuth-Aligned',
         plot_file_name = os.path.join(output_path, 'og_vs_final_offsets.png')
     )
+
+    return nuthed_aligned_bundle_adjusted_metadata_file
 
 
         
