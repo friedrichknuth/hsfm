@@ -10,16 +10,16 @@ bounds = (-121.7991, 46.9902, -121.7399, 46.8826) # Carbon Glacier bounds
 nagap_metadata_csv = "/home/elilouis/hipp/examples/fiducial_proxy_detection/input_data/nagap_image_metadata.csv"
 reference_dem = "/data2/elilouis/hsfm-geomorph/data/reference_dem_highres/rainier_lidar_dsm-adj.tif"
 project_name = "rainier_carbon_timesift"
-## HOW DID THIS FILE GET CREATED IN THE FIRST PLACE???? SHOULD BE AUTOMATED
 input_images_metadata_file = "/data2/elilouis/rainier_carbon_timesift/metashape_metadata_no77.csv" # THIS NEEDS TO BE HANDLED BETTER - HOW TO AUTOMATE THE KNOWLEDGE THAT 77 IS BAD??? Need to look at each image to determine which have missing sides.
-densecloud_quality = 3
-image_matching_accuracy = 2
+densecloud_quality = 2
+image_matching_accuracy = 1
+output_DEM_resolution = 1
 pixel_pitch = 0.02
 license_path = "uw_agisoft.lic"
 
 # # 
 input_images_path = os.path.join(output_directory, "preprocessed_images")
-output_path = os.path.join(output_directory, rainier_carbon_timesift + '_hsfm')
+output_path = os.path.join(output_directory, project_name + '_hsfm/')
 df = hipp.dataquery.NAGAP_pre_select_images(nagap_metadata_csv, bounds = bounds)
 
 all_fiducial_types = list(df.fiducial_proxy_type.unique())
@@ -77,6 +77,7 @@ hsfm.batch.pipeline(
     input_images_path = input_images_path,
     densecloud_quality = densecloud_quality,
     image_matching_accuracy = image_matching_accuracy,
+    output_DEM_resolution = output_DEM_resolution,
     pixel_pitch = pixel_pitch,
     license_path = license_path
 )

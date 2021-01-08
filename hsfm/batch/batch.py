@@ -1055,12 +1055,13 @@ def pipeline(
     pixel_pitch,
     image_matching_accuracy,
     densecloud_quality,
+    output_DEM_resolution,
     project_name,
     output_path,
     input_images_metadata_file,
     license_path = 'uw_agisoft.lic',
     verbose               = True,
-    rotation_enabled      = True,
+    rotation_enabled      = True
 ):
     """Runs Metashape SfM algorithm and a series alignment steps to produce a DEM from historical aerial images.
     Can be run multiple times, each time with the updated camera locations from the previous run, to align more perfectly.
@@ -1133,7 +1134,7 @@ def pipeline(
     dem = hsfm.asp.point2dem(
         point_cloud_file, 
         '--nodata-value','-9999',
-        '--tr','0.5',
+        '--tr',str(output_DEM_resolution),
         #  '--threads', '10',
         '--t_srs', epsg_code,
         verbose=verbose
@@ -1203,7 +1204,7 @@ def pipeline(
     )
 
 
-    print('Run Nuuth and Kaab Alignment Routine')
+    print('Run Nuth and Kaab Alignment Routine')
     hsfm.utils.dem_align_custom(
         clipped_reference_dem_file,
         aligned_dem_file,
@@ -1212,13 +1213,6 @@ def pipeline(
     )
 
     print('Apply transform from nuth and kaab to aligned + bundle adjusted camera positions')
-    print('Requires converting to and from crs\'s...')
-    gdf = gpd.GeoDataFrame(
-        df, geometry=gpd.points_from_xy(x=df.lon, y=df.lat)
-    )
-    gdf.crs = 'EPSG:4326'
-    gdf = gdf.to_crs('EPSG:32610')
-
 
     def find_first_json_file_in_nested_directory(directory):
         file_list = []

@@ -48,6 +48,7 @@ def parse_args():
     parser.add_argument('-f', '--input-images-metadata-file', help="Path to csv file containing appropriate Metashape metadata with files names.", required=True)
     parser.add_argument('-q', '--densecloud-quality', help='Densecloud quality parameter for Metashape. Values include 1 - 4, from highest to lowest quality.', required=True, type=int)
     parser.add_argument('-a', '--image-matching-accuracy', help='Image matching accuracy parameter for Metashape. Values include 1 - 4, from highest to lowest quality.', required=True, type=int)
+    parser.add_argument('-t', '--output-resolution', help='Output DEM target resolution', required=True, type=float)
     parser.add_argument('-x', '--pixel-pitch', help='Pixel pitch/scanning resolution.', required=True, type=float)
     parser.add_argument('-l', '--license-path', help='Path to Agisoft license file', required=False)
     return parser.parse_args()
@@ -60,8 +61,10 @@ def run_pipeline(args):
     input_images_metadata_file = args.input_images_metadata_file
     densecloud_quality = args.densecloud_quality
     image_matching_accuracy = args.image_matching_accuracy
+    output_resolution = args.output_resolution
     pixel_pitch = args.pixel_pitch
     license_path = args.license_path
+    
 
     def call(project_name, output_path, input_images_metadata_file):
         return hsfm.batch.pipeline(
@@ -72,6 +75,7 @@ def run_pipeline(args):
             input_images_path = input_images_path,
             densecloud_quality = densecloud_quality,
             image_matching_accuracy = image_matching_accuracy,
+            output_DEM_resolution = output_resolution,
             pixel_pitch = pixel_pitch,
             license_path = license_path
         )

@@ -1,0 +1,28 @@
+{
+    "license_path" : "uw_agisoft.lic",
+    "pixel_pitch" : 0.02,
+    
+    "preprocess" : {
+        "output_directory" : "/data2/elilouis/rainier_carbon_timesift/",
+        "templates_dir" : "/home/elilouis/hipp/examples/fiducial_proxy_detection/input_data/fiducials/nagap/",
+        "bounds" : [-121.7991, 46.9902, -121.7399, 46.8826],
+        "nagap_metadata_csv" : "/home/elilouis/hipp/examples/fiducial_proxy_detection/input_data/nagap_image_metadata.csv",
+        "reference_dem" : "/data2/elilouis/hsfm-geomorph/data/reference_dem_highres/rainier_lidar_dsm-adj.tif",
+        "project_name" : "rainier_carbon_timesift",
+        "densecloud_quality" : 3,
+        "image_matching_accuracy" : 2,
+        "output_DEM_resolution" : 2,
+        "input_images_metadata_file" : "/data2/elilouis/rainier_carbon_timesift/metashape_metadata_no77.csv"
+    },
+
+    "process" : {
+        "parallelization" : 6,
+        "post_timesift_output_directory" : "/data2/elilouis/rainier_carbon_timesift/rainier_carbon_post_timesift_hsfm/",
+        "project_name_prefix" : "rainier_carbon",
+        "reference_dem" : "/data2/elilouis/hsfm-geomorph/data/reference_dem_highres/rainier_lidar_dsm-adj.tif",
+        "input_images_path" : "/data2/elilouis/rainier_carbon_timesift/preprocessed_images",
+        "densecloud_quality" : 3,
+        "image_matching_accuracy" : 4
+    }
+
+}

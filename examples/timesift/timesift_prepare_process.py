@@ -2,6 +2,7 @@ import hsfm
 import pandas as pd
 import os
 
+output_directory = "/data2/elilouis/rainier_carbon_timesift/"
 original_input_images_metadata_file = "/home/elilouis/hipp/examples/fiducial_proxy_detection/input_data/nagap_image_metadata.csv" #contains original metadata for images, camera extrinsics and image dates included
 post_timesift_input_images_metadata_file = "/data2/elilouis/rainier_carbon_timesift/rainier_carbon_timesift_hsfm/nuth_aligned_bundle_adj_metadata.csv" #contains timesift-updated camera locations
 post_timesift_output_directory = '/data2/elilouis/rainier_carbon_timesift/rainier_carbon_post_timesift_hsfm/'
@@ -32,5 +33,3 @@ for date_string, df in datestrings_and_dfs:
         os.makedirs(parent_dir)
     df.to_csv(csv_output_path, index=False)
     daily_dir_names.append(parent_dir)
-
-
