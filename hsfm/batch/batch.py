@@ -1078,6 +1078,7 @@ def pipeline(
         pixel_pitch (float): Scanning resolution of the images. 0.02 is a good guess for NAGAP images.
         image_matching_accuracy (int): Metashape parameter. 1-4 from highest to lowest quality. 
         densecloud_quality (int): Metashape parameter. 1-4 from highest to lowest quality.
+        output_DEM_resolution (float): Output resolution of generated DEMs.
         project_name (str): Name for Metashape project and files.
         output_path (str): Output path for the pipeline run.
         input_images_metadata_file (str): Path to file containing list of preprocessed aerial image file names and the metadata necessary for Metashape.
