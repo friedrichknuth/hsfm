@@ -1064,6 +1064,12 @@ def pipeline(
 ):
     """Runs Metashape SfM algorithm and a series alignment steps to produce a DEM from historical aerial images.
     Can be run multiple times, each time with the updated camera locations from the previous run, to align more perfectly.
+    Completes the following steps:
+        1. Creates point cloud from images using Metashape
+        2. Extracts DEM and Orthomosaic from Metashape project
+        3. Runs Point Cloud Alignment routine on extracted DEM and reference DEM using ASP.
+        4. Runs Nuth and Kaab Alignment routine on the aligned DEM and reference DEM.
+    Along the way, updated camera positions are saved and camera position changes are plotted with CE90 and LE90 scores.
 
     Args:
         input_images_path (str): Path to directory containing input images referenced in the input_images_metadata_file.
@@ -1097,7 +1103,7 @@ def pipeline(
 
     bundle_adjusted_metadata_file                = os.path.join(output_path, 'metaflow_bundle_adj_metadata.csv')
     aligned_bundle_adjusted_metadata_file        = os.path.join(output_path, 'aligned_bundle_adj_metadata.csv')
-    s = os.path.join(output_path, 'nuth_aligned_bundle_adj_metadata.csv')
+    nuthed_aligned_bundle_adjusted_metadata_file = os.path.join(output_path, 'nuth_aligned_bundle_adj_metadata.csv')
     
     print('Checking Metashape authentication...')
     hsfm.metashape.authentication(license_path)

@@ -22,6 +22,18 @@
 ###         --image-matching-accuracy 4 \
 ###         --pixel-pitch 0.02 \
 ###         --license-path uw_agisoft.lic &
+###
+### Example arguments 3:
+###     nohup python examples/pipeline.py \
+###     	--reference-dem /data2/elilouis/hsfm-geomorph/data/reference_dem_highres/rainier_lidar_dsm-adj.tif \
+###         --input-images-path /data2/elilouis/rainier_carbon/input_data/94V6/09/16/arc_cropped_images/ \
+###         --project-name rainier_carbon_94 \
+###         --output-path /data2/elilouis/rainier_carbon_94/ \
+###     	--input-images-metadata-file /data2/elilouis/rainier_carbon/input_data/94V6/09/16/sfm/cluster_000/metashape_metadata.csv \
+###         --densecloud-quality 3 \
+###         --image-matching-accuracy 4 \
+###         --pixel-pitch 0.02 \
+###         --license-path uw_agisoft.lic &
 
 import hsfm
 import os
@@ -64,9 +76,9 @@ def run_pipeline(args):
             license_path = license_path
         )
 
-    new_camera_metadata = call(project_name, os.path.join(output_path, '1'), input_images_metadata_file)
-    new_camera_metadata_2 = call(f"{project_name}_2", os.path.join(output_path, '2'), new_camera_metadata)
-    new_camera_metadata_3 = call(f"{project_name}_3", os.path.join(output_path, '3'), new_camera_metadata_2)
+    new_camera_metadata = call(project_name, os.path.join(output_path, '1/'), input_images_metadata_file)
+    new_camera_metadata_2 = call(f"{project_name}_2", os.path.join(output_path, '2/'), new_camera_metadata)
+    new_camera_metadata_3 = call(f"{project_name}_3", os.path.join(output_path, '3/'), new_camera_metadata_2)
     return new_camera_metadata_3
                
 
