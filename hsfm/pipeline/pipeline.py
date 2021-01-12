@@ -1,4 +1,11 @@
-# TODO: Convert hsfm.batch.pipeline to this class
+import hsfm
+import os
+import pandas as pd
+import geopandas as gpd
+import json
+import argparse
+
+
 class Pipeline:
     """
     Historical Structure from Motion pipeline.
@@ -17,10 +24,24 @@ class Pipeline:
     plotted with CE90 and LE90 scores.
 
     Using the Pipeline class involves 2 steps - instantiation and a call to the run method.
-    For Example:
+    For example:
         ```
-        my_pipeline = Pipeline(parameters, in, here)
+        my_pipeline = Pipeline(
+            input_images_path,
+            reference_dem,
+            pixel_pitch,
+            image_matching_accuracy,
+            densecloud_quality,
+            output_DEM_resolution,
+            project_name,
+            output_path,
+            input_images_metadata_file,
+        )
         updated_camera_positions_file = my_pipeline.run()
+        # or
+        updated_camera_positions_file = my_pipeline.run_multi()
+        # or
+        updated_camera_positions_file = my_pipeline.run_multi(4)
         ```
     The `run` method returns a path to a CSV file containing the most-updated camera positions
     (post bundle adjustment, point cloud alignment, and Nuth and Kaab alignment).
@@ -85,19 +106,44 @@ class Pipeline:
         )
 
         # Get some data that the pipeline needs
-        self.focal_length = __get_focal_length_from_metadata_file(
+        self.focal_length = self.__get_focal_length_from_metadata_file(
             input_images_metadata_file
         )
 
+    def run_multi(self, iterations=3):
+        """Run n pipeline iterations for further alignment/refinement.
+        The final output camera locations of one pipeline iteration are fed in as the original camera positions
+        for the subsequent pipeline run.
+        Has the side effect of modifying self.input_images_metadatafile.
+
+        Args:
+            iterations (int, optional): Number of times to run the pipeline. Defaults to 3
+        """
+        for i in range(0, iterations):
+            updated_cameras = self.run()
+            set_input_images_metadata_file(updated_cameras)
+        return updated_cameras
+
+    def set_input_images_metadata_file(self, updated_cameras):
+        self.input_images_metadata_file = updated_cameras
+
     def run(self):
-        metashape_is_activated = __is_metashape_activated()
+        """Run all steps in the pipeline.
+        Returns:
+            str: Path to CSV file containing the most updated/aligned camera positions after all pipeline steps.
+        """
+        metashape_is_activated = self.__is_metashape_activated()
         if metashape_is_activated:
+            print(
+                f"Running pipeline with {len(pd.read_csv(input_images_metadata_file))} input images."
+            )
+
             # 1. Structure from Motion
-            project_file, point_cloud_file = __run_metashape()
-            __extract_orthomosaic()
-            dem = __extract_dem(point_cloud_file)
-            __update_camera_data(project_file)
-            __compare_camera_positions(
+            project_file, point_cloud_file = self.__run_metashape()
+            _ = self.__extract_orthomosaic()
+            dem = self.__extract_dem(point_cloud_file)
+            _ = self.__update_camera_data(project_file)
+            _ = self.__compare_camera_positions(
                 self.input_images_metadata_file,
                 self.bundle_adjusted_metadata_file,
                 "Initial vs Bundle Adjusted",
@@ -105,9 +151,9 @@ class Pipeline:
             )
 
             # 2. Point Cloud Alignment
-            aligned_dem_file, transform = __pc_align_routine(dem)
-            df = __apply_transform_and_update_camera_data(transform)
-            __compare_camera_positions(
+            aligned_dem_file, transform = self.__pc_align_routine(dem)
+            df = self.__apply_transform_and_update_camera_data(transform)
+            _ = self.__compare_camera_positions(
                 self.bundle_adjusted_metadata_file,
                 self.aligned_bundle_adjusted_metadata_file,
                 "Bundle Adjusted vs Bundle Adjusted and Aligned",
@@ -115,15 +161,15 @@ class Pipeline:
             )
 
             # 3. DEM Coregistration Alignment
-            __nuth_kaab_align_routine(aligned_dem_file)
-            __apply_nuth_transform_and_update_camera_data(df)
-            __compare_camera_positions(
+            _ = self.__nuth_kaab_align_routine(aligned_dem_file)
+            _ = self.__apply_nuth_transform_and_update_camera_data(df)
+            _ = self.__compare_camera_positions(
                 self.aligned_bundle_adjusted_metadata_file,
                 self.nuthed_aligned_bundle_adjusted_metadata_file,
                 "Bundle Adjusted + Aligned vs Bundle Adjusted + Aligned + Nuth-Aligned",
                 "bundle_adj_and_aligned_vs_bundle_adj_and_aligned_and_nuthed_offsets.png",
             )
-            __compare_camera_positions(
+            _ = self.__compare_camera_positions(
                 self.input_images_metadata_file,
                 self.nuthed_aligned_bundle_adjusted_metadata_file,
                 "Original vs Bundle Adjusted + Aligned + Nuth-Aligned",
@@ -134,19 +180,19 @@ class Pipeline:
         else:
             print("Exiting...Metashape is not activated.")
 
-    def __is_metashape_activated():
+    def __is_metashape_activated(self):
         print("Checking Metashape authentication...")
         # ToDo I don't like that the authentication method called below creates a symlink...can we avoid that or clean it up later?
         import Metashape
 
-        hsfm.metashape.authentication(metashape_licence_file)
+        hsfm.metashape.authentication(self.license_path)
         print(Metashape.app.activated)
         return Metashape.app.activated
 
-    def __get_focal_length_from_metadata_file(file):
+    def __get_focal_length_from_metadata_file(self, file):
         return pd.read_csv(file)["focal_length"][0]
 
-    def __run_metashape():
+    def __run_metashape(self):
         print("Running Metashape Camera Bundle Adjustment and Point Cloud Creation...")
         project_file, point_cloud_file = hsfm.metashape.images2las(
             self.project_name,
@@ -161,7 +207,7 @@ class Pipeline:
         )
         return project_file, point_cloud_file
 
-    def __extract_orthomosaic():
+    def __extract_orthomosaic(self):
         print("Extracting Orthomosaic...")
         hsfm.metashape.images2ortho(
             self.project_name,
@@ -171,7 +217,7 @@ class Pipeline:
             iteration=0,
         )
 
-    def __extract_dem(point_cloud_file):
+    def __extract_dem(self, point_cloud_file):
         print("Extracting DEM...")
         epsg_code = "EPSG:" + hsfm.geospatial.get_epsg_code(self.reference_dem)
         dem = hsfm.asp.point2dem(
@@ -187,7 +233,7 @@ class Pipeline:
         )
         return dem
 
-    def __update_camera_data(project_file):
+    def __update_camera_data(self, project_file):
         print("Updating and extracting bundle-adjusted camera metadata...")
         ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(
             metashape_project_file=project_file,
@@ -196,7 +242,7 @@ class Pipeline:
         ba_cameras_df.to_csv(self.bundle_adjusted_metadata_file, index=False)
 
     def __compare_camera_positions(
-        metadata_file_1, metadata_file_2, title, plot_file_name
+        self, metadata_file_1, metadata_file_2, title, plot_file_name
     ):
         print("Comparing and plotting camera position changes...")
         x_offset, y_offset, z_offset = hsfm.core.compute_point_offsets(
@@ -216,7 +262,7 @@ class Pipeline:
             plot_file_name=os.path.join(self.output_path, plot_file_name),
         )
 
-    def __pc_align_routine(dem):
+    def __pc_align_routine(self, dem):
         print("Running Point Cloud Alignment Routine...")
         clipped_reference_dem_file = hsfm.utils.clip_reference_dem(
             dem,
@@ -230,7 +276,7 @@ class Pipeline:
         )
         return aligned_dem_file, transform
 
-    def __apply_transform_and_update_camera_data(transform):
+    def __apply_transform_and_update_camera_data(self, transform):
         print("Applying PC alignment transform to bundle-adjusted camera positions...")
         hsfm.core.metadata_transform(
             self.bundle_adjusted_metadata_file,
@@ -243,7 +289,7 @@ class Pipeline:
         ]
         return df
 
-    def __nuth_kaab_align_routine(aligned_dem_file):
+    def __nuth_kaab_align_routine(self, aligned_dem_file):
         print("Running Nuth and Kaab Alignment Routine...")
         hsfm.utils.dem_align_custom(
             self.clipped_reference_dem_file,
@@ -252,12 +298,12 @@ class Pipeline:
             verbose=self.verbose,
         )
 
-    def __apply_nuth_transform_and_update_camera_data(df):
+    def __apply_nuth_transform_and_update_camera_data(self, df):
         print(
             "Applying transform from Nuth and Kaab to aligned and bundle adjusted camera positions..."
         )
 
-        path = __find_first_json_file_in_nested_directory(
+        path = self.__find_first_json_file_in_nested_directory(
             os.path.join(self.output_path, "pc_align")
         )
         with open(os.path.join(self.output_path, "pc_align", path)) as src:
@@ -282,7 +328,7 @@ class Pipeline:
         df.to_csv(self.nuthed_aligned_bundle_adjusted_metadata_file, index=False)
 
     # This is kind of hacky... but works to find the Nuth and Kaab algorithm's json file output...at least in my experience.
-    def __find_first_json_file_in_nested_directory(directory):
+    def __find_first_json_file_in_nested_directory(self, directory):
         file_list = []
         dir_list = []
         for root, dirs, files in os.walk(directory):
@@ -293,3 +339,109 @@ class Pipeline:
                 file_list.append(json_files[0])
         if len(file_list) > 0:
             return os.path.join(dir_list[0], file_list[0])
+
+
+########################################################################################
+########################################################################################
+#
+# App code
+# Run like this
+#
+#   nohup python hsfm/pipeline/pipeline.py \
+#       --reference-dem            /data2/elilouis/hsfm-geomorph/data/reference_dem_highres/rainier_lidar_dsm-adj.tif \
+#       --input-images-path        /data2/elilouis/rainier_carbon/input_data/94V6/09/16/arc_cropped_images/ \
+#       --project-name             rainier_carbon_94 \
+#       --output-path                   /data2/elilouis/rainier_carbon_94/ \
+#       --input-images-metadata-file    /data2/elilouis/rainier_carbon/input_data/94V6/09/16/sfm/cluster_000/metashape_metadata.csv \
+#       --densecloud-quality            3 \
+#       --image-matching-accuracy       4 \
+#       --pixel-pitch 0                 .02 \
+#       --license-path uw_agisoft.lic &
+#
+########################################################################################
+########################################################################################
+def __parse_args():
+    parser = argparse.ArgumentParser("Run the HSFM Pipeline on a batch of images.")
+    parser.add_argument(
+        "-r", "--reference-dem", help="Path to reference DEM file.", required=True
+    )
+    parser.add_argument(
+        "-m",
+        "--input-images-path",
+        help="Path to directory containing preprocessed input images listed in the input images metadata file.",
+        required=True,
+    )
+    parser.add_argument(
+        "-p", "--project-name", help="Name for Metashape project files.", required=True
+    )
+    parser.add_argument(
+        "-o",
+        "--output-path",
+        help="Path to directory where pipeline output will be stored.",
+        required=True,
+    )
+    parser.add_argument(
+        "-f",
+        "--input-images-metadata-file",
+        help="Path to csv file containing appropriate Metashape metadata with files names.",
+        required=True,
+    )
+    parser.add_argument(
+        "-q",
+        "--densecloud-quality",
+        help="Densecloud quality parameter for Metashape. Values include 1 - 4, from highest to lowest quality.",
+        required=True,
+        type=int,
+    )
+    parser.add_argument(
+        "-a",
+        "--image-matching-accuracy",
+        help="Image matching accuracy parameter for Metashape. Values include 1 - 4, from highest to lowest quality.",
+        required=True,
+        type=int,
+    )
+    parser.add_argument(
+        "-t",
+        "--output-resolution",
+        help="Output DEM target resolution",
+        required=True,
+        type=float,
+    )
+    parser.add_argument(
+        "-x",
+        "--pixel-pitch",
+        help="Pixel pitch/scanning resolution.",
+        required=True,
+        type=float,
+    )
+    parser.add_argument(
+        "-l", "--license-path", help="Path to Agisoft license file", required=False
+    )
+    parser.add_argument(
+        "-i", "--iterations", help="Iterations of the pipeline to run.", required=True
+    )
+    return parser.parse_args()
+
+
+def main():
+    print("Parsing arguments...")
+    args = __parse_args()
+    print(f"Arguments: \n\t {args}")
+    pipeline = hsfm.pipeline.Pipeline(
+        args.input_images_path,
+        args.reference_dem,
+        args.pixel_pitch,
+        args.image_matching_accuracy,
+        args.densecloud_quality,
+        args.output_resolution,
+        args.project_name,
+        args.output_path,
+        args.input_images_metadata_file,
+        license_path=args.license_path,
+    )
+    final_camera_metadata = pipeline.run_multi(args.iterations)
+    print(f"Final updated camera metadata at path {final_camera_metadata}")
+
+
+if __name__ == "__main__":
+    main()
