@@ -29,6 +29,7 @@ class NAGAPTimesiftPipeline:
         pixel_pitch=0.02,
         license_path="uw_agisoft.lic",
         parallelization=1,
+        exclude_years=[]
     ):
         """Initialize car attributes."""
         self.output_directory = output_directory
@@ -59,6 +60,11 @@ class NAGAPTimesiftPipeline:
         self.selected_images_df = hipp.dataquery.NAGAP_pre_select_images(
             nagap_metadata_csv, bounds=self.bounds
         )
+        if exclude_years != []:
+            print(f'Excluding images from years {exclude_years}')
+            self.selected_images_df = self.selected_images_df[
+                ~self.selected_images_df.Year.isin(self.exclude_years)
+            ]
 
     def run(self):
         """Run the full pipeline.
@@ -69,15 +75,15 @@ class NAGAPTimesiftPipeline:
         3. For each date, use hsfm.pipeline.Pipeline to generate and align a multi-epoch
             densecloud.
         """
-        _ = __download_and_preprocess_images()
-        metadata_original_file = __prepare_metashape_metadata_file()
-        metadata_timesift_aligned_file = __generate_multi_epoch_densecloud(
+        _ = self.__download_and_preprocess_images()
+        metadata_original_file = self.__prepare_metashape_metadata_file()
+        metadata_timesift_aligned_file = self.__generate_multi_epoch_densecloud(
             metadata_original_file
         )
-        _ = __prepare_individual_clouds_data(
+        _ = self.__prepare_individual_clouds_data(
             metadata_original_file, metadata_timesift_aligned_file
         )
-        _ = __process_all_individual_clouds()
+        _ = self.__process_all_individual_clouds()
 
     def __download_and_preprocess_images(self):
         print("Downloading and preprocessing images...")
@@ -130,14 +136,6 @@ class NAGAPTimesiftPipeline:
                 missing_proxy=None,
             )
 
-            count_raw_images = len(list(Path(raw_image_dir).rglob("*.tif")))
-            count_preprocessed_images = len(
-                list(Path(self.preprocessed_images_path).rglob("*.tif"))
-            )
-            print(
-                f"Preprocessed {count_preprocessed_images} of {count_raw_images} raw images."
-            )
-
     def __prepare_metashape_metadata_file(self):
         print("Preparing Metashape metadata CSV file...")
         hsfm.core.prepare_metashape_metadata(
@@ -145,7 +143,7 @@ class NAGAPTimesiftPipeline:
             output_directory=self.output_directory,
         )
         return os.path.join(
-            output_directory, "metashape_metadata.csv"
+            self.output_directory, "metashape_metadata.csv"
         )  # this is the file created in the above method...annoying I have to recreate it
 
     def __generate_multi_epoch_densecloud(self, metadata_file):
@@ -229,11 +227,19 @@ class NAGAPTimesiftPipeline:
 
 ########################################################################################
 ########################################################################################
-#
 # App code
-# Run like this
-#
-#   nohup python hsfm/timesift/timesift.py \
+# Run like this (for bounds around Carbon Glacier)
+#   python hsfm/timesift/timesift.py \
+#       --output-path           /where/u/wanna/put/rainier_carbon_automated_timesift \
+#       --templates-dir         /path/to/src/code/hipp/examples/fiducial_proxy_detection/input_data/fiducials/nagap/ \
+#       --bounds                -121.7991 46.9902 -121.7399 46.8826 \
+#       --nagap-metadata-csv        /path/to/src/code/hipp/examples/fiducial_proxy_detection/input_data/nagap_image_metadata.csv \
+#       --densecloud-quality        2 \
+#       --image-matching-accuracy   1 \
+#       --output-resolution         1 \
+#       --pixel-pitch               0.02 \
+#       --parallelization           2 \
+#       --exclude-years             77
 #
 ########################################################################################
 ########################################################################################
@@ -254,7 +260,10 @@ def __parse_args():
     parser.add_argument(
         "-b",
         "--bounds",
-        help="Bounds for selecting images to process. Formatted as a list (ULLON, ULLAT, LRLON, LRLAT). ",
+        help="Bounds for selecting images to process. Formatted as a list of floats in order ULLON ULLAT LRLON LRLAT.",
+        nargs='+', 
+        default=[],
+        type=float,
     )
     parser.add_argument(
         "-m",
@@ -291,33 +300,42 @@ def __parse_args():
         type=float,
     )
     parser.add_argument(
-        "-l", "--license-path", help="Path to Agisoft license file", required=False
+        "-l", "--license-path", help="Path to Agisoft license file", required=True
     )
     parser.add_argument(
         "-p",
         "--parallelization",
         help="Number of parallel processes to spawn. Parallelization only happens when individual (single epoch) dense clouds are being processed.",
     )
+    parser.add_argument(
+        "-e",
+        "--exclude-years",
+        help="List of years you want to exclude from the processing. Useful if you know images from certain years are bad. Write 2 digit numbers i.e. for 1977, write 77.",
+        nargs='+',
+        default=[]
+    )
+    return parser.parse_args()
 
 
 def main():
     print("Parsing arguments...")
     args = __parse_args()
-    print(f"Arguments: \n\t {args}")
+    print(f"Arguments: \n\t {vars(args)}")
     bounds_tuple = tuple(args.bounds)
-    assert (len(bounds_tuple) == 4, "Bounds did not have 4 numbers.")
-    timesift_pipeline = hsfm.timesift.NAGAPTimesiftPipeline(
+    assert len(bounds_tuple) == 4, "Bounds did not have 4 numbers."
+    timesift_pipeline = NAGAPTimesiftPipeline(
         args.output_path,
-        args.teplates_dir,
+        args.templates_dir,
         bounds_tuple,
         args.nagap_metadata_csv,
         args.reference_dem,
         densecloud_quality=args.densecloud_quality,
         image_matching_accuracy=args.image_matching_accuracy,
-        output_DEM_resolution=args.output_DEM_resolution,
+        output_DEM_resolution=args.output_resolution,
         pixel_pitch=args.pixel_pitch,
         license_path=args.license_path,
         parallelization=args.parallelization,
+        exclude_years=args.exclude_years 
     )
     final_camera_metadata_list = timesift_pipeline.run()
     print(

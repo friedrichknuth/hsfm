@@ -121,7 +121,7 @@ class Pipeline:
         """
         for i in range(0, iterations):
             updated_cameras = self.run()
-            set_input_images_metadata_file(updated_cameras)
+            self.set_input_images_metadata_file(updated_cameras)
         return updated_cameras
 
     def set_input_images_metadata_file(self, updated_cameras):
@@ -135,7 +135,7 @@ class Pipeline:
         metashape_is_activated = self.__is_metashape_activated()
         if metashape_is_activated:
             print(
-                f"Running pipeline with {len(pd.read_csv(input_images_metadata_file))} input images."
+                f"Running pipeline with {len(pd.read_csv(self.input_images_metadata_file))} input images."
             )
 
             # 1. Structure from Motion
@@ -427,7 +427,7 @@ def main():
     print("Parsing arguments...")
     args = __parse_args()
     print(f"Arguments: \n\t {args}")
-    pipeline = hsfm.pipeline.Pipeline(
+    pipeline = Pipeline(
         args.input_images_path,
         args.reference_dem,
         args.pixel_pitch,
