@@ -69,7 +69,6 @@ def images2las(project_name,
 
     metashape_metadata_df = pd.read_csv(images_metadata_file)
     image_file_names = list(metashape_metadata_df['image_file_name'].values)
-    
     # can pass directory or list of image files if spread accross directories
     if isinstance(images_path, type('')):
         image_file_paths = sorted(glob.glob(os.path.join(images_path,'*.tif')))

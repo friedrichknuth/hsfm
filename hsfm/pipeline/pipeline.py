@@ -60,7 +60,6 @@ class Pipeline:
         input_images_metadata_file,
         license_path="uw_agisoft.lic",
         verbose=True,
-        rotation_enabled=True,
     ):
         """Initialize pipeline with parameters.
 
@@ -76,7 +75,6 @@ class Pipeline:
             input_images_metadata_file (str): Path to file containing list of preprocessed aerial image file names and the metadata necessary for Metashape.
             license_path (str, optional): [description]. Path to Agisoft license. Defaults to "uw_agisoft.lic".
             verbose (bool, optional): [description]. More logging. Defaults to True.
-            rotation_enabled (bool, optional): [description]. Allow rotation of camera bundle during Metashape SfM processing. Defaults to True.
         """
         self.input_images_path = input_images_path
         self.reference_dem = reference_dem
@@ -89,21 +87,15 @@ class Pipeline:
         self.input_images_metadata_file = input_images_metadata_file
         self.license_path = license_path
         self.verbose = verbose
-        self.rotation_enabled = rotation_enabled
 
+        self.original_output_path = self.output_path
+
+        # TODO: ALL OF THESE PATHS NEED TO BE UPDATED WHEN OUTPUT PATH IS UPDATED FOR MULTIPLE ITERATIONS
         # Assign paths for files that we will create
-        self.bundle_adjusted_metadata_file = os.path.join(
-            output_path, "metaflow_bundle_adj_metadata.csv"
-        )
-        self.aligned_bundle_adjusted_metadata_file = os.path.join(
-            output_path, "aligned_bundle_adj_metadata.csv"
-        )
-        self.nuthed_aligned_bundle_adjusted_metadata_file = os.path.join(
-            output_path, "nuth_aligned_bundle_adj_metadata.csv"
-        )
-        self.clipped_reference_dem_file = os.path.join(
-            output_path, "reference_dem_clipped.tif"
-        )
+        self.bundle_adjusted_metadata_file = os.path.join(output_path, "metaflow_bundle_adj_metadata.csv")
+        self.aligned_bundle_adjusted_metadata_file = os.path.join(output_path, "aligned_bundle_adj_metadata.csv")
+        self.nuthed_aligned_bundle_adjusted_metadata_file = os.path.join(output_path, "nuth_aligned_bundle_adj_metadata.csv")
+        self.clipped_reference_dem_file = os.path.join(output_path, "reference_dem_clipped.tif")
 
         # Get some data that the pipeline needs
         self.focal_length = self.__get_focal_length_from_metadata_file(
@@ -113,22 +105,52 @@ class Pipeline:
     def run_multi(self, iterations=3):
         """Run n pipeline iterations for further alignment/refinement.
         The final output camera locations of one pipeline iteration are fed in as the original camera positions
-        for the subsequent pipeline run.
-        Has the side effect of modifying self.input_images_metadatafile.
+        for the subsequent pipeline run. During the first iteration, the Metashape rotation_enabled parameter is 
+        True and for subsequent iterations is false.
+        Has the side effect of modifying multiple class fields by calling 
+            self.__set_input_images_metadata_file and self.__update_output_paths
 
         Args:
-            iterations (int, optional): Number of times to run the pipeline. Defaults to 3
+            iterations (int, optional): Number of times to run the pipeline. Defaults to 3.
         """
+        rotation_enabled = True
         for i in range(0, iterations):
-            updated_cameras = self.run()
-            self.set_input_images_metadata_file(updated_cameras)
+            self.__update_output_paths(os.path.join(self.original_output_path, str(i) + '/')) # need this '/' due to internal part of HSFM not using os.path.join
+            updated_cameras = self.run(rotation_enabled)
+            self.__set_input_images_metadata_file(updated_cameras)
+            rotation_enabled = False
         return updated_cameras
 
-    def set_input_images_metadata_file(self, updated_cameras):
+    def __update_output_paths(self, new_output_path):
+        """
+        Has the side effect of modifying:
+            self.output_path
+            self.bundle_adjusted_metadata_file
+            self.aligned_bundle_adjusted_metadata_file
+            self.nuthed_aligned_bundle_adjusted_metadata_file
+        """
+        # TODO this is really ugly and contradicts the creation of these variables above...maybe multi_run should be a separate class...
+        self.output_path = new_output_path
+        self.bundle_adjusted_metadata_file = os.path.join(self.output_path, "metaflow_bundle_adj_metadata.csv")
+        self.aligned_bundle_adjusted_metadata_file = os.path.join(self.output_path, "aligned_bundle_adj_metadata.csv")
+        self.nuthed_aligned_bundle_adjusted_metadata_file = os.path.join(self.output_path, "nuth_aligned_bundle_adj_metadata.csv")
+
+    def __set_input_images_metadata_file(self, updated_cameras):
+        """
+        Has the side effect of modifying self.input_images_metadata_file.
+        """
         self.input_images_metadata_file = updated_cameras
 
-    def run(self):
+    def run(self, rotation_enabled=True, return_nuth_cameras=False):
         """Run all steps in the pipeline.
+        1. Generates a dense point cloud using Metashape's SfM algorithm.
+        2. Aligns the point cloud to a reference DEM using an internally defined NASA ASP pc_align routine.
+        3. Align the point cloud using the Nuth and Kaab Algorithm.
+        Args:
+            rotation_enabled (bool, optional): Metashape parameter.. Defaults to True.
+            return_nuth_cameras (bool, optional): Return a camera positions file that 
+                includes the Nuth and Kaab transform. Defaults to False.
+
         Returns:
             str: Path to CSV file containing the most updated/aligned camera positions after all pipeline steps.
         """
@@ -138,8 +160,8 @@ class Pipeline:
                 f"Running pipeline with {len(pd.read_csv(self.input_images_metadata_file))} input images."
             )
 
-            # 1. Structure from Motion
-            project_file, point_cloud_file = self.__run_metashape()
+            # 1. Structure from Motion                
+            project_file, point_cloud_file = self.__run_metashape(rotation_enabled)
             _ = self.__extract_orthomosaic()
             dem = self.__extract_dem(point_cloud_file)
             _ = self.__update_camera_data(project_file)
@@ -175,8 +197,10 @@ class Pipeline:
                 "Original vs Bundle Adjusted + Aligned + Nuth-Aligned",
                 "og_vs_final_offsets.png",
             )
-
-            return self.nuthed_aligned_bundle_adjusted_metadata_file
+            if return_nuth_cameras:
+                return self.nuthed_aligned_bundle_adjusted_metadata_file
+            else:
+                return self.aligned_bundle_adjusted_metadata_file
         else:
             print("Exiting...Metashape is not activated.")
 
@@ -192,8 +216,11 @@ class Pipeline:
     def __get_focal_length_from_metadata_file(self, file):
         return pd.read_csv(file)["focal_length"][0]
 
-    def __run_metashape(self):
-        print("Running Metashape Camera Bundle Adjustment and Point Cloud Creation...")
+    def __run_metashape(self, rotation_enabled):
+        """Makes sure yaw, pitch, and roll columns are set to 0 for the camera metadata.
+        """
+        self.__reset_yaw_pitch_roll(self.input_images_metadata_file)
+        print(f"Running Metashape Camera Bundle Adjustment and Point Cloud Creation with camera metadata file {self.input_images_metadata_file}...")
         project_file, point_cloud_file = hsfm.metashape.images2las(
             self.project_name,
             self.input_images_path,
@@ -206,6 +233,11 @@ class Pipeline:
             rotation_enabled=self.rotation_enabled,
         )
         return project_file, point_cloud_file
+    
+    def __reset_yaw_pitch_roll(self, camera_metadata_file_path):
+        df = pd.read_csv(camera_metadata_file_path)
+        df["yaw"] = df["pitch"] = df["roll"] = 0
+        df.to_csv(camera_metadata_file_path, index=False)
 
     def __extract_orthomosaic(self):
         print("Extracting Orthomosaic...")
@@ -283,6 +315,7 @@ class Pipeline:
             transform,
             output_file_name=self.aligned_bundle_adjusted_metadata_file,
         )
+        #ToDo add focal_length column to saved CSV FIRST...
         df = pd.read_csv(self.aligned_bundle_adjusted_metadata_file)
         df["focal_length"] = pd.read_csv(self.input_images_metadata_file)[
             "focal_length"
@@ -349,13 +382,14 @@ class Pipeline:
 #
 #   nohup python hsfm/pipeline/pipeline.py \
 #       --reference-dem            /data2/elilouis/hsfm-geomorph/data/reference_dem_highres/rainier_lidar_dsm-adj.tif \
-#       --input-images-path        /data2/elilouis/rainier_carbon/input_data/94V6/09/16/arc_cropped_images/ \
-#       --project-name             rainier_carbon_94 \
-#       --output-path                   /data2/elilouis/rainier_carbon_94/ \
-#       --input-images-metadata-file    /data2/elilouis/rainier_carbon/input_data/94V6/09/16/sfm/cluster_000/metashape_metadata.csv \
-#       --densecloud-quality            3 \
+#       --input-images-path        /data2/elilouis/rainier_carbon_timesift/preprocessed_images \
+#       --project-name             test \
+#       --output-path                   /data2/elilouis/rainier_carbon_timesift/rainier_carbon_post_timesift_hsfm/73_0_0_test/ \
+#       --input-images-metadata-file    /data2/elilouis/rainier_carbon_timesift/rainier_carbon_post_timesift_hsfm/73_0_0_test/metashape_metadata.csv \
+#       --densecloud-quality            4 \
 #       --image-matching-accuracy       4 \
-#       --pixel-pitch 0                 .02 \
+#       --output-resolution 2 \
+#       --pixel-pitch                   0.02 \
 #       --license-path uw_agisoft.lic &
 #
 ########################################################################################
@@ -418,7 +452,7 @@ def __parse_args():
         "-l", "--license-path", help="Path to Agisoft license file", required=False
     )
     parser.add_argument(
-        "-i", "--iterations", help="Iterations of the pipeline to run.", required=True
+        "-i", "--iterations", help="Iterations of the pipeline to run.", default=3
     )
     return parser.parse_args()
 

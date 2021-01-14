@@ -8,7 +8,6 @@ from joblib import Parallel, delayed
 import multiprocessing
 import argparse
 
-
 class NAGAPTimesiftPipeline:
     """
     Timesift Historical Structure from Motion pipeline.
@@ -29,9 +28,8 @@ class NAGAPTimesiftPipeline:
         pixel_pitch=0.02,
         license_path="uw_agisoft.lic",
         parallelization=1,
-        exclude_years=[]
+        exclude_years=None
     ):
-        """Initialize car attributes."""
         self.output_directory = output_directory
         self.templates_dir = templates_dir  # this lives in the hipp library...
         self.bounds = bounds
@@ -60,11 +58,14 @@ class NAGAPTimesiftPipeline:
         self.selected_images_df = hipp.dataquery.NAGAP_pre_select_images(
             nagap_metadata_csv, bounds=self.bounds
         )
-        if exclude_years != []:
-            print(f'Excluding images from years {exclude_years}')
+        if exclude_years:
+            print(f"Excluding images from years {exclude_years}")
+            og_image_num = len(self.selected_images_df)
             self.selected_images_df = self.selected_images_df[
-                ~self.selected_images_df.Year.isin(self.exclude_years)
+                ~self.selected_images_df.Year.isin(exclude_years)
             ]
+            final_image_num = len(self.selected_images_df)
+            print(f"Removed {og_image_num - final_image_num} images.")
 
     def run(self):
         """Run the full pipeline.
@@ -251,39 +252,48 @@ def __parse_args():
         "-o",
         "--output-path",
         help="Path to directory where pipeline outputs will be stored.",
+        required=True,
     )
     parser.add_argument(
         "-t",
         "--templates-dir",
         help="Path to directory containing NAGAP fiducial marker proxys. Contained in the hipp python package.",
+        required=True,
     )
     parser.add_argument(
         "-b",
         "--bounds",
         help="Bounds for selecting images to process. Formatted as a list of floats in order ULLON ULLAT LRLON LRLAT.",
-        nargs='+', 
+        nargs="+",
         default=[],
         type=float,
+        required=True,
     )
     parser.add_argument(
         "-m",
         "--nagap-metadata-csv",
         help="Path to NAGAP metadata csv file. Contained in the hipp python package.",
+        required=True,
     )
-    parser.add_argument("-r", "--reference-dem", help="Path to reference dem.")
+    parser.add_argument(
+        "-r",
+        "--reference-dem",
+        help="Path to reference dem.",
+        required=True,
+    )
     parser.add_argument(
         "-q",
         "--densecloud-quality",
         help="Densecloud quality parameter for Metashape. Values include 1 - 4, from highest to lowest quality.",
-        required=True,
         type=int,
+        default=2,
     )
     parser.add_argument(
         "-a",
         "--image-matching-accuracy",
         help="Image matching accuracy parameter for Metashape. Values include 1 - 4, from highest to lowest quality.",
-        required=True,
         type=int,
+        default=1,
     )
     parser.add_argument(
         "-s",
@@ -306,13 +316,13 @@ def __parse_args():
         "-p",
         "--parallelization",
         help="Number of parallel processes to spawn. Parallelization only happens when individual (single epoch) dense clouds are being processed.",
+        default=2,
     )
     parser.add_argument(
         "-e",
         "--exclude-years",
         help="List of years you want to exclude from the processing. Useful if you know images from certain years are bad. Write 2 digit numbers i.e. for 1977, write 77.",
-        nargs='+',
-        default=[]
+        nargs="+"
     )
     return parser.parse_args()
 
@@ -335,7 +345,7 @@ def main():
         pixel_pitch=args.pixel_pitch,
         license_path=args.license_path,
         parallelization=args.parallelization,
-        exclude_years=args.exclude_years 
+        exclude_years=args.exclude_years,
     )
     final_camera_metadata_list = timesift_pipeline.run()
     print(
