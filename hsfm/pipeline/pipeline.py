@@ -230,7 +230,7 @@ class Pipeline:
             pixel_pitch=self.pixel_pitch,
             image_matching_accuracy=self.image_matching_accuracy,
             densecloud_quality=self.densecloud_quality,
-            rotation_enabled=self.rotation_enabled,
+            rotation_enabled=rotation_enabled,
         )
         return project_file, point_cloud_file
     
