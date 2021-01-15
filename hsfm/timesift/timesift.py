@@ -84,7 +84,8 @@ class NAGAPTimesiftPipeline:
         _ = self.__prepare_individual_clouds_data(
             self.selected_images_df, metadata_timesift_aligned_file
         )
-        _ = self.__process_all_individual_clouds()
+        final_camera_location_files = self.__process_all_individual_clouds()
+        return final_camera_location_files
 
     def __download_and_preprocess_images(self):
         """Iterates over images grouped by fiducial marker type, roll, and date. Downloads
@@ -175,7 +176,7 @@ class NAGAPTimesiftPipeline:
         """
         print("Preparing data for individual clouds...")
         aligned_cameras_df = pd.read_csv(aligned_cameras_file)
-        original_cameras_df = original_cameras_df[["fileName", "Year", "Month", "Day", "focal_length"]]
+        original_cameras_df = original_cameras_df[["fileName", "Year", "Month", "Day"]]
         original_cameras_df["image_file_name"] = original_cameras_df["fileName"] + ".tif"
         joined_df = pd.merge(original_cameras_df, aligned_cameras_df, on="image_file_name")
         joined_df["Month"] = joined_df["Month"].fillna("0")
@@ -190,6 +191,8 @@ class NAGAPTimesiftPipeline:
         for date_string, df in datestrings_and_dfs:
             # Drop unncessary-for-processing columns (we only needed them to separate by year)
             df = df.drop(["fileName", "Year", "Month", "Day"], axis=1)
+            # Put columns in proper order
+            df = df[["image_file_name","lon","lat","alt","lon_acc","lat_acc","alt_acc","yaw","pitch","roll","yaw_acc","pitch_acc","roll_acc","focal_length"]]
             csv_output_path = os.path.join(
                 self.individual_clouds_output_path,
                 date_string,

@@ -271,6 +271,7 @@ class Pipeline:
             metashape_project_file=project_file,
             metashape_metadata_csv=self.input_images_metadata_file,
         )
+        ba_cameras_df['focal_length'] = self.focal_length
         ba_cameras_df.to_csv(self.bundle_adjusted_metadata_file, index=False)
 
     def __compare_camera_positions(
@@ -320,6 +321,7 @@ class Pipeline:
         df["focal_length"] = pd.read_csv(self.input_images_metadata_file)[
             "focal_length"
         ]
+        df.to_csv(self.aligned_bundle_adjusted_metadata_file, index=False)
         return df
 
     def __nuth_kaab_align_routine(self, aligned_dem_file):
