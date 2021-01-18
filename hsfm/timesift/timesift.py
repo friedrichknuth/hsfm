@@ -8,6 +8,7 @@ from joblib import Parallel, delayed
 import argparse
 import functools
 
+
 class NAGAPTimesiftPipeline:
     """
     Timesift Historical Structure from Motion pipeline.
@@ -28,7 +29,7 @@ class NAGAPTimesiftPipeline:
         pixel_pitch=0.02,
         license_path="uw_agisoft.lic",
         parallelization=1,
-        exclude_years=None
+        exclude_years=None,
     ):
         self.output_directory = output_directory
         self.templates_dir = templates_dir  # this lives in the hipp library...
@@ -67,7 +68,7 @@ class NAGAPTimesiftPipeline:
             final_image_num = len(self.selected_images_df)
             print(f"Removed {og_image_num - final_image_num} images.")
 
-    def run(self):
+    def run(self, skip_preprocessing=False):
         """Run the full pipeline.
         1. Download, preprocess (cropping, principal point) raw NAGAP images, and
             use hsfm.pipeline.Pipeline to generate and align a multi-epoch densecloud.
@@ -76,8 +77,14 @@ class NAGAPTimesiftPipeline:
         3. For each date, use hsfm.pipeline.Pipeline to generate and align a multi-epoch
             densecloud.
         """
-        _ = self.__download_and_preprocess_images()
-        metadata_original_file = self.__prepare_metashape_metadata_file()
+        if not skip_preprocessing:
+            _ = self.__download_and_preprocess_images()
+            metadata_original_file = self.__prepare_metashape_metadata_file()
+        else:
+            metadata_original_file = os.path.join(
+                self.output_directory, "metashape_metadata.csv" # see self.__prepare_metashape_metadata_file for where this file name comes from...not ideal
+            )
+
         metadata_timesift_aligned_file = self.__generate_multi_epoch_densecloud(
             metadata_original_file
         )
@@ -172,27 +179,45 @@ class NAGAPTimesiftPipeline:
     def __prepare_individual_clouds_data(
         self, original_cameras_df, aligned_cameras_file
     ):
-        """Create a CSV file of image metadata for each date.
-        """
+        """Create a CSV file of image metadata for each date."""
         print("Preparing data for individual clouds...")
         aligned_cameras_df = pd.read_csv(aligned_cameras_file)
         original_cameras_df = original_cameras_df[["fileName", "Year", "Month", "Day"]]
-        original_cameras_df["image_file_name"] = original_cameras_df["fileName"] + ".tif"
-        joined_df = pd.merge(original_cameras_df, aligned_cameras_df, on="image_file_name")
+        original_cameras_df["image_file_name"] = (
+            original_cameras_df["fileName"] + ".tif"
+        )
+        joined_df = pd.merge(
+            original_cameras_df, aligned_cameras_df, on="image_file_name"
+        )
         joined_df["Month"] = joined_df["Month"].fillna("0")
         joined_df["Day"] = joined_df["Day"].fillna("0")
         datestrings_and_dfs = [
             ("_".join(date_tuple), df)
-            for date_tuple, df in joined_df.groupby(
-                ["Year", "Month", "Day"]
-            )
+            for date_tuple, df in joined_df.groupby(["Year", "Month", "Day"])
         ]
         daily_dir_names = []
         for date_string, df in datestrings_and_dfs:
             # Drop unncessary-for-processing columns (we only needed them to separate by year)
             df = df.drop(["fileName", "Year", "Month", "Day"], axis=1)
             # Put columns in proper order
-            df = df[["image_file_name","lon","lat","alt","lon_acc","lat_acc","alt_acc","yaw","pitch","roll","yaw_acc","pitch_acc","roll_acc","focal_length"]]
+            df = df[
+                [
+                    "image_file_name",
+                    "lon",
+                    "lat",
+                    "alt",
+                    "lon_acc",
+                    "lat_acc",
+                    "alt_acc",
+                    "yaw",
+                    "pitch",
+                    "roll",
+                    "yaw_acc",
+                    "pitch_acc",
+                    "roll_acc",
+                    "focal_length",
+                ]
+            ]
             csv_output_path = os.path.join(
                 self.individual_clouds_output_path,
                 date_string,
@@ -209,19 +234,20 @@ class NAGAPTimesiftPipeline:
         individual_sfm_dirs = os.listdir(self.individual_clouds_output_path)
         process_image_batch_partial = functools.partial(
             process_image_batch,
-            preprocessed_images_path = self.preprocessed_images_path,
-            reference_dem = self.reference_dem,
-            pixel_pitch = self.pixel_pitch,
-            image_matching_accuracy = self.image_matching_accuracy,
-            densecloud_quality = self.densecloud_quality,
-            output_DEM_resolution = self.output_DEM_resolution,
-            individual_clouds_output_path = self.individual_clouds_output_path,
-            license_path = self.license_path
+            preprocessed_images_path=self.preprocessed_images_path,
+            reference_dem=self.reference_dem,
+            pixel_pitch=self.pixel_pitch,
+            image_matching_accuracy=self.image_matching_accuracy,
+            densecloud_quality=self.densecloud_quality,
+            output_DEM_resolution=self.output_DEM_resolution,
+            individual_clouds_output_path=self.individual_clouds_output_path,
+            license_path=self.license_path,
         )
         results = Parallel(n_jobs=self.parallelization)(
             delayed(process_image_batch_partial)(i) for i in individual_sfm_dirs
         )
         return results
+
 
 def process_image_batch(
     individual_sfm_dir,
@@ -232,18 +258,16 @@ def process_image_batch(
     densecloud_quality,
     output_DEM_resolution,
     individual_clouds_output_path,
-    license_path
+    license_path,
 ):
-    """Wrapper function to create a Pipeline and call run_multi for a single-date 
-    batch of images. It is outside of the NAGAPTimesiftPipeline class because 
+    """Wrapper function to create a Pipeline and call run_multi for a single-date
+    batch of images. It is outside of the NAGAPTimesiftPipeline class because
     we call it in parallel.
 
     ToDo: Put this in a better place.
     """
     print(f"\tProcessing image batch for    date {individual_sfm_dir}")
-    output_path = os.path.join(
-        individual_clouds_output_path, individual_sfm_dir
-    )
+    output_path = os.path.join(individual_clouds_output_path, individual_sfm_dir)
     input_images_metadata_file = os.path.join(output_path, "metashape_metadata.csv")
     pipeline = Pipeline(
         preprocessed_images_path,
@@ -258,6 +282,7 @@ def process_image_batch(
         license_path=license_path,
     )
     return pipeline.run_multi()
+
 
 ########################################################################################
 ########################################################################################
@@ -350,13 +375,19 @@ def __parse_args():
         "--parallelization",
         help="Number of parallel processes to spawn. Parallelization only happens when individual (single epoch) dense clouds are being processed.",
         default=2,
-        type=int
+        type=int,
     )
     parser.add_argument(
         "-e",
         "--exclude-years",
         help="List of years you want to exclude from the processing. Useful if you know images from certain years are bad. Write 2 digit numbers i.e. for 1977, write 77.",
-        nargs="+"
+        nargs="+",
+    )
+    parser.add_argument(
+        "--skip-preprocessing",
+        help="Skip preprocessing steps (downloading, preprocessing images), go straight to multi-epoch densecloud creation.",
+        type=bool,
+        default=False
     )
     return parser.parse_args()
 
@@ -379,9 +410,9 @@ def main():
         pixel_pitch=args.pixel_pitch,
         license_path=args.license_path,
         parallelization=args.parallelization,
-        exclude_years=args.exclude_years,
+        exclude_years=args.exclude_years
     )
-    final_camera_metadata_list = timesift_pipeline.run()
+    final_camera_metadata_list = timesift_pipeline.run(args.skip_preprocessing)
     print(
         f"Final updated camera metadata files at paths:\n\t{final_camera_metadata_list}"
     )
