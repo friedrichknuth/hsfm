@@ -45,6 +45,7 @@ class NAGAPTimesiftPipeline:
         self.license_path = license_path
         self.parallelization = parallelization
 
+        self.multi_epoch_project_name = "multi_epoch_densecloud"
         # # Create a few variables
         self.preprocessed_images_path = os.path.join(
             output_directory, "preprocessed_images"
@@ -88,11 +89,15 @@ class NAGAPTimesiftPipeline:
         metadata_timesift_aligned_file = self.__generate_multi_epoch_densecloud(
             metadata_original_file
         )
-        _ = self.__prepare_individual_clouds_data(
+        
+        _ = self.__save_image_footprints()
+
+        _ = self.__prepare_single_data_data(
             self.selected_images_df, metadata_timesift_aligned_file
         )
-        final_camera_location_files = self.__process_all_individual_clouds()
-        return final_camera_location_files
+        _ = self.__find_clusters_in_individual_clouds()
+        # final_camera_location_files = self.__process_all_individual_clouds()
+        # return final_camera_location_files
 
     def __download_and_preprocess_images(self):
         """Iterates over images grouped by fiducial marker type, roll, and date. Downloads
@@ -167,16 +172,31 @@ class NAGAPTimesiftPipeline:
             self.image_matching_accuracy,
             self.densecloud_quality,
             self.output_DEM_resolution,
-            "multi_epoch_densecloud",
+            self.multi_epoch_project_name,
             self.multi_epoch_cloud_output_path,
             metadata_file,
             license_path=self.license_path,
         )
-        return pipeline.run()
+        return pipeline.run(export_orthomosaic=False, split_in_blocks=True)
+
+    def __save_image_footprints(self):
+        """Creates geojson file with image footprints exported from the timesift Metashape project 
+        file
+        """
+        gdf = hsfm.metashape.image_footprints_from_project(self.__get_timesift_project_path())
+        gdf.to_file(
+            os.path.join(self.output_directory, "timesifted_image_footprints.geojson"), 
+            driver="GeoJSON"
+        )
+
+
+    #TODO there must be a better alternative to this...
+    def __get_timesift_project_path(self):
+        return os.path.join(self.multi_epoch_cloud_output_path, self.multi_epoch_project_name + ".psx")
 
     # This has a lot of annoying data manipulation that could be avoided with better handling/updating
     # of camera position.
-    def __prepare_individual_clouds_data(
+    def __prepare_single_data_data(
         self, original_cameras_df, aligned_cameras_file
     ):
         """Create a CSV file of image metadata for each date."""
@@ -191,12 +211,10 @@ class NAGAPTimesiftPipeline:
         )
         joined_df["Month"] = joined_df["Month"].fillna("0")
         joined_df["Day"] = joined_df["Day"].fillna("0")
-        datestrings_and_dfs = [
-            ("_".join(date_tuple), df)
-            for date_tuple, df in joined_df.groupby(["Year", "Month", "Day"])
-        ]
+        
         daily_dir_names = []
-        for date_string, df in datestrings_and_dfs:
+        for date_tuple, df in joined_df.groupby(["Year", "Month", "Day"]):
+            date_string="_".join(date_tuple)
             # Drop unncessary-for-processing columns (we only needed them to separate by year)
             df = df.drop(["fileName", "Year", "Month", "Day"], axis=1)
             # Put columns in proper order
@@ -228,60 +246,91 @@ class NAGAPTimesiftPipeline:
                 os.makedirs(parent_dir)
             df.to_csv(csv_output_path, index=False)
             daily_dir_names.append(parent_dir)
+        
 
-    def __process_all_individual_clouds(self):
-        print("Processing all individual clouds...")
-        individual_sfm_dirs = os.listdir(self.individual_clouds_output_path)
-        process_image_batch_partial = functools.partial(
-            process_image_batch,
-            preprocessed_images_path=self.preprocessed_images_path,
-            reference_dem=self.reference_dem,
-            pixel_pitch=self.pixel_pitch,
-            image_matching_accuracy=self.image_matching_accuracy,
-            densecloud_quality=self.densecloud_quality,
-            output_DEM_resolution=self.output_DEM_resolution,
-            individual_clouds_output_path=self.individual_clouds_output_path,
-            license_path=self.license_path,
-        )
-        results = Parallel(n_jobs=self.parallelization)(
-            delayed(process_image_batch_partial)(i) for i in individual_sfm_dirs
-        )
-        return results
+    def __find_clusters_in_individual_clouds(self):
+        print("Searching all dates for clusters/subsets")
+        for individual_sfm_dir in os.listdir(self.individual_clouds_output_path):
+            print(f"Processing single date ({individual_sfm_dir}) images to check for clusters/subsets ...")
+            output_path = os.path.join(self.individual_clouds_output_path, individual_sfm_dir, "cluster_metashape_run")
+            input_images_metadata_file = os.path.join(self.individual_clouds_output_path, individual_sfm_dir, "metashape_metadata.csv")
+            metashape_project_file, point_cloud_file = hsfm.metashape.images2las(
+                individual_sfm_dir,
+                self.preprocessed_images_path,
+                input_images_metadata_file,
+                output_path,
+                focal_length            = pd.read_csv(input_images_metadata_file)['focal_length'].iloc[0],
+                pixel_pitch             = self.pixel_pitch,
+                image_matching_accuracy = self.image_matching_accuracy,
+                densecloud_quality      = self.densecloud_quality,
+                keypoint_limit          = 40000,
+                tiepoint_limit          = 4000,
+                rotation_enabled        = True,
+                export_point_cloud      = False
+            )
+            ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file, input_images_metadata_file)
+            ba_cameras_df.to_csv(input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv"))
+            subsets = hsfm.metashape.determine_clusters(metashape_project_file)
+            with open(
+                input_images_metadata_file.replace("metashape_metadata.csv", "subsets.txt"), 
+                'w'
+            ) as f:
+                f.write(str(subsets))
+            
+
+    # def __process_all_individual_clouds(self):
+    #     print("Processing all individual clouds...")
+    #     individual_sfm_dirs = os.listdir(self.individual_clouds_output_path)
+    #     process_image_batch_partial = functools.partial(
+    #         process_image_batch,
+    #         preprocessed_images_path=self.preprocessed_images_path,
+    #         reference_dem=self.reference_dem,
+    #         pixel_pitch=self.pixel_pitch,
+    #         image_matching_accuracy=self.image_matching_accuracy,
+    #         densecloud_quality=self.densecloud_quality,
+    #         output_DEM_resolution=self.output_DEM_resolution,
+    #         individual_clouds_output_path=self.individual_clouds_output_path,
+    #         license_path=self.license_path,
+    #     )
+    #     results = Parallel(n_jobs=self.parallelization)(
+    #         delayed(process_image_batch_partial)(i) for i in individual_sfm_dirs
+    #     )
+    #     return results
 
 
-def process_image_batch(
-    individual_sfm_dir,
-    preprocessed_images_path,
-    reference_dem,
-    pixel_pitch,
-    image_matching_accuracy,
-    densecloud_quality,
-    output_DEM_resolution,
-    individual_clouds_output_path,
-    license_path,
-):
-    """Wrapper function to create a Pipeline and call run_multi for a single-date
-    batch of images. It is outside of the NAGAPTimesiftPipeline class because
-    we call it in parallel.
+# def process_image_batch(
+#     individual_sfm_dir,
+#     preprocessed_images_path,
+#     reference_dem,
+#     pixel_pitch,
+#     image_matching_accuracy,
+#     densecloud_quality,
+#     output_DEM_resolution,
+#     individual_clouds_output_path,
+#     license_path,
+# ):
+#     """Wrapper function to create a Pipeline and call run_multi for a single-date
+#     batch of images. It is outside of the NAGAPTimesiftPipeline class because
+#     we call it in parallel.
 
-    ToDo: Put this in a better place.
-    """
-    print(f"\tProcessing image batch for    date {individual_sfm_dir}")
-    output_path = os.path.join(individual_clouds_output_path, individual_sfm_dir)
-    input_images_metadata_file = os.path.join(output_path, "metashape_metadata.csv")
-    pipeline = Pipeline(
-        preprocessed_images_path,
-        reference_dem,
-        pixel_pitch,
-        image_matching_accuracy,
-        densecloud_quality,
-        output_DEM_resolution,
-        individual_sfm_dir,
-        output_path,
-        input_images_metadata_file,
-        license_path=license_path,
-    )
-    return pipeline.run_multi()
+#     ToDo: Put this in a better place.
+#     """
+#     print(f"\tProcessing image batch for    date {individual_sfm_dir}")
+#     output_path = os.path.join(individual_clouds_output_path, individual_sfm_dir)
+#     input_images_metadata_file = os.path.join(output_path, "metashape_metadata.csv")
+#     pipeline = Pipeline(
+#         preprocessed_images_path,
+#         reference_dem,
+#         pixel_pitch,
+#         image_matching_accuracy,
+#         densecloud_quality,
+#         output_DEM_resolution,
+#         individual_sfm_dir,
+#         output_path,
+#         input_images_metadata_file,
+#         license_path=license_path,
+#     )
+#     return pipeline.run_multi()
 
 
 ########################################################################################

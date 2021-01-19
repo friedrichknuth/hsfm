@@ -164,7 +164,7 @@ class Pipeline:
         """
         self.input_images_metadata_file = updated_cameras
 
-    def run(self, rotation_enabled=True, return_nuth_cameras=False):
+    def run(self, rotation_enabled=True, return_nuth_cameras=False, export_orthomosaic=True, split_in_blocks=False):
         """Run all steps in the pipeline.
         1. Generates a dense point cloud using Metashape's SfM algorithm.
         2. Aligns the point cloud to a reference DEM using an internally defined NASA ASP pc_align routine.
@@ -185,7 +185,8 @@ class Pipeline:
 
             # 1. Structure from Motion
             project_file, point_cloud_file = self.__run_metashape(rotation_enabled)
-            _ = self.__extract_orthomosaic()
+            if export_orthomosaic:
+                _ = self.__extract_orthomosaic(split_in_blocks)
             dem = self.__extract_dem(point_cloud_file)
             _ = self.__update_camera_data(project_file)
             _ = self.__compare_camera_positions(
@@ -263,13 +264,13 @@ class Pipeline:
         df["yaw"] = df["pitch"] = df["roll"] = 0
         df.to_csv(camera_metadata_file_path, index=False)
 
-    def __extract_orthomosaic(self):
+    def __extract_orthomosaic(self, split_in_blocks=False):
         print("Extracting Orthomosaic...")
         hsfm.metashape.images2ortho(
             self.project_name,
             self.output_path,
             build_dem=True,
-            split_in_blocks=False,
+            split_in_blocks=split_in_blocks,
             iteration=0,
         )
 
