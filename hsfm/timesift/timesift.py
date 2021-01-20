@@ -78,26 +78,31 @@ class NAGAPTimesiftPipeline:
         3. For each date, use hsfm.pipeline.Pipeline to generate and align a multi-epoch
             densecloud.
         """
-        if not skip_preprocessing:
-            _ = self.__download_and_preprocess_images()
-            metadata_original_file = self.__prepare_metashape_metadata_file()
-        else:
-            metadata_original_file = os.path.join(
-                self.output_directory, "metashape_metadata.csv" # see self.__prepare_metashape_metadata_file for where this file name comes from...not ideal
-            )
+        # if not skip_preprocessing:
+        #     _ = self.__download_and_preprocess_images()
+        #     metadata_original_file = self.__prepare_metashape_metadata_file()
+        # else:
+        #     metadata_original_file = os.path.join(
+        #         self.output_directory, "metashape_metadata.csv" # see self.__prepare_metashape_metadata_file for where this file name comes from...not ideal
+        #     )
 
-        metadata_timesift_aligned_file = self.__generate_multi_epoch_densecloud(
-            metadata_original_file
-        )
-        
+        # metadata_timesift_aligned_file = self.__generate_multi_epoch_densecloud(
+        #     metadata_original_file
+        # )
+        metadata_timesift_aligned_file = "/data2/elilouis/baker/multi_epoch_cloud/aligned_bundle_adj_metadata.csv"
         _ = self.__save_image_footprints()
-
+        
+        # TODO: feed in multi-decadal aligned cameras (metadata_timesift_aligned_file) or use the 
+        #   single-date aligned cameras (crated in self.__find_clusters_in_individual_clouds)
         _ = self.__prepare_single_data_data(
             self.selected_images_df, metadata_timesift_aligned_file
         )
-        _ = self.__find_clusters_in_individual_clouds()
-        # final_camera_location_files = self.__process_all_individual_clouds()
-        # return final_camera_location_files
+        
+        dict_of_subsets_by_date = self.__find_clusters_in_individual_clouds()
+        
+        _ = self.__generate_subsets_for_each_date(dict_of_subsets_by_date)
+        
+        
 
     def __download_and_preprocess_images(self):
         """Iterates over images grouped by fiducial marker type, roll, and date. Downloads
@@ -250,6 +255,7 @@ class NAGAPTimesiftPipeline:
 
     def __find_clusters_in_individual_clouds(self):
         print("Searching all dates for clusters/subsets")
+        individual_dir_to_subset_list_dict = {}
         for individual_sfm_dir in os.listdir(self.individual_clouds_output_path):
             print(f"Processing single date ({individual_sfm_dir}) images to check for clusters/subsets ...")
             output_path = os.path.join(self.individual_clouds_output_path, individual_sfm_dir, "cluster_metashape_run")
@@ -270,13 +276,37 @@ class NAGAPTimesiftPipeline:
             )
             ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file, input_images_metadata_file)
             ba_cameras_df.to_csv(input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv"))
-            subsets = hsfm.metashape.determine_clusters(metashape_project_file)
+            list_of_subsets = hsfm.metashape.determine_clusters(metashape_project_file)
             with open(
                 input_images_metadata_file.replace("metashape_metadata.csv", "subsets.txt"), 
                 'w'
             ) as f:
-                f.write(str(subsets))
-            
+                f.write(str(list_of_subsets))
+            individual_dir_to_subset_list_dict[individual_sfm_dir] =  list_of_subsets
+        return individual_dir_to_subset_list_dict
+
+    def __generate_subsets_for_each_date(dict_of_subsets_by_date):
+        print("Generating subsets/clusters for each date.")
+        for individual_sfm_dir in os.listdir(self.individual_clouds_output_path):
+            input_images_metadata = pd.read_csv(
+                os.path.join(self.individual_clouds_output_path, individual_sfm_dir, "metashape_metadata.csv")
+            )
+            for index, subset in enumerate(dict_of_subsets_by_date[individual_sfm_dir]):
+                cluster_name = f"cluster{index}"
+                cluster_metashape_data = input_images_metadata[
+                    input_images_metadata['image_file_name'].str.replace(".tif", "").isin(subset)
+                ]
+                cluster_output_dir = os.path.join(self.individual_clouds_output_path, individual_sfm_dir, cluster_name)
+                if not os.path.exists(cluster_output_dir):
+                    os.makedirs(cluster_output_dir)
+                cluster_metashape_data.to_csv(
+                    os.path.join(cluster_output_dir, "metashape_metadata.csv"),
+                    index=False
+                )
+
+
+
+
 
     # def __process_all_individual_clouds(self):
     #     print("Processing all individual clouds...")
