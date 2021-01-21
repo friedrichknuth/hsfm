@@ -78,22 +78,20 @@ class NAGAPTimesiftPipeline:
         3. For each date, use hsfm.pipeline.Pipeline to generate and align a multi-epoch
             densecloud.
         """
-        # if not skip_preprocessing:
-        #     _ = self.__download_and_preprocess_images()
-        #     metadata_original_file = self.__prepare_metashape_metadata_file()
-        # else:
-        #     metadata_original_file = os.path.join(
-        #         self.output_directory, "metashape_metadata.csv" # see self.__prepare_metashape_metadata_file for where this file name comes from...not ideal
-        #     )
+        if not skip_preprocessing:
+            _ = self.__download_and_preprocess_images()
+            metadata_original_file = self.__prepare_metashape_metadata_file()
+        else:
+            metadata_original_file = os.path.join(
+                self.output_directory, "metashape_metadata.csv" # see self.__prepare_metashape_metadata_file for where this file name comes from...not ideal
+            )
 
-        # metadata_timesift_aligned_file = self.__generate_multi_epoch_densecloud(
-        #     metadata_original_file
-        # )
-        metadata_timesift_aligned_file = "/data2/elilouis/baker/multi_epoch_cloud/aligned_bundle_adj_metadata.csv"
+        metadata_timesift_aligned_file = self.__generate_multi_epoch_densecloud(
+            metadata_original_file
+        )
+        
         _ = self.__save_image_footprints()
         
-        # TODO: feed in multi-decadal aligned cameras (metadata_timesift_aligned_file) or use the 
-        #   single-date aligned cameras (crated in self.__find_clusters_in_individual_clouds)
         _ = self.__prepare_single_data_data(
             self.selected_images_df, metadata_timesift_aligned_file
         )
