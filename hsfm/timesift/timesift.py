@@ -283,7 +283,7 @@ class NAGAPTimesiftPipeline:
             individual_dir_to_subset_list_dict[individual_sfm_dir] =  list_of_subsets
         return individual_dir_to_subset_list_dict
 
-    def __generate_subsets_for_each_date(dict_of_subsets_by_date):
+    def __generate_subsets_for_each_date(self, dict_of_subsets_by_date):
         print("Generating subsets/clusters for each date.")
         for individual_sfm_dir in os.listdir(self.individual_clouds_output_path):
             input_images_metadata = pd.read_csv(
