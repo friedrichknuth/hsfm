@@ -1108,7 +1108,7 @@ def prepare_metashape_metadata(camera_positions_file_name,
         df['alt'] = round(df['alt'].max())
     else:
         df['alt'] = flight_altitude_m
-        
+#     df['alt'] = df['Altitude']
     df['lon']             = df['Longitude'].astype(float).round(6)
     df['lat']             = df['Latitude'].astype(float).round(6)
     df['lon_acc']         = 1000
@@ -1277,7 +1277,7 @@ def determine_image_clusters(image_metadata,
                              focal_length                   = None,
                              image_directory                = None,
                              buffer_m                       = 1200,
-                             flight_altitude_above_ground_m = 1500,
+#                              flight_altitude_above_ground_m = 1500,
                              output_directory               = None,
                              image_extension                = '.tif',
                              image_file_name_column         = 'fileName',
@@ -1348,7 +1348,7 @@ def determine_image_clusters(image_metadata,
     unmatched_files = hsfm.core.diff_lists(matched_files, file_names)
 
     # expand footprint radius for single images until the belong to a set
-    while len(unmatched_files) > 0:
+    while len(unmatched_files) > 0 and radius_m < 10000:
         print('Images not part of a cluster:', *unmatched_files, sep = "\n")
         radius_m = radius_m + 500
         print('Increasing estimated footprint diameter to:', int(2*radius_m))
@@ -1376,7 +1376,12 @@ def determine_image_clusters(image_metadata,
         matched_files   = list(set(np.array(matches).flatten()))
         unmatched_files = hsfm.core.diff_lists(matched_files, file_names)
             
-    print('All images are part of a cluster.')
+    if len(unmatched_files) > 0:
+        print('WARNING: The following images are more than 10,000 m away from the nearest image.')
+        print(unmatched_files)
+    else:
+        print('All images are part of a cluster.')
+
     clusters = hsfm.core.find_sets(matches)
     
     if qc:
@@ -1394,9 +1399,12 @@ def determine_image_clusters(image_metadata,
                         horizontalalignment='center',
                         size=15)
 
-        ctx.add_basemap(ax, 
+        try:
+            ctx.add_basemap(ax, 
                         source = 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
                         crs = 'epsg:' +epsg_code)
+        except:
+            print('Could not plot basemap with contextily. Check extent.')
         
         if isinstance(output_directory, type(str())):
             qc_output_directory = os.path.join(output_directory,'qc')
@@ -1413,7 +1421,7 @@ def determine_image_clusters(image_metadata,
             tmp = gdf[gdf['fileName'].isin(v)].copy()
             hsfm.core.prepare_metashape_metadata(tmp,
                                                  output_directory=outdir,
-                                                 flight_altitude_above_ground_m = flight_altitude_above_ground_m,
+#                                                  flight_altitude_above_ground_m = flight_altitude_above_ground_m,
                                                  focal_length=focal_length)
 
             
