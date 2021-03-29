@@ -342,9 +342,11 @@ def NAGAP_pre_process_images(project_name,
                              pixel_pitch         = None,
                              focal_length        = None,
                              buffer_m            = 2000,
+                             threshold_px        = 50,
                              missing_proxy       = None,
                              keep_raw            = True,
                              download_images     = True,
+                             image_square_dim    = None,
                              template_parent_dir = '../input_data/fiducials/nagap',
                              nagap_metadata_csv  = '../input_data/nagap_image_metadata.csv',
                              output_directory    = '../'):
@@ -380,14 +382,18 @@ def NAGAP_pre_process_images(project_name,
         if len(list(set(df_roll['Month'].values))) >=1:
             for month in sorted(list(set(df_roll['Month'].values))):
                 print('Processing month:', month, sep = "\n")
-                out_dir_month = os.path.join(out_dir_roll,str(int(month)).zfill(2))
+                try:
+                    out_dir_month = os.path.join(out_dir_roll,str(int(month)).zfill(2))
+                except:
+                    out_dir_month = os.path.join(out_dir_roll,str(month).zfill(2))
                 df_month = df_roll[df_roll['Month']  == month].copy()
-                
-                
                 if len(list(set(df_month['Day'].values))) >=1:
                     for day in sorted(list(set(df_month['Day'].values))):
                         print('Processing day:', day, sep = "\n")
-                        out_dir_day = os.path.join(out_dir_month,str(int(day)).zfill(2))
+                        try:
+                            out_dir_day = os.path.join(out_dir_month,str(int(day)).zfill(2))
+                        except:
+                            out_dir_day = os.path.join(out_dir_month,str(day).zfill(2))
                         df_day = df_month[df_month['Day']  == day].copy()
                         hsfm.batch.NAGAP_pre_process_set(df_day,
                                                          template_types,
@@ -397,12 +403,17 @@ def NAGAP_pre_process_images(project_name,
                                                          focal_length    = focal_length,
                                                          missing_proxy   = missing_proxy,
                                                          buffer_m        = buffer_m,
+                                                         threshold_px    = threshold_px,
                                                          keep_raw        = keep_raw,
-                                                         download_images = download_images)
+                                                         download_images = download_images,
+                                                         image_square_dim = image_square_dim)
                 
                 # in case no day specified in metadata
                 else:
-                    out_dir_month = os.path.join(output_directory,roll,str(int(month)).zfill(2),'dd')
+                    try:
+                        out_dir_month = os.path.join(output_directory,roll,str(int(month)).zfill(2),'dd')
+                    except:
+                        out_dir_month = os.path.join(output_directory,roll,str(month).zfill(2),'dd')
                     hsfm.batch.NAGAP_pre_process_set(df_month,
                                                      template_types,
                                                      template_dirs,
@@ -411,8 +422,10 @@ def NAGAP_pre_process_images(project_name,
                                                      focal_length  = focal_length,
                                                      missing_proxy = missing_proxy,
                                                      buffer_m      = buffer_m,
+                                                     threshold_px  = threshold_px,
                                                      keep_raw      = keep_raw,
-                                                     download_images = download_images)
+                                                     download_images = download_images,
+                                                     image_square_dim = image_square_dim)
         # in case no month specified in metadata                
         else:
             out_dir_roll = os.path.join(output_directory,roll,'mm','dd')
@@ -424,8 +437,10 @@ def NAGAP_pre_process_images(project_name,
                                              focal_length  = focal_length,
                                              missing_proxy = missing_proxy,
                                              buffer_m      = buffer_m,
+                                             threshold_px  = threshold_px,
                                              keep_raw      = keep_raw,
-                                             download_images = download_images)
+                                             download_images = download_images,
+                                             image_square_dim = image_square_dim)
                     
 
                     
@@ -437,8 +452,13 @@ def NAGAP_pre_process_set(df,
                           focal_length        = None,
                           missing_proxy       = None,
                           buffer_m            = 2000,
+                          threshold_px        = 50,
                           keep_raw            = True,
-                          download_images     = True):
+                          download_images     = True,
+                          image_square_dim    = None):
+    
+    # TODO
+    # check if image directory already contains raw images, else skip
                           
         for i,v in enumerate(template_types):
             df_tmp = df[df['fiducial_proxy_type']  == v].copy()
@@ -452,6 +472,8 @@ def NAGAP_pre_process_set(df,
                     image_square_dim = hipp.batch.preprocess_with_fiducial_proxies(
                                                   image_directory,
                                                   template_directory,
+                                                  threshold_px = threshold_px,
+                                                  image_square_dim = image_square_dim,
                                                   output_directory=os.path.join(output_directory,
                                                                                 v+'_cropped_images'),
                                                   missing_proxy = missing_proxy,
@@ -746,11 +768,18 @@ def metaflow(project_name,
     # read from metadata file if not specified
     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
         try:
-            df_tmp       = pd.read_csv(images_metadata_file)
-            focal_length = df_tmp['focal_length'].values[0]
-            print('Focal length:', focal_length)
+            df_tmp        = pd.read_csv(images_metadata_file)
+            focal_lengths = df_tmp['focal_length'].values
+            if len(set(focal_lengths)) == 1:
+                focal_length = focal_lengths[0]
+                print('Focal length:', focal_length)
+            else:
+                print('Multiple focal lengths provided in metadata csv file.')
+                print('hsfm.metashape.images2las will read the focal length')
+                print('provided for each camera from the meteadata csv file.')
+                pass
         except:
-            print('No focal length specified.')
+            print('No focal length specified in metadata csv file.')
             pass
         
     # determine if there are subset clusters of images that do not overlap and/or unaligned images  
@@ -763,10 +792,10 @@ def metaflow(project_name,
                                                                          focal_length            = focal_length,
                                                                          pixel_pitch             = pixel_pitch,
                                                                          camera_model_xml_file   = camera_model_xml_file,
-                                                                         image_matching_accuracy = 1,
+                                                                         image_matching_accuracy = 2,
                                                                          densecloud_quality      = 4,
-                                                                         keypoint_limit          = 40000,
-                                                                         tiepoint_limit          = 4000,
+                                                                         keypoint_limit          = 80000,
+                                                                         tiepoint_limit          = 8000,
                                                                          rotation_enabled        = True,
                                                                          export_point_cloud      = False)
 
@@ -994,7 +1023,7 @@ def batch_process(project_name,
                   reference_dem,
                   input_directory         ='../',
                   pixel_pitch             = None,
-                  output_DEM_resolution   = 2,
+                  output_DEM_resolution   = None,
                   generate_ortho          = False,
                   dem_align_all           = False,
                   image_matching_accuracy = 1,

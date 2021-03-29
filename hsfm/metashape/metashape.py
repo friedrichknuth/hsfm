@@ -33,8 +33,8 @@ def images2las(project_name,
                pixel_pitch             = None,
                camera_model_xml_file   = None,
                crs                     = 'EPSG::4326',
-               image_matching_accuracy = 4,
-               densecloud_quality      = 4,
+               image_matching_accuracy = 1,
+               densecloud_quality      = 2,
                keypoint_limit          = 80000,
                tiepoint_limit          = 8000,
                rotation_enabled        = True,
@@ -99,16 +99,24 @@ def images2las(project_name,
         
 #     # DEFINE INTRINSICS
 #     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
-    if isinstance(camera_model_xml_file, type(None)):
+    if isinstance(camera_model_xml_file, type(None)) and isinstance(focal_length, type(None)):
         # try to grab a focal length for every camera from metadata in case run on mix match of cameras
         try:
             df_tmp        = pd.read_csv(images_metadata_file)
-#             focal_length  = df_tmp['focal_length'].values[0]
             focal_lengths = df_tmp['focal_length'].values
-            print('Focal length:', focal_length)
+            print('Assigning focal length for each camera specified in metadata csv file.')
+            for i,v in enumerate(chunk.cameras):
+                    v.sensor.focal_length = focal_lengths[i]
+#                     v.sensor.fixed_params = ['F']
         except:
-#             print('No focal length specified.')
+            print('No focal length specified nor found in metadata csv file.')
             pass
+        
+    elif not isinstance(focal_length, type(None)):
+        print('Focal length:', focal_length)
+        for i,v in enumerate(chunk.cameras):
+            v.sensor.focal_length = focal_length
+#             v.sensor.fixed_params = ['F']
     
     if not isinstance(camera_model_xml_file, type(None)):
         calib = Metashape.Calibration()
@@ -120,10 +128,8 @@ def images2las(project_name,
             v.sensor.fixed_params=['F','K1','K2','K3']
 #             v.sensor.fixed_params=['F','Cx','Cy','K1','K2','K3','P1','P2']
         
-    elif not isinstance(focal_length, type(None)):
-        print('Focal length:', focal_length)
-        for i,v in enumerate(chunk.cameras):
-# #             Optionally assign seperate camera model to each image
+# #             Assign seperate camera model to each image
+#         for i,v in enumerate(chunk.cameras):
 #             sensor = chunk.addSensor()
 #             sensor.label = "Calibration Group "+str(i)
 #             sensor.type = Metashape.Sensor.Type.Frame
@@ -131,8 +137,6 @@ def images2las(project_name,
 #             sensor.height = v.photo.image().height
 #             v.sensor = sensor
 #             v.sensor.focal_length = focal_length
-            v.sensor.focal_length = focal_lengths[i]
-            v.sensor.fixed_params = ['F']
     
     if not isinstance(pixel_pitch, type(None)):
         for i,v in enumerate(chunk.cameras):
@@ -409,16 +413,16 @@ def update_ba_camera_metadata(metashape_project_file,
             'pitch_acc': 10,
             'roll_acc': 10,
            }  
-
     ba_cameras_df = pd.DataFrame(dict)
 
-    unaligned_cameras_file_names = ba_cameras_df[ba_cameras_df.isnull().any(axis=1)]\
-    ['image_file_name'].values
+    unaligned_cameras_file_names = ba_cameras_df[ba_cameras_df.isnull().any(axis=1)]['image_file_name'].values
+    ba_cameras_df = ba_cameras_df.dropna().reset_index(drop=True) # drop unaligned images from set of bundle adjusted cameras
     
-    ba_cameras_df = ba_cameras_df.dropna().reset_index(drop=True)
-#     for i in unaligned_cameras_file_names:
-#         ba_cameras_df[ba_cameras_df['image_file_name'].str.contains(i)] = \
-#         metashape_metadata_df[metashape_metadata_df['image_file_name'].str.contains(i)].values
+    try:
+        # pull focal lengths if they were provided in input csv
+        ba_cameras_df['focal_length'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['focal_length'])
+    except:
+        pass
     
     unaligned_cameras_df = metashape_metadata_df[metashape_metadata_df['image_file_name'].isin(unaligned_cameras_file_names)]
     unaligned_cameras_df = unaligned_cameras_df.reset_index(drop=True)
