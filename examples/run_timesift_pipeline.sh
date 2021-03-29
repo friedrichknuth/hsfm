@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Run timesift for Mt Hood bounds
+python hsfm/timesift/timesift.py \ 
+    --output-path           /data2/elilouis/mt_hood_timesift/
+    --templates-dir         /home/elilouis/hipp/examples/fiducial_proxy_detection/input_data/fiducials/nagap/ \
+    --bounds                -121.7467 45.4722 -121.6138 45.3015 \
+    --nagap-metadata-csv        /home/elilouis/hipp/examples/fiducial_proxy_detection/input_data/nagap_image_metadata.csv \
+    --densecloud-quality        4 \
+    --image-matching-accuracy   2 \
+    --output-resolution         2 \
+    --pixel-pitch               0.02 \
+    --parallelization           2 \
+    --reference-dem             /data2/elilouis/hsfm-geomorph/data/reference_dem_highres/hood/2009_merged_cropped_meters.tif \
+    --license-path              uw_agisoft.lic
+
 # Run timesift for Carbon Glacier Bounds
 python hsfm/timesift/timesift.py \
     --output-path           /data2/elilouis/rainier_carbon_automated_timesift/ \
