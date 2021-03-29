@@ -112,10 +112,6 @@ class Pipeline:
             output_path, "reference_dem_clipped.tif"
         )
 
-        # Get some data that the pipeline needs
-        self.focal_length = self.__get_focal_length_from_metadata_file(
-            input_images_metadata_file
-        )
 
     def run_multi(self, iterations=3):
         """Run n pipeline iterations for further alignment/refinement.
@@ -237,9 +233,6 @@ class Pipeline:
         print(Metashape.app.activated)
         return Metashape.app.activated
 
-    def __get_focal_length_from_metadata_file(self, file):
-        return pd.read_csv(file)["focal_length"][0]
-
     def __run_metashape(self, rotation_enabled):
         """Makes sure yaw, pitch, and roll columns are set to 0 for the camera metadata."""
         self.__reset_yaw_pitch_roll(self.input_images_metadata_file)
@@ -251,7 +244,6 @@ class Pipeline:
             self.input_images_path,
             self.input_images_metadata_file,
             self.output_path,
-            focal_length=self.focal_length,
             pixel_pitch=self.pixel_pitch,
             image_matching_accuracy=self.image_matching_accuracy,
             densecloud_quality=self.densecloud_quality,
@@ -296,7 +288,6 @@ class Pipeline:
             metashape_project_file=project_file,
             metashape_metadata_csv=self.input_images_metadata_file,
         )
-        ba_cameras_df["focal_length"] = self.focal_length
         ba_cameras_df.to_csv(self.bundle_adjusted_metadata_file, index=False)
 
     def __compare_camera_positions(
@@ -341,8 +332,8 @@ class Pipeline:
             transform,
             output_file_name=self.aligned_bundle_adjusted_metadata_file,
         )
-        # ToDo add focal_length column to saved CSV FIRST...
         df = pd.read_csv(self.aligned_bundle_adjusted_metadata_file)
+        # ToDo should i remove this assignment?
         df["focal_length"] = pd.read_csv(self.input_images_metadata_file)[
             "focal_length"
         ]
