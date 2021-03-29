@@ -92,7 +92,7 @@ class NAGAPTimesiftPipeline:
         
         _ = self.__save_image_footprints()
         
-        _ = self.__prepare_single_data_data(
+        _ = self.__prepare_single_date_data(
             self.selected_images_df, metadata_timesift_aligned_file
         )
         
@@ -199,7 +199,7 @@ class NAGAPTimesiftPipeline:
 
     # This has a lot of annoying data manipulation that could be avoided with better handling/updating
     # of camera position.
-    def __prepare_single_data_data(
+    def __prepare_single_date_data(
         self, original_cameras_df, aligned_cameras_file
     ):
         """Create a CSV file of image metadata for each date."""
