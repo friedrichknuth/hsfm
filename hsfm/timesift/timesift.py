@@ -79,8 +79,8 @@ class NAGAPTimesiftPipeline:
             densecloud.
         """
         if not skip_preprocessing:
-            _ = self.__download_and_preprocess_images()
             metadata_original_file = self.__prepare_metashape_metadata_file()
+            _ = self.__download_and_preprocess_images()
         else:
             metadata_original_file = os.path.join(
                 self.output_directory, "metashape_metadata.csv" # see self.__prepare_metashape_metadata_file for where this file name comes from...not ideal

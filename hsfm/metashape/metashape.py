@@ -263,7 +263,7 @@ def image_footprints_from_project(project_file_path, points_per_side = 25):
     combine_floats_into_string = lambda ls: ' '.join([str(x) for x in ls[:2]])
     for key,list_of_points in image_to_point_dictionary.items():
         points_list = [
-            combine_floats_into_string(list(point[:2])) for point in list_of_points
+            combine_floats_into_string(list(point[:2])) for point in list_of_points if point is not None
         ] 
         points_list = points_list + [points_list[0]]
         image_to_point_dictionary[key] = wkt.loads('POLYGON ((' + ', '.join(points_list) + '))')
