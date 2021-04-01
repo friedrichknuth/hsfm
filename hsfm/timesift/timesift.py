@@ -4,9 +4,8 @@ import hipp
 from pathlib import Path
 import pandas as pd
 import os
-from joblib import Parallel, delayed
 import argparse
-import functools
+import glob
 
 
 class NAGAPTimesiftPipeline:
@@ -466,33 +465,87 @@ def __parse_args():
         type=bool,
         default=False
     )
+    parser.add_argument(
+        "--process-individual-clouds",
+        help="""
+            Flag to process individual dates. It is expected that the timesift pipeline has already been run with similar
+            arguments.
+            """,
+        type=bool,
+        default=False
+    )
     return parser.parse_args()
+
+def process_individual_clouds(
+    output_path,
+    reference_dem,
+    pixel_pitch,
+    image_matching_accuracy,
+    densecloud_quality,
+    output_DEM_resolution,
+    license_path
+):
+    preprocessed_images_path = os.path.join(
+            output_path, "preprocessed_images"
+        )
+    for cluster_dir in glob.glob(
+        os.path.join(output_path,"individual_clouds/**/cluster[0-9]*"),
+        recursive=True
+    ):
+        metadata_file = os.path.join(cluster_dir, "metashape_metadata.csv")
+        print("\n\n")
+        print(f"Running pipeline for single date and cluster: {cluster_dir}")
+        print(f"Using metashape metadata in file: {metadata_file}")
+
+        pipeline = hsfm.pipeline.Pipeline(
+            preprocessed_images_path,
+            reference_dem,
+            pixel_pitch,
+            image_matching_accuracy,
+            densecloud_quality,
+            output_DEM_resolution,
+            "project",
+            cluster_dir,
+            metadata_file,
+            license_path=license_path,
+        )
+        updated_cameras = pipeline.run_multi(iterations=2)
+        updated_cameras=None
+        print(f"Final updated cameras for {cluster_dir}: {updated_cameras} ")
 
 
 def main():
     print("Parsing arguments...")
     args = __parse_args()
     print(f"Arguments: \n\t {vars(args)}")
-    bounds_tuple = tuple(args.bounds)
-    assert len(bounds_tuple) == 4, "Bounds did not have 4 numbers."
-    timesift_pipeline = NAGAPTimesiftPipeline(
-        args.output_path,
-        args.templates_dir,
-        bounds_tuple,
-        args.nagap_metadata_csv,
-        args.reference_dem,
-        densecloud_quality=args.densecloud_quality,
-        image_matching_accuracy=args.image_matching_accuracy,
-        output_DEM_resolution=args.output_resolution,
-        pixel_pitch=args.pixel_pitch,
-        license_path=args.license_path,
-        parallelization=args.parallelization,
-        exclude_years=args.exclude_years
-    )
-    final_camera_metadata_list = timesift_pipeline.run(args.skip_preprocessing)
-    print(
-        f"Final updated camera metadata files at paths:\n\t{final_camera_metadata_list}"
-    )
+    if args.process_individual_clouds:
+        process_individual_clouds(
+            args.output_path,
+            args.reference_dem,
+            args.pixel_pitch,
+            args.image_matching_accuracy,
+            args.densecloud_quality,
+            args.output_resolution,
+            args.license_path
+        )
+    else:
+        bounds_tuple = tuple(args.bounds)
+        assert len(bounds_tuple) == 4, "Bounds did not have 4 numbers."
+        timesift_pipeline = NAGAPTimesiftPipeline(
+            args.output_path,
+            args.templates_dir,
+            bounds_tuple,
+            args.nagap_metadata_csv,
+            args.reference_dem,
+            densecloud_quality=args.densecloud_quality,
+            image_matching_accuracy=args.image_matching_accuracy,
+            output_DEM_resolution=args.output_resolution,
+            pixel_pitch=args.pixel_pitch,
+            license_path=args.license_path,
+            parallelization=args.parallelization,
+            exclude_years=args.exclude_years
+        )
+        _ = timesift_pipeline.run(args.skip_preprocessing)
 
 
 if __name__ == "__main__":
