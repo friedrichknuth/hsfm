@@ -492,27 +492,30 @@ def process_individual_clouds(
         os.path.join(output_path,"individual_clouds/**/cluster[0-9]*"),
         recursive=True
     ):
-        metadata_file = os.path.join(cluster_dir, "metashape_metadata.csv")
-        print("\n\n")
-        print(f"Running pipeline for single date and cluster: {cluster_dir}")
-        print(f"Using metashape metadata in file: {metadata_file}")
+        try:
+            metadata_file = os.path.join(cluster_dir, "metashape_metadata.csv")
+            print("\n\n")
+            print(f"Running pipeline for single date and cluster: {cluster_dir}")
+            print(f"Using metashape metadata in file: {metadata_file}")
 
-        pipeline = hsfm.pipeline.Pipeline(
-            preprocessed_images_path,
-            reference_dem,
-            pixel_pitch,
-            image_matching_accuracy,
-            densecloud_quality,
-            output_DEM_resolution,
-            "project",
-            cluster_dir,
-            metadata_file,
-            license_path=license_path,
-        )
-        updated_cameras = pipeline.run_multi(iterations=2)
-        updated_cameras=None
-        print(f"Final updated cameras for {cluster_dir}: {updated_cameras} ")
-
+            pipeline = hsfm.pipeline.Pipeline(
+                preprocessed_images_path,
+                reference_dem,
+                pixel_pitch,
+                image_matching_accuracy,
+                densecloud_quality,
+                output_DEM_resolution,
+                "project",
+                cluster_dir,
+                metadata_file,
+                license_path=license_path,
+            )
+            updated_cameras = pipeline.run_multi(iterations=2)
+            updated_cameras=None
+            print(f"Final updated cameras for {cluster_dir}: {updated_cameras} ")
+        
+        except Exception as e:
+            print(f'Failure processing individual clouds at {cluster_dir}: \n {e}')
 
 def main():
     print("Parsing arguments...")

@@ -105,3 +105,6 @@ venv.bak/
 **uw_agisoft.lic
 .vscode/**
 src/**
+
+#nohup logs
+nohup*
