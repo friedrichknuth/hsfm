@@ -215,7 +215,7 @@ class NAGAPTimesiftPipeline:
         joined_df["Day"] = joined_df["Day"].fillna("0")
         
         daily_dir_names = []
-        for date_tuple, df in joined_df.groupby(["Year", "Month", "Day"]):
+        for date_tuple, df in joined_df.groupby(["Year", "Month"]):
             date_string="_".join(date_tuple)
             # Drop unncessary-for-processing columns (we only needed them to separate by year)
             df = df.drop(["fileName", "Year", "Month", "Day"], axis=1)
@@ -272,7 +272,10 @@ class NAGAPTimesiftPipeline:
                 export_point_cloud      = False
             )
             ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file, input_images_metadata_file)
-            ba_cameras_df.to_csv(input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv"))
+            ba_cameras_df.to_csv(
+                input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv"),
+                index=False
+                )
             list_of_subsets = hsfm.metashape.determine_clusters(metashape_project_file)
             with open(
                 input_images_metadata_file.replace("metashape_metadata.csv", "subsets.txt"), 
