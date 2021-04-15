@@ -1,6 +1,7 @@
 import os
 import glob
 import pandas as pd
+import pathlib
 import sys
 
 import hsfm
@@ -96,7 +97,6 @@ def images2las(project_name,
         v.reference.rotation_enabled = rotation_enabled
         
 #     # DEFINE INTRINSICS
-#     if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
     if isinstance(camera_model_xml_file, type(None)) and isinstance(focal_length, type(None)):
         # try to grab a focal length for every camera from metadata in case run on mix match of cameras
         try:
@@ -115,27 +115,7 @@ def images2las(project_name,
         for i,v in enumerate(chunk.cameras):
             v.sensor.focal_length = focal_length
 #             v.sensor.fixed_params = ['F']
-    
-    if not isinstance(camera_model_xml_file, type(None)):
-        calib = Metashape.Calibration()
-        calib.load(camera_model_xml_file)
-        for i,v in enumerate(chunk.cameras):
-#             v.sensor.calibration = calib
-            v.sensor.user_calib  = calib
-#             v.sensor.fixed_calibration = True
-            v.sensor.fixed_params=['F','K1','K2','K3']
-#             v.sensor.fixed_params=['F','Cx','Cy','K1','K2','K3','P1','P2']
-        
-# #             Assign seperate camera model to each image
-#         for i,v in enumerate(chunk.cameras):
-#             sensor = chunk.addSensor()
-#             sensor.label = "Calibration Group "+str(i)
-#             sensor.type = Metashape.Sensor.Type.Frame
-#             sensor.width = v.photo.image().width
-#             sensor.height = v.photo.image().height
-#             v.sensor = sensor
-#             v.sensor.focal_length = focal_length
-    
+
     if not isinstance(pixel_pitch, type(None)):
         for i,v in enumerate(chunk.cameras):
             v.sensor.pixel_height = pixel_pitch
@@ -143,6 +123,39 @@ def images2las(project_name,
     else:
         print('Please specify pixel pitch.')
         sys.exit()
+
+    if not isinstance(camera_model_xml_file, type(None)):
+        camera_models = camera_model_xml_file
+        for cam in chunk.cameras:
+            for camera_model in camera_models:
+                if pathlib.Path(camera_model).stem in cam.label:
+                    calib = Metashape.Calibration()
+                    calib.load(camera_model)
+                    cam.sensor.user_calib  = calib
+                    cam.sensor.fixed_calibration = True
+                    print('Applied camera model for:',cam.label)
+                
+#     if not isinstance(camera_model_xml_file, type(None)):
+#         calib = Metashape.Calibration()
+#         calib.load(camera_model_xml_file)
+#         for i,v in enumerate(chunk.cameras):
+#             v.sensor.calibration = calib
+#             v.sensor.user_calib  = calib
+#             v.sensor.fixed_calibration = True
+#             v.sensor.fixed_params=['F','K1','K2','K3']
+#             v.sensor.fixed_params=['F','Cx','Cy','K1','K2','K3','P1','P2']
+        
+# #   Assign seperate camera model to each image
+#     for i,v in enumerate(chunk.cameras):
+#         sensor = chunk.addSensor()
+#         sensor.label = "Calibration Group "+str(i)
+#         sensor.type = Metashape.Sensor.Type.Frame
+#         sensor.width = v.photo.image().width
+#         sensor.height = v.photo.image().height
+#         v.sensor = sensor
+#         v.sensor.focal_length = focal_length
+#         v.sensor.pixel_height = pixel_pitch
+#         v.sensor.pixel_width  = pixel_pitch
 
     doc.save()
     

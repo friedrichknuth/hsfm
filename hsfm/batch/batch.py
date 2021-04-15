@@ -1039,6 +1039,10 @@ def batch_process(project_name,
     
     input_directories = os.path.join(output_directory,'*','*','*','sfm/cl*')
     batches = sorted(glob.glob(input_directories))
+    camera_models = sorted(glob.glob(os.path.join(output_directory,'camera_models','*.xml')))
+    if len(camera_models) ==0:
+        print('No camera models found in ', os.path.join(output_directory,'camera_models'))
+        camera_models = None
 
     for i in batches:
         try:
@@ -1051,13 +1055,14 @@ def batch_process(project_name,
 #             images_path          = os.path.join(i,'images')
             images_metadata_file = os.path.join(i,'metashape_metadata.csv')
             output_path          = os.path.join(i,'metashape')
-
+             
             hsfm.batch.metaflow(cluster_project_name,
                                 image_files,
                                 images_metadata_file,
                                 reference_dem,
                                 output_path,
                                 pixel_pitch,
+                                camera_model_xml_file   = camera_models,
                                 output_DEM_resolution   = output_DEM_resolution,
                                 generate_ortho          = generate_ortho,
                                 dem_align_all           = dem_align_all,
