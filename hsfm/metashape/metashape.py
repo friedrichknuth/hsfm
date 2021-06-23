@@ -32,6 +32,7 @@ def images2las(project_name,
                focal_length            = None,
                pixel_pitch             = None,
                camera_model_xml_file   = None,
+               camera_model_xml_files_path = None,
                crs                     = 'EPSG::4326',
                image_matching_accuracy = 1,
                densecloud_quality      = 2,
@@ -39,6 +40,8 @@ def images2las(project_name,
                tiepoint_limit          = 8000,
                rotation_enabled        = True,
                export_point_cloud      = True):
+    ## To Do: takes a path as a parameter to indicate directory with xml camera calibration files, 
+                # one for each image in the `images_metadata_file`, and inputs the camera parameters
 
     # Levels from https://www.agisoft.com/forum/index.php?topic=11697.msg52455#msg52455
     """
@@ -53,8 +56,8 @@ def images2las(project_name,
     # TODO
     # check if project already exists and prompt for overwrite or pickup where left off
     # doc.open(output_path + project_name + ".psx")
-    
-    os.makedirs(output_path)
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
     metashape_project_file = os.path.join(output_path, project_name  + ".psx")
     report_file            = os.path.join(output_path, project_name  + "_report.pdf")
     point_cloud_file       = os.path.join(output_path, project_name  + ".las")
@@ -118,7 +121,17 @@ def images2las(project_name,
             v.sensor.focal_length = focal_length
 #             v.sensor.fixed_params = ['F']
     
+    if camera_model_xml_files_path is not None:    
+        print(f'Setting cameras with camera-specific calibration files at path {camera_model_xml_files_path}')
+        for cam in chunk.cameras:
+            cam_model_file = os.path.join(camera_model_xml_files_path, cam.label + ".xml")
+            calib = Metashape.Calibration()
+            calib.load(cam_model_file)
+            cam.sensor.user_calib  = calib
+            cam.sensor.fixed_calibration = True
+
     if not isinstance(camera_model_xml_file, type(None)):
+        print(f'Setting all cameras to the calibration file {camera_model_xml_file}')
         calib = Metashape.Calibration()
         calib.load(camera_model_xml_file)
         for i,v in enumerate(chunk.cameras):
@@ -143,8 +156,16 @@ def images2las(project_name,
             v.sensor.pixel_height = pixel_pitch
             v.sensor.pixel_width  = pixel_pitch
     else:
-        print('Please specify pixel pitch.')
-        sys.exit()
+        df = pd.read_csv(images_metadata_file)[['image_file_name', 'pixel_pitch']]
+        if 'pixel_pitch' in df.columns:
+            filename_to_pixel_pitch_dict = df.set_index('image_file_name').to_dict('index')
+            for cam in chunk.cameras:
+                pixel_pitch = filename_to_pixel_pitch_dict[cam.label+'.tif']['pixel_pitch']
+                cam.sensor.pixel_height = pixel_pitch #STAY THIS
+                cam.sensor.pixel_width  = pixel_pitch 
+        else:
+            print('Please specify pixel pitch as a parameter to images2las or provide a \'pixel_pitch\' column in the metashape metadata csv.')
+            sys.exit()
 
     doc.save()
     

@@ -90,6 +90,8 @@ class NAGAPTimesiftPipeline:
         )
         
         _ = self.__save_image_footprints()
+
+        _ = self.__export_camera_calibration_files()
         
         _ = self.__prepare_single_date_data(
             self.selected_images_df, metadata_timesift_aligned_file
@@ -98,8 +100,7 @@ class NAGAPTimesiftPipeline:
         dict_of_subsets_by_date = self.__find_clusters_in_individual_clouds()
         
         _ = self.__generate_subsets_for_each_date(dict_of_subsets_by_date)
-        
-        
+
 
     def __download_and_preprocess_images(self):
         """Iterates over images grouped by fiducial marker type, roll, and date. Downloads
@@ -196,6 +197,20 @@ class NAGAPTimesiftPipeline:
     def __get_timesift_project_path(self):
         return os.path.join(self.multi_epoch_cloud_output_path, self.multi_epoch_project_name + ".psx")
 
+    def __export_camera_calibration_files(self):
+        import Metashape
+        metashape_project_file = os.path.join(self.output_directory, 'multi_epoch_cloud', self.multi_epoch_project_name + ".psx")
+        camera_exports_dir = os.path.join(self.output_directory, 'multi_epoch_cloud', 'camera_calibrations')
+        if not os.path.exists(camera_exports_dir):
+            os.mkdir(camera_exports_dir)
+        ##make this directory if it does not exist
+        doc = Metashape.Document()
+        doc.open(metashape_project_file)
+        chunk = doc.chunk
+        for camera in chunk.cameras:
+            camera.sensor.calibration.save(f"{camera_exports_dir}/{camera.label}.xml")
+
+
     # This has a lot of annoying data manipulation that could be avoided with better handling/updating
     # of camera position.
     def __prepare_single_date_data(
@@ -216,73 +231,79 @@ class NAGAPTimesiftPipeline:
         
         daily_dir_names = []
         for date_tuple, df in joined_df.groupby(["Year", "Month"]):
-            date_string="_".join(date_tuple)
-            # Drop unncessary-for-processing columns (we only needed them to separate by year)
-            df = df.drop(["fileName", "Year", "Month", "Day"], axis=1)
-            # Put columns in proper order
-            df = df[
-                [
-                    "image_file_name",
-                    "lon",
-                    "lat",
-                    "alt",
-                    "lon_acc",
-                    "lat_acc",
-                    "alt_acc",
-                    "yaw",
-                    "pitch",
-                    "roll",
-                    "yaw_acc",
-                    "pitch_acc",
-                    "roll_acc",
-                    "focal_length",
+            if len(df) < 3:
+                print(f"Skipping individual cloud for {date_tuple} because there are less than 3 images.")
+            else:
+                date_string="_".join(date_tuple)
+                # Drop unncessary-for-processing columns (we only needed them to separate by year)
+                df = df.drop(["fileName", "Year", "Month", "Day"], axis=1)
+                # Put columns in proper order
+                df = df[
+                    [
+                        "image_file_name",
+                        "lon",
+                        "lat",
+                        "alt",
+                        "lon_acc",
+                        "lat_acc",
+                        "alt_acc",
+                        "yaw",
+                        "pitch",
+                        "roll",
+                        "yaw_acc",
+                        "pitch_acc",
+                        "roll_acc",
+                        "focal_length",
+                    ]
                 ]
-            ]
-            csv_output_path = os.path.join(
-                self.individual_clouds_output_path,
-                date_string,
-                "metashape_metadata.csv",
-            )
-            parent_dir = os.path.dirname(csv_output_path)
-            if not os.path.isdir(parent_dir):
-                os.makedirs(parent_dir)
-            df.to_csv(csv_output_path, index=False)
-            daily_dir_names.append(parent_dir)
+                csv_output_path = os.path.join(
+                    self.individual_clouds_output_path,
+                    date_string,
+                    "metashape_metadata.csv",
+                )
+                parent_dir = os.path.dirname(csv_output_path)
+                if not os.path.isdir(parent_dir):
+                    os.makedirs(parent_dir)
+                df.to_csv(csv_output_path, index=False)
+                daily_dir_names.append(parent_dir)
         
 
     def __find_clusters_in_individual_clouds(self):
         print("Searching all dates for clusters/subsets")
         individual_dir_to_subset_list_dict = {}
         for individual_sfm_dir in os.listdir(self.individual_clouds_output_path):
-            print(f"Processing single date ({individual_sfm_dir}) images to check for clusters/subsets ...")
-            output_path = os.path.join(self.individual_clouds_output_path, individual_sfm_dir, "cluster_metashape_run")
-            input_images_metadata_file = os.path.join(self.individual_clouds_output_path, individual_sfm_dir, "metashape_metadata.csv")
-            metashape_project_file, point_cloud_file = hsfm.metashape.images2las(
-                individual_sfm_dir,
-                self.preprocessed_images_path,
-                input_images_metadata_file,
-                output_path,
-                focal_length            = pd.read_csv(input_images_metadata_file)['focal_length'].iloc[0],
-                pixel_pitch             = self.pixel_pitch,
-                image_matching_accuracy = self.image_matching_accuracy,
-                densecloud_quality      = self.densecloud_quality,
-                keypoint_limit          = 40000,
-                tiepoint_limit          = 4000,
-                rotation_enabled        = True,
-                export_point_cloud      = False
-            )
-            ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file, input_images_metadata_file)
-            ba_cameras_df.to_csv(
-                input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv"),
-                index=False
+            try:
+                print(f"Processing single date ({individual_sfm_dir}) images to check for clusters/subsets ...")
+                output_path = os.path.join(self.individual_clouds_output_path, individual_sfm_dir, "cluster_metashape_run")
+                input_images_metadata_file = os.path.join(self.individual_clouds_output_path, individual_sfm_dir, "metashape_metadata.csv")
+                metashape_project_file, point_cloud_file = hsfm.metashape.images2las(
+                    individual_sfm_dir,
+                    self.preprocessed_images_path,
+                    input_images_metadata_file,
+                    output_path,
+                    focal_length            = pd.read_csv(input_images_metadata_file)['focal_length'].iloc[0],
+                    pixel_pitch             = self.pixel_pitch,
+                    image_matching_accuracy = self.image_matching_accuracy,
+                    densecloud_quality      = self.densecloud_quality,
+                    keypoint_limit          = 40000,
+                    tiepoint_limit          = 4000,
+                    rotation_enabled        = True,
+                    export_point_cloud      = False
                 )
-            list_of_subsets = hsfm.metashape.determine_clusters(metashape_project_file)
-            with open(
-                input_images_metadata_file.replace("metashape_metadata.csv", "subsets.txt"), 
-                'w'
-            ) as f:
-                f.write(str(list_of_subsets))
-            individual_dir_to_subset_list_dict[individual_sfm_dir] =  list_of_subsets
+                ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file, input_images_metadata_file)
+                ba_cameras_df.to_csv(
+                    input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv"),
+                    index=False
+                    )
+                list_of_subsets = hsfm.metashape.determine_clusters(metashape_project_file)
+                with open(
+                    input_images_metadata_file.replace("metashape_metadata.csv", "subsets.txt"), 
+                    'w'
+                ) as f:
+                    f.write(str(list_of_subsets))
+                individual_dir_to_subset_list_dict[individual_sfm_dir] =  list_of_subsets
+            except Exception as e:
+                print(f'Failure processing/finding clusters in individual clouds for cloud {individual_sfm_dir}: \n {e}')
         return individual_dir_to_subset_list_dict
 
     def __generate_subsets_for_each_date(self, dict_of_subsets_by_date):
@@ -415,7 +436,13 @@ def __parse_args():
     parser.add_argument(
         "-r",
         "--reference-dem",
-        help="Path to reference dem.",
+        help="Path to reference dem used to align single-date point clouds,.",
+        required=True,
+    )
+    parser.add_argument(
+        "-r4d",
+        "--reference-dem-4d",
+        help="Path to reference dem used to align the timesift (4D bundle adjustment) bundle adjusted point cloud .",
         required=True,
     )
     parser.add_argument(
@@ -477,8 +504,17 @@ def __parse_args():
         type=bool,
         default=False
     )
+    parser.add_argument(
+        "--use-timesift-calibrated-cameras",
+        help="""
+            Flag to use the timesift-calibrated camera models in the processing of individual date point clouds/elevation models.
+            """,
+        type=bool,
+        default=True
+    )
     return parser.parse_args()
 
+# To Do: make this a member function of the NAGAPTimesiftPipeline class
 def process_individual_clouds(
     output_path,
     reference_dem,
@@ -486,6 +522,7 @@ def process_individual_clouds(
     image_matching_accuracy,
     densecloud_quality,
     output_DEM_resolution,
+    use_timesift_calibrated_cameras,
     license_path
 ):
     preprocessed_images_path = os.path.join(
@@ -500,19 +537,34 @@ def process_individual_clouds(
             print("\n\n")
             print(f"Running pipeline for single date and cluster: {cluster_dir}")
             print(f"Using metashape metadata in file: {metadata_file}")
-
-            pipeline = hsfm.pipeline.Pipeline(
-                preprocessed_images_path,
-                reference_dem,
-                pixel_pitch,
-                image_matching_accuracy,
-                densecloud_quality,
-                output_DEM_resolution,
-                "project",
-                cluster_dir,
-                metadata_file,
-                license_path=license_path,
-            )
+            if use_timesift_calibrated_cameras: 
+                pipeline = hsfm.pipeline.Pipeline(
+                    preprocessed_images_path,
+                    reference_dem,
+                    pixel_pitch,
+                    image_matching_accuracy,
+                    densecloud_quality,
+                    output_DEM_resolution,
+                    "project",
+                    cluster_dir,
+                    metadata_file,
+                    camera_models_path = os.path.join(output_path, 'multi_epoch_cloud', 'camera_calibrations'),
+                    license_path=license_path,
+                )
+            else:
+                pipeline = hsfm.pipeline.Pipeline(
+                    preprocessed_images_path,
+                    reference_dem,
+                    pixel_pitch,
+                    image_matching_accuracy,
+                    densecloud_quality,
+                    output_DEM_resolution,
+                    "project",
+                    cluster_dir,
+                    metadata_file,
+                    license_path=license_path,
+                )
+                
             updated_cameras = pipeline.run_multi(iterations=2)
             updated_cameras=None
             print(f"Final updated cameras for {cluster_dir}: {updated_cameras} ")
@@ -524,35 +576,37 @@ def main():
     print("Parsing arguments...")
     args = __parse_args()
     print(f"Arguments: \n\t {vars(args)}")
-    if args.process_individual_clouds:
-        process_individual_clouds(
-            args.output_path,
-            args.reference_dem,
-            args.pixel_pitch,
-            args.image_matching_accuracy,
-            args.densecloud_quality,
-            args.output_resolution,
-            args.license_path
-        )
-    else:
-        bounds_tuple = tuple(args.bounds)
-        assert len(bounds_tuple) == 4, "Bounds did not have 4 numbers."
-        timesift_pipeline = NAGAPTimesiftPipeline(
-            args.output_path,
-            args.templates_dir,
-            bounds_tuple,
-            args.nagap_metadata_csv,
-            args.reference_dem,
-            densecloud_quality=args.densecloud_quality,
-            image_matching_accuracy=args.image_matching_accuracy,
-            output_DEM_resolution=args.output_resolution,
-            pixel_pitch=args.pixel_pitch,
-            license_path=args.license_path,
-            parallelization=args.parallelization,
-            exclude_years=args.exclude_years
-        )
-        _ = timesift_pipeline.run(args.skip_preprocessing)
 
+    print("fPerforming timesift processing...")
+    bounds_tuple = tuple(args.bounds)
+    assert len(bounds_tuple) == 4, "Bounds did not have 4 numbers."
+    timesift_pipeline = NAGAPTimesiftPipeline(
+        args.output_path,
+        args.templates_dir,
+        bounds_tuple,
+        args.nagap_metadata_csv,
+        args.reference_dem_4d,
+        densecloud_quality=args.densecloud_quality,
+        image_matching_accuracy=args.image_matching_accuracy,
+        output_DEM_resolution=args.output_resolution,
+        pixel_pitch=args.pixel_pitch,
+        license_path=args.license_path,
+        parallelization=args.parallelization,
+        exclude_years=args.exclude_years
+    )
+    _ = timesift_pipeline.run(args.skip_preprocessing)
+
+    print("fPerforming single-date processing...")
+    process_individual_clouds(
+        args.output_path,
+        args.reference_dem,
+        args.pixel_pitch,
+        args.image_matching_accuracy,
+        args.densecloud_quality,
+        args.output_resolution,
+        args.use_timesift_calibrated_cameras,
+        args.license_path
+    )      
 
 if __name__ == "__main__":
     main()
