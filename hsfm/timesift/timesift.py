@@ -486,20 +486,36 @@ def __parse_args():
     parser.add_argument(
         "-e",
         "--exclude-years",
-        help="List of years you want to exclude from the processing. Useful if you know images from certain years are bad. Write 2 digit numbers i.e. for 1977, write 77.",
+        help="""
+            List of years you want to exclude from the processing. Useful if you know images from
+            certain years are bad. Write 2 digit numbers i.e. for 1977, write 77.
+            """,
         nargs="+",
     )
     parser.add_argument(
         "--skip-preprocessing",
-        help="Skip preprocessing steps (downloading, preprocessing images), go straight to multi-epoch densecloud creation.",
+        help="""
+            Skip preprocessing steps (downloading, preprocessing images), go straight to 
+            multi-epoch densecloud creation.
+            """,
         type=bool,
         default=False
     )
     parser.add_argument(
-        "--process-individual-clouds",
+        "--only-process-4d",
         help="""
-            Flag to process individual dates. It is expected that the timesift pipeline has already been run with similar
-            arguments.
+            Flag to only process the 4d timesift point cloud, to skip processing individual clouds
+            after the 4d timesift point cloud is created and aligned. Defaults to false.
+            """,
+        type=bool,
+        default=False
+    )
+    parser.add_argument(
+        "--only-process-individual-clouds",
+        help="""
+            Flag to only process individual dates. It is expected that first part of the timesift
+            pipeline has already been run with similar arguments (see the --only-process-4d). 
+            Defaults to false.
             """,
         type=bool,
         default=False
@@ -507,7 +523,7 @@ def __parse_args():
     parser.add_argument(
         "--use-timesift-calibrated-cameras",
         help="""
-            Flag to use the timesift-calibrated camera models in the processing of individual date point clouds/elevation models.
+            Flag to use the timesift-calibrated camera models in the processing of individual date point clouds/elevation models. Defaults to True.
             """,
         type=bool,
         default=True
@@ -577,35 +593,37 @@ def main():
     args = __parse_args()
     print(f"Arguments: \n\t {vars(args)}")
 
-    print("fPerforming timesift processing...")
-    bounds_tuple = tuple(args.bounds)
-    assert len(bounds_tuple) == 4, "Bounds did not have 4 numbers."
-    timesift_pipeline = NAGAPTimesiftPipeline(
-        args.output_path,
-        args.templates_dir,
-        bounds_tuple,
-        args.nagap_metadata_csv,
-        args.reference_dem_4d,
-        densecloud_quality=args.densecloud_quality,
-        image_matching_accuracy=args.image_matching_accuracy,
-        output_DEM_resolution=args.output_resolution,
-        pixel_pitch=args.pixel_pitch,
-        license_path=args.license_path,
-        parallelization=args.parallelization,
-        exclude_years=args.exclude_years
-    )
-    _ = timesift_pipeline.run(args.skip_preprocessing)
+    if not args.only_process_individual_clouds:   
+        print("fPerforming timesift processing...")
+        bounds_tuple = tuple(args.bounds)
+        assert len(bounds_tuple) == 4, "Bounds did not have 4 numbers."
+        timesift_pipeline = NAGAPTimesiftPipeline(
+            args.output_path,
+            args.templates_dir,
+            bounds_tuple,
+            args.nagap_metadata_csv,
+            args.reference_dem_4d,
+            densecloud_quality=args.densecloud_quality,
+            image_matching_accuracy=args.image_matching_accuracy,
+            output_DEM_resolution=args.output_resolution,
+            pixel_pitch=args.pixel_pitch,
+            license_path=args.license_path,
+            parallelization=args.parallelization,
+            exclude_years=args.exclude_years
+        )
+        _ = timesift_pipeline.run(args.skip_preprocessing)
 
-    print("fPerforming single-date processing...")
-    process_individual_clouds(
-        args.output_path,
-        args.reference_dem,
-        args.pixel_pitch,
-        args.image_matching_accuracy,
-        args.densecloud_quality,
-        args.output_resolution,
-        args.use_timesift_calibrated_cameras,
-        args.license_path
+    if not args.only_process_4d:
+        print("fPerforming single-date processing...")
+        process_individual_clouds(
+            args.output_path,
+            args.reference_dem,
+            args.pixel_pitch,
+            args.image_matching_accuracy,
+            args.densecloud_quality,
+            args.output_resolution,
+            args.use_timesift_calibrated_cameras,
+            args.license_path
     )      
 
 if __name__ == "__main__":
