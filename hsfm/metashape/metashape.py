@@ -3,6 +3,9 @@ import glob
 import pandas as pd
 import pathlib
 import sys
+from shapely import wkt
+import geopandas as gpd
+import numpy as np
 
 import hsfm
 
@@ -212,7 +215,7 @@ def images2las(project_name,
     # BUILD DENSE CLOUD
 
     chunk.buildDepthMaps(downscale=densecloud_quality,
-                         filter_mode=Metashape.MildFiltering)
+                         filter_mode=Metashape.AggressiveFiltering)
     chunk.buildDenseCloud()
     doc.save()
     
@@ -281,6 +284,66 @@ def images2ortho(project_name,
     chunk.exportRaster(ortho_file,
                        source_data= Metashape.OrthomosaicData,
                        split_in_blocks = split_in_blocks)
+    
+def generate_points_along_border(sensor, steps=10):
+    top_side_coords = [ 
+        [x, 0] for x in np.linspace(0,sensor.width - 1, steps).astype('int')
+    ]
+    right_side_coords = [
+        [sensor.width - 1, y] for y in np.linspace(0, sensor.height - 1, steps).astype('int')
+    ]
+    bottom_side_coords = [ 
+        [x, sensor.height - 1] for x in np.linspace(sensor.width - 1, 0, steps).astype('int')
+    ]
+    left_side_coords = [
+        [0, y] for y in np.linspace(sensor.height - 1, 0, steps).astype('int')
+    ]
+    return top_side_coords + right_side_coords + bottom_side_coords + left_side_coords
+    
+def image_footprints_from_project(project_file_path, points_per_side = 25):
+    """Expects the project file to have been created and a dense-cloud generated (ie via
+     hsfm.metashape.images2las())
+     
+    Returns:
+        [DataFrame]: Columns include image file name (without the .tif extension) and a 
+        geometry representing the image footprint on the SfM surface.
+    """
+    import Metashape
+    doc = Metashape.Document()
+    doc.open(project_file_path)
+    chunk = doc.chunk
+    T = chunk.transform.matrix
+    surface = chunk.dense_cloud
+    
+    image_to_point_dictionary = {}
+    for camera in chunk.cameras:
+        corners = list()
+        sensor = camera.sensor
+        for (x, y) in generate_points_along_border(sensor, points_per_side):
+            ray_origin = camera.unproject(Metashape.Vector([x, y, 0]))
+            ray_target = camera.unproject(Metashape.Vector([x, y, 1]))
+            corners.append(surface.pickPoint(ray_origin, ray_target))
+            if not corners[-1]:
+                corners[-1] = chunk.point_cloud.pickPoint(ray_origin, ray_target)
+            if not corners[-1]:
+                break
+            corners[-1] = chunk.crs.project(T.mulp(corners[-1]))
+        image_to_point_dictionary[camera.label] = list(corners)
+    
+    combine_floats_into_string = lambda ls: ' '.join([str(x) for x in ls[:2]])
+    image_to_point_dictionary = {k: v for k, v in image_to_point_dictionary.items() if len(v) != 1}
+    for key,list_of_points in image_to_point_dictionary.items():
+        points_list = [
+            combine_floats_into_string(list(point[:2])) for point in list_of_points if point is not None
+        ] 
+        points_list = points_list + [points_list[0]]
+        image_to_point_dictionary[key] = wkt.loads('POLYGON ((' + ', '.join(points_list) + '))')
+    gdf = gpd.GeoDataFrame(image_to_point_dictionary, index=[0]).transpose()
+    gdf.geometry = gdf[0]
+    gdf = gdf.drop(0, axis=1)
+    gdf = gdf.reset_index().rename(columns={'index':'filename'})
+    gdf = gdf.set_crs(epsg=4326)
+    return gdf
 
 def get_estimated_camera_centers(metashape_project_file):
     

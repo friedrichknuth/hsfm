@@ -46,7 +46,7 @@ def dem_align_custom(reference_dem,
             '-max_offset',str(max_offset),
             '-mode', mode,
             '-mask_list', 'glaciers', 'nlcd']
-    
+    print(*call)
     if print_call==True:
         print(*call)
     else:         

@@ -810,8 +810,8 @@ def metaflow(project_name,
                 tmp    = hsfm.core.select_strings_with_sub_strings(image_file_names, sub)
                 ## might be better to restart with the original input positions as subset could be displaced
                 ## after matching without actually connecting to the other cluster.
-                # tmp_df = pd.read_csv(images_metadata_file)
-                # tmp_df = tmp_df[tmp_df['image_file_name'].isin(tmp)].reset_index(drop=True)
+#                 tmp_df = pd.read_csv(images_metadata_file)
+#                 tmp_df = tmp_df[tmp_df['image_file_name'].isin(tmp)].reset_index(drop=True)
                 tmp_df = ba_cameras_df[ba_cameras_df['image_file_name'].isin(tmp)].reset_index(drop=True)
                 cameras_sub_clusters_dfs.append(tmp_df)
 
