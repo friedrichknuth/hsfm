@@ -29,7 +29,6 @@ class Pipeline:
         my_pipeline = Pipeline(
             input_images_path,
             reference_dem,
-            pixel_pitch,
             image_matching_accuracy,
             densecloud_quality,
             output_DEM_resolution,
@@ -56,7 +55,6 @@ class Pipeline:
         self,
         input_images_path,
         reference_dem,
-        pixel_pitch,
         image_matching_accuracy,
         densecloud_quality,
         output_DEM_resolution,
@@ -73,7 +71,6 @@ class Pipeline:
         Args:
             input_images_path (str): Path to directory containing input images referenced in input_images_metadata_file.
             reference_dem (str): Path to reference DEM file. Should be buffer the geographic extent of the aerial images.
-            pixel_pitch (float): Scanning resolution of the images. 0.02 is a good guess for NAGAP images.
             image_matching_accuracy (int): Metashape parameter. 1-4 from highest to lowest quality.
             densecloud_quality (int): Metashape parameter. 1-4 from highest to lowest quality.
             output_DEM_resolution (float): Output resolution of generated DEMs.
@@ -86,7 +83,6 @@ class Pipeline:
         """
         self.input_images_path = input_images_path
         self.reference_dem = reference_dem
-        self.pixel_pitch = pixel_pitch
         self.image_matching_accuracy = image_matching_accuracy
         self.densecloud_quality = densecloud_quality
         self.output_DEM_resolution = output_DEM_resolution
@@ -226,6 +222,7 @@ class Pipeline:
                 return self.aligned_bundle_adjusted_metadata_file
         else:
             print("Exiting...Metashape is not activated.")
+            exit
 
     def __is_metashape_activated(self):
         print("Checking Metashape authentication...")
@@ -242,6 +239,7 @@ class Pipeline:
         print(
             f"Running Metashape Camera Bundle Adjustment and Point Cloud Creation with camera metadata file {self.input_images_metadata_file}..."
         )
+        #ToDo I think i can just pass self.camera_models_path directly in because the default images2las value is None
         if self.camera_models_path is not None:
             print("Using camera model")
             project_file, point_cloud_file = hsfm.metashape.images2las(
@@ -249,7 +247,6 @@ class Pipeline:
                 self.input_images_path,
                 self.input_images_metadata_file,
                 self.output_path,
-                pixel_pitch=self.pixel_pitch,
                 image_matching_accuracy=self.image_matching_accuracy,
                 densecloud_quality=self.densecloud_quality,
                 rotation_enabled=rotation_enabled,
@@ -261,7 +258,6 @@ class Pipeline:
                 self.input_images_path,
                 self.input_images_metadata_file,
                 self.output_path,
-                pixel_pitch=self.pixel_pitch,
                 image_matching_accuracy=self.image_matching_accuracy,
                 densecloud_quality=self.densecloud_quality,
                 rotation_enabled=rotation_enabled,
@@ -424,7 +420,6 @@ class Pipeline:
 #       --densecloud-quality            4 \
 #       --image-matching-accuracy       4 \
 #       --output-resolution 2 \
-#       --pixel-pitch                   0.02 \
 #       --license-path uw_agisoft.lic \
 #       --iterations 3 \
 #       --rotation-enabled false &
@@ -479,13 +474,6 @@ def __parse_args():
         type=float,
     )
     parser.add_argument(
-        "-x",
-        "--pixel-pitch",
-        help="Pixel pitch/scanning resolution.",
-        required=True,
-        type=float,
-    )
-    parser.add_argument(
         "-l", "--license-path", help="Path to Agisoft license file", required=False
     )
     parser.add_argument(
@@ -512,7 +500,6 @@ def main():
     pipeline = Pipeline(
         args.input_images_path,
         args.reference_dem,
-        args.pixel_pitch,
         args.image_matching_accuracy,
         args.densecloud_quality,
         args.output_resolution,

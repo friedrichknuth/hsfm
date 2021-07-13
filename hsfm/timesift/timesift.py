@@ -12,6 +12,8 @@ class NAGAPTimesiftPipeline:
     """
     Timesift Historical Structure from Motion pipeline.
     Generates a timeseries of DEMs for a given set of images that span multiple years.
+    Downloading and preprocessing of NAGAP images precedes the other timesift steps 
+    (see TimesiftPipeline).
 
     """
 
@@ -25,7 +27,6 @@ class NAGAPTimesiftPipeline:
         densecloud_quality=2,
         image_matching_accuracy=1,
         output_DEM_resolution=2,
-        pixel_pitch=0.02,
         license_path="uw_agisoft.lic",
         parallelization=1,
         exclude_years=None,
@@ -40,7 +41,6 @@ class NAGAPTimesiftPipeline:
         self.densecloud_quality = densecloud_quality
         self.image_matching_accuracy = image_matching_accuracy
         self.output_DEM_resolution = output_DEM_resolution
-        self.pixel_pitch = pixel_pitch
         self.license_path = license_path
         self.parallelization = parallelization
 
@@ -171,7 +171,6 @@ class NAGAPTimesiftPipeline:
         pipeline = hsfm.pipeline.Pipeline(
             self.preprocessed_images_path,
             self.reference_dem,
-            self.pixel_pitch,
             self.image_matching_accuracy,
             self.densecloud_quality,
             self.output_DEM_resolution,
@@ -254,6 +253,7 @@ class NAGAPTimesiftPipeline:
                         "pitch_acc",
                         "roll_acc",
                         "focal_length",
+                        "pixel_pitch"
                     ]
                 ]
                 csv_output_path = os.path.join(
@@ -282,7 +282,6 @@ class NAGAPTimesiftPipeline:
                     input_images_metadata_file,
                     output_path,
                     focal_length            = pd.read_csv(input_images_metadata_file)['focal_length'].iloc[0],
-                    pixel_pitch             = self.pixel_pitch,
                     image_matching_accuracy = self.image_matching_accuracy,
                     densecloud_quality      = self.densecloud_quality,
                     keypoint_limit          = 40000,
@@ -326,34 +325,10 @@ class NAGAPTimesiftPipeline:
                 )
 
 
-
-
-
-    # def __process_all_individual_clouds(self):
-    #     print("Processing all individual clouds...")
-    #     individual_sfm_dirs = os.listdir(self.individual_clouds_output_path)
-    #     process_image_batch_partial = functools.partial(
-    #         process_image_batch,
-    #         preprocessed_images_path=self.preprocessed_images_path,
-    #         reference_dem=self.reference_dem,
-    #         pixel_pitch=self.pixel_pitch,
-    #         image_matching_accuracy=self.image_matching_accuracy,
-    #         densecloud_quality=self.densecloud_quality,
-    #         output_DEM_resolution=self.output_DEM_resolution,
-    #         individual_clouds_output_path=self.individual_clouds_output_path,
-    #         license_path=self.license_path,
-    #     )
-    #     results = Parallel(n_jobs=self.parallelization)(
-    #         delayed(process_image_batch_partial)(i) for i in individual_sfm_dirs
-    #     )
-    #     return results
-
-
 # def process_image_batch(
 #     individual_sfm_dir,
 #     preprocessed_images_path,
 #     reference_dem,
-#     pixel_pitch,
 #     image_matching_accuracy,
 #     densecloud_quality,
 #     output_DEM_resolution,
@@ -372,7 +347,6 @@ class NAGAPTimesiftPipeline:
 #     pipeline = Pipeline(
 #         preprocessed_images_path,
 #         reference_dem,
-#         pixel_pitch,
 #         image_matching_accuracy,
 #         densecloud_quality,
 #         output_DEM_resolution,
@@ -534,7 +508,6 @@ def __parse_args():
 def process_individual_clouds(
     output_path,
     reference_dem,
-    pixel_pitch,
     image_matching_accuracy,
     densecloud_quality,
     output_DEM_resolution,
@@ -557,7 +530,6 @@ def process_individual_clouds(
                 pipeline = hsfm.pipeline.Pipeline(
                     preprocessed_images_path,
                     reference_dem,
-                    pixel_pitch,
                     image_matching_accuracy,
                     densecloud_quality,
                     output_DEM_resolution,
@@ -571,7 +543,6 @@ def process_individual_clouds(
                 pipeline = hsfm.pipeline.Pipeline(
                     preprocessed_images_path,
                     reference_dem,
-                    pixel_pitch,
                     image_matching_accuracy,
                     densecloud_quality,
                     output_DEM_resolution,
@@ -606,7 +577,6 @@ def main():
             densecloud_quality=args.densecloud_quality,
             image_matching_accuracy=args.image_matching_accuracy,
             output_DEM_resolution=args.output_resolution,
-            pixel_pitch=args.pixel_pitch,
             license_path=args.license_path,
             parallelization=args.parallelization,
             exclude_years=args.exclude_years
@@ -618,7 +588,6 @@ def main():
         process_individual_clouds(
             args.output_path,
             args.reference_dem,
-            args.pixel_pitch,
             args.image_matching_accuracy,
             args.densecloud_quality,
             args.output_resolution,

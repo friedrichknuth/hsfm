@@ -30,7 +30,6 @@ def images2las(project_name,
                images_metadata_file,
                output_path,
                focal_length            = None,
-               pixel_pitch             = None,
                camera_model_xml_file   = None,
                camera_model_xml_files_path = None,
                crs                     = 'EPSG::4326',
@@ -151,21 +150,17 @@ def images2las(project_name,
 #             v.sensor = sensor
 #             v.sensor.focal_length = focal_length
     
-    if not isinstance(pixel_pitch, type(None)):
-        for i,v in enumerate(chunk.cameras):
-            v.sensor.pixel_height = pixel_pitch
-            v.sensor.pixel_width  = pixel_pitch
+
+    df = pd.read_csv(images_metadata_file)[['image_file_name', 'pixel_pitch']]
+    if 'pixel_pitch' in df.columns:
+        filename_to_pixel_pitch_dict = df.set_index('image_file_name').to_dict('index')
+        for cam in chunk.cameras:
+            pixel_pitch = filename_to_pixel_pitch_dict[cam.label+'.tif']['pixel_pitch']
+            cam.sensor.pixel_height = pixel_pitch #STAY THIS
+            cam.sensor.pixel_width  = pixel_pitch 
     else:
-        df = pd.read_csv(images_metadata_file)[['image_file_name', 'pixel_pitch']]
-        if 'pixel_pitch' in df.columns:
-            filename_to_pixel_pitch_dict = df.set_index('image_file_name').to_dict('index')
-            for cam in chunk.cameras:
-                pixel_pitch = filename_to_pixel_pitch_dict[cam.label+'.tif']['pixel_pitch']
-                cam.sensor.pixel_height = pixel_pitch #STAY THIS
-                cam.sensor.pixel_width  = pixel_pitch 
-        else:
-            print('Please specify pixel pitch as a parameter to images2las or provide a \'pixel_pitch\' column in the metashape metadata csv.')
-            sys.exit()
+        raise ValueError(f"Metashape metadata CSV file ({images_metadata_file}) should have a column \"pixel_pitch\".")
+
 
     doc.save()
     
