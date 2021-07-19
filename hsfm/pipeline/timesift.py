@@ -9,10 +9,15 @@ import glob
 
 
 class TimesiftPipeline:
-    """
-    Timesift Historical Structure from Motion pipeline.
-    Generates a timeseries of DEMs for a given set of images that span multiple years.
+    """Timesift Historical Structure from Motion pipeline. Generates a timeseries of DEMs 
+    for a given set of images that span multiple years.
 
+    A Pipeline is run to identify camera positions using images from all dates 
+    (called 4D alignment, or timesift). These cameras/images are then sorted into
+    groups by month and a Pipeline is run for each set of images. The camera models
+    determined/calibrated during 4D alignment are passed into the Pipeline runs 
+    for separate sets of images so that camera models are only calibrated during the 
+    4d alignment step.
     """
 
 
@@ -50,6 +55,11 @@ class TimesiftPipeline:
         )
         self.individual_clouds_output_path = os.path.join(
             output_directory, "individual_clouds/"
+        )
+
+        self.camera_calibration_directory = os.path.join(
+            self.multi_epoch_cloud_output_path, 
+            'camera_calibrations'
         )
 
     def run(self):
@@ -103,7 +113,7 @@ class TimesiftPipeline:
     def __export_camera_calibration_files(self):
         import Metashape
         metashape_project_file = os.path.join(self.multi_epoch_cloud_output_path, self.multi_epoch_project_name + ".psx")
-        camera_exports_dir = os.path.join(self.multi_epoch_cloud_output_path, 'camera_calibrations')
+        camera_exports_dir = self.camera_calibration_directory
         if not os.path.exists(camera_exports_dir):
             os.mkdir(camera_exports_dir)
         ##make this directory if it does not exist
@@ -241,7 +251,7 @@ class TimesiftPipeline:
                     "project",
                     cluster_dir,
                     metadata_file,
-                    camera_models_path = os.path.join(self.multi_epoch_cloud_output_path, 'camera_calibrations'),
+                    camera_models_path = self.camera_calibration_directory,
                     license_path=license_path,
                 )
                     
@@ -252,10 +262,6 @@ class TimesiftPipeline:
             except Exception as e:
                 print(f'Failure processing individual clouds at {cluster_dir}: \n {e}')
 
-########################################################################################
-########################################################################################
-########################################################################################
-########################################################################################
 def __parse_args():
     parser = argparse.ArgumentParser(
     """[summary]

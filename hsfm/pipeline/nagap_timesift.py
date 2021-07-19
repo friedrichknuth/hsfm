@@ -102,6 +102,16 @@ class NAGAPTimesiftPipeline:
         _ = self.__generate_subsets_for_each_date(dict_of_subsets_by_date)
 
 
+    def __prepare_metashape_metadata_file(self):
+        print("Preparing Metashape metadata CSV file...")
+        hsfm.core.prepare_metashape_metadata(
+            self.selected_images_df,
+            output_directory=self.output_directory,
+        )
+        return os.path.join(
+            self.output_directory, "metashape_metadata.csv"
+        )  # this is the file created in the above method...annoying I have to recreate the path name
+
     def __download_and_preprocess_images(self):
         """Iterates over images grouped by fiducial marker type, roll, and date. Downloads
         and preprocess images, preparing them for SfM processing.
@@ -155,16 +165,6 @@ class NAGAPTimesiftPipeline:
                 qc_plots_output_directory=qc_plots_output_directory,
                 missing_proxy=None,
             )
-
-    def __prepare_metashape_metadata_file(self):
-        print("Preparing Metashape metadata CSV file...")
-        hsfm.core.prepare_metashape_metadata(
-            self.selected_images_df,
-            output_directory=self.output_directory,
-        )
-        return os.path.join(
-            self.output_directory, "metashape_metadata.csv"
-        )  # this is the file created in the above method...annoying I have to recreate it
 
     def __generate_multi_epoch_densecloud(self, metadata_file):
         print("Generating and aligning multi-epoch densecloud...")
