@@ -39,8 +39,8 @@ class TimesiftPipeline:
         self.image_metadata_file = image_metadata_file
         self.raw_images_directory = raw_images_directory
         self.output_directory = output_directory
-        self.reference_dem_lowres = reference_dem_lowres,
-        self.reference_dem_hires = reference_dem_hires,
+        self.reference_dem_lowres = reference_dem_lowres
+        self.reference_dem_hires = reference_dem_hires
 
         self.densecloud_quality = densecloud_quality
         self.image_matching_accuracy = image_matching_accuracy
@@ -130,11 +130,14 @@ class TimesiftPipeline:
         """Create a CSV file of image metadata for each date."""
         print("Preparing data for individual clouds...")
         aligned_cameras_df = pd.read_csv(aligned_cameras_file)
+        image_metadata_df = pd.read_csv(self.image_metadata_file)
+        image_metadata_df['image_file_name'] = image_metadata_df['fileName'] + '.tif'
         joined_df = pd.merge(
-            self.image_metadata_file, aligned_cameras_df, on="image_file_name"
+            image_metadata_df, aligned_cameras_df, on="image_file_name"
         )
-        joined_df["Month"] = joined_df["Month"].fillna("0")
-        joined_df["Day"] = joined_df["Day"].fillna("0")
+        joined_df["Year"] = joined_df["Year"].astype('str')
+        joined_df["Month"] = joined_df["Month"].astype('str').fillna("0")
+        joined_df["Day"] = joined_df["Day"].astype('str').fillna("0")
         
         daily_dir_names = []
         for date_tuple, df in joined_df.groupby(["Year", "Month"]):

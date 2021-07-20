@@ -434,11 +434,9 @@ def update_ba_camera_metadata(metashape_project_file,
     unaligned_cameras_file_names = ba_cameras_df[ba_cameras_df.isnull().any(axis=1)]['image_file_name'].values
     ba_cameras_df = ba_cameras_df.dropna().reset_index(drop=True) # drop unaligned images from set of bundle adjusted cameras
     
-    try:
-        # pull focal lengths if they were provided in input csv
-        ba_cameras_df['focal_length'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['focal_length'])
-    except:
-        pass
+    # pull focal lengths and pixel  if they were provided in input csv
+    ba_cameras_df['focal_length'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['focal_length'])
+    ba_cameras_df['pixel_pitch'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['pixel_pitch'])
     
     unaligned_cameras_df = metashape_metadata_df[metashape_metadata_df['image_file_name'].isin(unaligned_cameras_file_names)]
     unaligned_cameras_df = unaligned_cameras_df.reset_index(drop=True)
@@ -500,3 +498,47 @@ def determine_clusters(metashape_project_file):
     
     subsets = hsfm.core.find_sets(m)
     return subsets
+
+def export_updated_orthomosaic(metashape_project_file, metadata_csv_path, dem_path, ortho_output_path):
+    """
+    Takes a Metashape project file, a CSV containing camera metadata, and a DEM tif file, and outputs an orthomosaic.
+    This is useful for creating an orthomosaic that is in alignment with a DEM that has been aligned using tools
+    outside of Metashape (such as pc_align or knuth and kaab).
+    
+    Params:
+    metashape_project_file (str): path to the Metashape project 
+    metadata_csv_path (str): path to the CSV containing camera information, camera extrinsics will be used to create orthomosaic
+    dem_path (str): path to the DEM tif file that will be used to create orthomosaic
+    ortho_output_path (str): path to create the orthomosaic
+    """
+    doc = Metashape.Document()
+    doc.open(metashape_project_file)
+    doc.read_only=False
+    chunk = doc.chunk
+    
+    chunk.importReference(metadata_csv_path,
+                          columns="nxyzXYZabcABC", # from metashape py api docs
+                          delimiter=',',
+                          format=Metashape.ReferenceFormatCSV)
+    T = chunk.transform.matrix
+    for camera in chunk.cameras:
+        image = camera.label
+        lon, lat, alt = chunk.crs.project(T.mulp(camera.center))
+        m = chunk.crs.localframe(T.mulp(camera.center)) #transformation matrix to the LSE coordinates in the given point
+        R = m * T * camera.transform * Metashape.Matrix().Diag([1, -1, -1, 1])
+        row = list()
+        for j in range (0, 3): #creating normalized rotation matrix 3x3
+            row.append(R.row(j))
+            row[j].size = 3
+            row[j].normalize()
+        R = Metashape.Matrix([row[0], row[1], row[2]])
+        yaw, pitch, roll = Metashape.utils.mat2ypr(R) #estimated orientation angles
+    chunk.updateTransform()
+    chunk.dense_cloud.crs = chunk.crs
+    chunk.dense_cloud.transform = chunk.transform.matrix
+    chunk.importRaster(dem_path)
+    chunk.calibrateColors(source_data=Metashape.ElevationData)
+    chunk.buildOrthomosaic(surface_data=Metashape.ElevationData)
+    chunk.exportRaster(ortho_output_path,
+                       source_data= Metashape.OrthomosaicData)
+    return ortho_output_path

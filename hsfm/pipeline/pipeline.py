@@ -346,10 +346,6 @@ class Pipeline:
             output_file_name=self.aligned_bundle_adjusted_metadata_file,
         )
         df = pd.read_csv(self.aligned_bundle_adjusted_metadata_file)
-        # ToDo should i remove this assignment?
-        df["focal_length"] = pd.read_csv(self.input_images_metadata_file)[
-            "focal_length"
-        ]
         df.to_csv(self.aligned_bundle_adjusted_metadata_file, index=False)
         return df
 

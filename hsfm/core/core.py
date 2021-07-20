@@ -1178,19 +1178,23 @@ def metadata_transform(metadata_file,
 
     transformed_metadata[['lon', 'lat','alt']] = transformed_metadata[['x', 'y','z']]
     transformed_metadata = transformed_metadata.drop(['x', 'y','z', 'geometry'], axis=1)
-    transformed_metadata = transformed_metadata[['image_file_name', 
-                                                 'lon', 
-                                                 'lat', 
-                                                 'alt', 
-                                                 'lon_acc', 
-                                                 'lat_acc', 
-                                                 'alt_acc',
-                                                 'yaw', 
-                                                 'pitch', 
-                                                 'roll', 
-                                                 'yaw_acc', 
-                                                 'pitch_acc', 
-                                                 'roll_acc']]
+    transformed_metadata = transformed_metadata[[
+        'image_file_name', 
+        'lon', 
+        'lat', 
+        'alt', 
+        'lon_acc', 
+        'lat_acc', 
+        'alt_acc',
+        'yaw', 
+        'pitch', 
+        'roll', 
+        'yaw_acc', 
+        'pitch_acc', 
+        'roll_acc',
+        'focal_length', 
+        'pixel_pitch'
+    ]]
     
     transformed_metadata = transformed_metadata.sort_values(by=['image_file_name'], ascending=True)
     
