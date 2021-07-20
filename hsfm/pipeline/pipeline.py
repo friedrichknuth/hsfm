@@ -14,7 +14,7 @@ class Pipeline:
 
     The pipeline completes the following steps in order:
         1. Creates point cloud from images using Metashape
-        2. Extracts DEM from Metashape project
+        2. Extracts DEM and orthomosaic from Metashape project
         3. Runs point cloud alignment routine on the extracted DEM and the provided reference
             DEM using NASA ASP
         4. Runs Nuth and Kaab Alignment routine on aligned DEM and the provided reference DEM
@@ -217,7 +217,7 @@ class Pipeline:
             )
             _ = self.__export_aligned_orthomosaic(nuth_aligned_dem_file)
             
-            self.nuthed_aligned_bundle_adjusted_metadata_file
+            return self.nuthed_aligned_bundle_adjusted_metadata_file
         else:
             print("Exiting...Metashape is not activated.")
             exit
