@@ -511,6 +511,7 @@ def export_updated_orthomosaic(metashape_project_file, metadata_csv_path, dem_pa
     dem_path (str): path to the DEM tif file that will be used to create orthomosaic
     ortho_output_path (str): path to create the orthomosaic
     """
+    import Metashape
     doc = Metashape.Document()
     doc.open(metashape_project_file)
     doc.read_only=False

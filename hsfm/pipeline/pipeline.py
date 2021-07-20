@@ -14,11 +14,13 @@ class Pipeline:
 
     The pipeline completes the following steps in order:
         1. Creates point cloud from images using Metashape
-        2. Extracts DEM and orthomosaic from Metashape project
+        2. Extracts DEM from Metashape project
         3. Runs point cloud alignment routine on the extracted DEM and the provided reference
             DEM using NASA ASP
         4. Runs Nuth and Kaab Alignment routine on aligned DEM and the provided reference DEM
             using the demcoreg library.
+        5. Extracts orthomosaic using the cameras aligned using the Nuth and Kaab routine and the DEM
+            output by that routine.
 
     After each step, updated camera positions are saved and camera position changes are
     plotted with CE90 and LE90 scores.
@@ -159,15 +161,13 @@ class Pipeline:
         """
         self.input_images_metadata_file = updated_cameras
 
-    def run(self, rotation_enabled=True, return_nuth_cameras=False, export_orthomosaic=True, split_in_blocks=False):
+    def run(self, rotation_enabled=True):
         """Run all steps in the pipeline.
         1. Generates a dense point cloud using Metashape's SfM algorithm.
         2. Aligns the point cloud to a reference DEM using an internally defined NASA ASP pc_align routine.
         3. Align the point cloud using the Nuth and Kaab Algorithm.
         Args:
             rotation_enabled (bool, optional): Metashape parameter.. Defaults to True.
-            return_nuth_cameras (bool, optional): Return a camera positions file that
-                includes the Nuth and Kaab transform. Defaults to False.
 
         Returns:
             str: Path to CSV file containing the most updated/aligned camera positions after all pipeline steps.
@@ -180,8 +180,7 @@ class Pipeline:
 
             # 1. Structure from Motion
             project_file, point_cloud_file = self.__run_metashape(rotation_enabled)
-            if export_orthomosaic:
-                _ = self.__extract_orthomosaic(split_in_blocks)
+            _ = self.__extract_orthomosaic()
             dem = self.__extract_dem(point_cloud_file)
             _ = self.__update_camera_data(project_file)
             _ = self.__compare_camera_positions(
@@ -202,7 +201,7 @@ class Pipeline:
             )
 
             # 3. DEM Coregistration Alignment
-            _ = self.__nuth_kaab_align_routine(aligned_dem_file)
+            dem_difference_file, nuth_aligned_dem_file = self.__nuth_kaab_align_routine(aligned_dem_file)
             _ = self.__apply_nuth_transform_and_update_camera_data(df)
             _ = self.__compare_camera_positions(
                 self.aligned_bundle_adjusted_metadata_file,
@@ -216,10 +215,9 @@ class Pipeline:
                 "Original vs Bundle Adjusted + Aligned + Nuth-Aligned",
                 "og_vs_final_offsets.png",
             )
-            if return_nuth_cameras:
-                return self.nuthed_aligned_bundle_adjusted_metadata_file
-            else:
-                return self.aligned_bundle_adjusted_metadata_file
+            _ = self.__export_aligned_orthomosaic(nuth_aligned_dem_file)
+            
+            self.nuthed_aligned_bundle_adjusted_metadata_file
         else:
             print("Exiting...Metashape is not activated.")
             exit
@@ -351,7 +349,7 @@ class Pipeline:
 
     def __nuth_kaab_align_routine(self, aligned_dem_file):
         print("Running Nuth and Kaab Alignment Routine...")
-        hsfm.utils.dem_align_custom(
+        return hsfm.utils.dem_align_custom(
             self.clipped_reference_dem_file,
             aligned_dem_file,
             self.output_path,
@@ -399,6 +397,16 @@ class Pipeline:
                 file_list.append(json_files[0])
         if len(file_list) > 0:
             return os.path.join(dir_list[0], file_list[0])
+
+    def __export_aligned_orthomosaic(self, dem):
+        orthomosaic_file = os.path.join(self.output_path, 'orthomosaic_final.tif')
+        print(f'Generating nuth-aligned orthomosaic to path {orthomosaic_file} using dem at path {dem}')
+        hsfm.metashape.export_updated_orthomosaic(
+            self.metashape_project_file,
+            self.nuthed_aligned_bundle_adjusted_metadata_file,
+            dem,
+            orthomosaic_file
+        )
 
 
 ########################################################################################
