@@ -174,6 +174,20 @@ def parallel_stereo_custom(first_image,
                            log_directory=log_directory)          
         print('Parallel stereo results saved in', stereo_output_directory)
         return stereo_output_directory
+
+def dem_mosaic(output_file, input_files, threads=4):
+    """
+    Function to run ASP dem_mosaic.
+    Params:
+    output_file (str): path to save mosaiced file to
+    input_files (str): list of paths to DEM files that will be mosaiced together
+    threads (int): threads to use for the ASP call. Default is 4 (per the ASP default, we just pass it through)
+    """
+    call = ['dem_mosaic']
+    call.extend(input_files)
+    call.extend(['-o', output_file])
+    call.extend(['--threads', str(threads)])
+    hsfm.utils.run_command(call)
     
 def dem_mosaic_custom(output_directory,
                       verbose=False,
