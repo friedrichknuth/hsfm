@@ -266,6 +266,14 @@ class TimesiftPipeline:
             except Exception as e:
                 print(f'Failure processing individual clouds at {cluster_dir}: \n {e}')
 
+    # ToDo: implement these functions which will generate a single orthomosaic tif and a single
+    # DEM tif for each individual date (month)
+    # Filter these by NMAD (an arg that is passed through from the top)
+    # def _mosaic_good_orthos():
+    #     return None
+    # def _mosaic_good_dems_():
+    #     return None
+
 def parse_args():
     parser = argparse.ArgumentParser(
     """[summary]
