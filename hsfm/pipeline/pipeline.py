@@ -135,7 +135,7 @@ class Pipeline:
             rotation_enabled = False
         return updated_cameras
 
-    def __update_output_paths(self, new_output_path):
+    def _update_output_paths(self, new_output_path):
         """
         Has the side effect of modifying:
             self.output_path
@@ -155,7 +155,7 @@ class Pipeline:
             self.output_path, "nuth_aligned_bundle_adj_metadata.csv"
         )
 
-    def __set_input_images_metadata_file(self, updated_cameras):
+    def _set_input_images_metadata_file(self, updated_cameras):
         """
         Has the side effect of modifying self.input_images_metadata_file.
         """
@@ -222,7 +222,7 @@ class Pipeline:
             print("Exiting...Metashape is not activated.")
             exit
 
-    def __is_metashape_activated(self):
+    def _is_metashape_activated(self):
         print("Checking Metashape authentication...")
         # ToDo I don't like that the authentication method called below creates a symlink...can we avoid that or clean it up later?
         import Metashape
@@ -231,7 +231,7 @@ class Pipeline:
         print(Metashape.app.activated)
         return Metashape.app.activated
 
-    def __run_metashape(self, rotation_enabled):
+    def _run_metashape(self, rotation_enabled):
         """Makes sure yaw, pitch, and roll columns are set to 0 for the camera metadata."""
         self.__reset_yaw_pitch_roll(self.input_images_metadata_file)
         print(
@@ -262,12 +262,12 @@ class Pipeline:
             )
         return project_file, point_cloud_file
 
-    def __reset_yaw_pitch_roll(self, camera_metadata_file_path):
+    def _reset_yaw_pitch_roll(self, camera_metadata_file_path):
         df = pd.read_csv(camera_metadata_file_path)
         df["yaw"] = df["pitch"] = df["roll"] = 0
         df.to_csv(camera_metadata_file_path, index=False)
 
-    def __extract_orthomosaic(self, split_in_blocks=False):
+    def _extract_orthomosaic(self, split_in_blocks=False):
         print("Extracting Orthomosaic...")
         hsfm.metashape.images2ortho(
             self.project_name,
@@ -277,7 +277,7 @@ class Pipeline:
             iteration=0,
         )
 
-    def __extract_dem(self, point_cloud_file):
+    def _extract_dem(self, point_cloud_file):
         print("Extracting DEM...")
         epsg_code = "EPSG:" + hsfm.geospatial.get_epsg_code(self.reference_dem)
         dem = hsfm.asp.point2dem(
@@ -293,7 +293,7 @@ class Pipeline:
         )
         return dem
 
-    def __update_camera_data(self, project_file):
+    def _update_camera_data(self, project_file):
         print("Updating and extracting bundle-adjusted camera metadata...")
         ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(
             metashape_project_file=project_file,
@@ -301,7 +301,7 @@ class Pipeline:
         )
         ba_cameras_df.to_csv(self.bundle_adjusted_metadata_file, index=False)
 
-    def __compare_camera_positions(
+    def _compare_camera_positions(
         self, metadata_file_1, metadata_file_2, title, plot_file_name
     ):
         print("Comparing and plotting camera position changes...")
@@ -322,7 +322,7 @@ class Pipeline:
             plot_file_name=os.path.join(self.output_path, plot_file_name),
         )
 
-    def __pc_align_routine(self, dem):
+    def _pc_align_routine(self, dem):
         print("Running Point Cloud Alignment Routine...")
         clipped_reference_dem_file = hsfm.utils.clip_reference_dem(
             dem,
@@ -336,7 +336,7 @@ class Pipeline:
         )
         return aligned_dem_file, transform
 
-    def __apply_transform_and_update_camera_data(self, transform):
+    def _apply_transform_and_update_camera_data(self, transform):
         print("Applying PC alignment transform to bundle-adjusted camera positions...")
         hsfm.core.metadata_transform(
             self.bundle_adjusted_metadata_file,
@@ -347,7 +347,7 @@ class Pipeline:
         df.to_csv(self.aligned_bundle_adjusted_metadata_file, index=False)
         return df
 
-    def __nuth_kaab_align_routine(self, aligned_dem_file):
+    def _nuth_kaab_align_routine(self, aligned_dem_file):
         print("Running Nuth and Kaab Alignment Routine...")
         return hsfm.utils.dem_align_custom(
             self.clipped_reference_dem_file,
@@ -356,7 +356,7 @@ class Pipeline:
             verbose=self.verbose,
         )
 
-    def __apply_nuth_transform_and_update_camera_data(self, df):
+    def _apply_nuth_transform_and_update_camera_data(self, df):
         print(
             "Applying transform from Nuth and Kaab to aligned and bundle adjusted camera positions..."
         )
@@ -386,7 +386,7 @@ class Pipeline:
         df.to_csv(self.nuthed_aligned_bundle_adjusted_metadata_file, index=False)
 
     # This is kind of hacky... but works to find the Nuth and Kaab algorithm's json file output...at least in my experience.
-    def __find_first_json_file_in_nested_directory(self, directory):
+    def _find_first_json_file_in_nested_directory(self, directory):
         file_list = []
         dir_list = []
         for root, dirs, files in os.walk(directory):
@@ -398,7 +398,7 @@ class Pipeline:
         if len(file_list) > 0:
             return os.path.join(dir_list[0], file_list[0])
 
-    def __export_aligned_orthomosaic(self, dem, project_file):
+    def _export_aligned_orthomosaic(self, dem, project_file):
         orthomosaic_file = os.path.join(self.output_path, 'orthomosaic_final.tif')
         print(f'Generating nuth-aligned orthomosaic to path {orthomosaic_file} using dem at path {dem}')
         hsfm.metashape.export_updated_orthomosaic(
@@ -430,7 +430,7 @@ class Pipeline:
 #
 ########################################################################################
 ########################################################################################
-def __parse_args():
+def parse_args():
     parser = argparse.ArgumentParser("Run the HSFM Pipeline on a batch of images.")
     parser.add_argument(
         "-r", "--reference-dem", help="Path to reference DEM file.", required=True
@@ -499,7 +499,7 @@ def __parse_args():
 
 def main():
     print("Parsing arguments...")
-    args = __parse_args()
+    args = parse_args()
     print(f"Arguments: \n\t {args}")
     pipeline = Pipeline(
         args.input_images_path,

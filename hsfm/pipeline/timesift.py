@@ -80,7 +80,7 @@ class TimesiftPipeline:
         _ = self.__generate_subsets_for_each_date(dict_of_subsets_by_date)
         _ = self.__process_individual_clouds()
 
-    def __generate_multi_epoch_densecloud(self):
+    def _generate_multi_epoch_densecloud(self):
         print("Generating and aligning multi-epoch densecloud...")
         pipeline = hsfm.pipeline.Pipeline(
             self.raw_images_directory,
@@ -95,7 +95,7 @@ class TimesiftPipeline:
         )
         return pipeline.run()
 
-    def __save_image_footprints(self):
+    def _save_image_footprints(self):
         """Creates geojson file with image footprints exported from the timesift Metashape project 
         file
         """
@@ -107,10 +107,10 @@ class TimesiftPipeline:
 
 
     #TODO there must be a better alternative to this...
-    def __get_timesift_project_path(self):
+    def _get_timesift_project_path(self):
         return os.path.join(self.multi_epoch_cloud_output_path, self.multi_epoch_project_name + ".psx")
 
-    def __export_camera_calibration_files(self):
+    def _export_camera_calibration_files(self):
         import Metashape
         metashape_project_file = os.path.join(self.multi_epoch_cloud_output_path, self.multi_epoch_project_name + ".psx")
         camera_exports_dir = self.camera_calibration_directory
@@ -126,7 +126,7 @@ class TimesiftPipeline:
 
     # This has a lot of annoying data manipulation that could be avoided with better handling/updating
     # of camera position.
-    def __prepare_single_date_data(self, aligned_cameras_file):
+    def _prepare_single_date_data(self, aligned_cameras_file):
         """Create a CSV file of image metadata for each date."""
         print("Preparing data for individual clouds...")
         aligned_cameras_df = pd.read_csv(aligned_cameras_file)
@@ -179,7 +179,7 @@ class TimesiftPipeline:
                 daily_dir_names.append(parent_dir)
         
 
-    def __find_clusters_in_individual_clouds(self):
+    def _find_clusters_in_individual_clouds(self):
         print("Searching all dates for clusters/subsets")
         individual_dir_to_subset_list_dict = {}
         for individual_sfm_dir in os.listdir(self.individual_clouds_output_path):
@@ -216,7 +216,7 @@ class TimesiftPipeline:
                 print(f'Failure processing/finding clusters in individual clouds for cloud {individual_sfm_dir}: \n {e}')
         return individual_dir_to_subset_list_dict
 
-    def __generate_subsets_for_each_date(self, dict_of_subsets_by_date):
+    def _generate_subsets_for_each_date(self, dict_of_subsets_by_date):
         print("Generating subsets/clusters for each date.")
         for individual_sfm_dir in os.listdir(self.individual_clouds_output_path):
             input_images_metadata = pd.read_csv(
@@ -235,7 +235,7 @@ class TimesiftPipeline:
                     index=False
                 )
 
-    def __process_individual_clouds(self):
+    def _process_individual_clouds(self):
         for cluster_dir in glob.glob(
             os.path.join(self.individual_clouds_output_path,"/**/cluster[0-9]*"),
             recursive=True
@@ -265,7 +265,7 @@ class TimesiftPipeline:
             except Exception as e:
                 print(f'Failure processing individual clouds at {cluster_dir}: \n {e}')
 
-def __parse_args():
+def parse_args():
     parser = argparse.ArgumentParser(
     """[summary]
     Run the HSFM Timesift pipeline for any set of images.
@@ -362,7 +362,7 @@ def __parse_args():
 
 def main():
     print("Parsing arguments...")
-    args = __parse_args()
+    args = parse_args()
     print(f"Arguments: \n\t {vars(args)}")
     
     print("fPerforming timesift processing...")
