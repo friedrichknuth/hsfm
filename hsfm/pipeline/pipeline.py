@@ -114,7 +114,7 @@ class Pipeline:
         )
 
 
-    def run_multi(self, iterations=3):
+    def run_multi(self, iterations=3, export_orthomosaic=True):
         """Run n pipeline iterations for further alignment/refinement.
         The final output camera locations of one pipeline iteration are fed in as the original camera positions
         for the subsequent pipeline run. During the first iteration, the Metashape rotation_enabled parameter is
@@ -130,7 +130,7 @@ class Pipeline:
             self._update_output_paths(
                 os.path.join(self.original_output_path, str(i) + "/")
             )  # need this '/' due to internal part of HSFM not using os.path.join
-            updated_cameras = self.run(rotation_enabled)
+            updated_cameras = self.run(rotation_enabled, export_orthomosaic=export_orthomosaic)
             self._set_input_images_metadata_file(updated_cameras)
             rotation_enabled = False
         return updated_cameras
@@ -161,7 +161,7 @@ class Pipeline:
         """
         self.input_images_metadata_file = updated_cameras
 
-    def run(self, rotation_enabled=True):
+    def run(self, rotation_enabled=True, export_orthomosaic=True):
         """Run all steps in the pipeline.
         1. Generates a dense point cloud using Metashape's SfM algorithm.
         2. Aligns the point cloud to a reference DEM using an internally defined NASA ASP pc_align routine.
@@ -180,7 +180,8 @@ class Pipeline:
 
             # 1. Structure from Motion
             project_file, point_cloud_file = self._run_metashape(rotation_enabled)
-            _ = self._extract_orthomosaic()
+            if export_orthomosaic:
+                _ = self._extract_orthomosaic()
             dem = self._extract_dem(point_cloud_file)
             _ = self._update_camera_data(project_file)
             _ = self._compare_camera_positions(
@@ -215,7 +216,8 @@ class Pipeline:
                 "Original vs Bundle Adjusted + Aligned + Nuth-Aligned",
                 "og_vs_final_offsets.png",
             )
-            _ = self._export_aligned_orthomosaic(nuth_aligned_dem_file, project_file)
+            if export_orthomosaic:
+                _ = self._export_aligned_orthomosaic(nuth_aligned_dem_file, project_file)
             
             return self.nuthed_aligned_bundle_adjusted_metadata_file
         else:
