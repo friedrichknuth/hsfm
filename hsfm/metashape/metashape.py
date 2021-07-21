@@ -522,7 +522,9 @@ def export_updated_orthomosaic(metashape_project_file, metadata_csv_path, dem_pa
                           delimiter=',',
                           format=Metashape.ReferenceFormatCSV)
     T = chunk.transform.matrix
-    for camera in chunk.cameras:
+
+    #filter out cameras that have no centeras (were not able to be bundle adjusted)
+    for camera in filter(lambda cam: cam.center, chunk.cameras):
         image = camera.label
         lon, lat, alt = chunk.crs.project(T.mulp(camera.center))
         m = chunk.crs.localframe(T.mulp(camera.center)) #transformation matrix to the LSE coordinates in the given point

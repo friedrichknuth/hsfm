@@ -93,7 +93,7 @@ class TimesiftPipeline:
             self.metashape_metadata_file,
             license_path=self.license_path,
         )
-        return pipeline.run(export_orthomosaic=False, split_in_blocks=True)
+        return pipeline.run()
 
     def __save_image_footprints(self):
         """Creates geojson file with image footprints exported from the timesift Metashape project 

@@ -215,7 +215,7 @@ class Pipeline:
                 "Original vs Bundle Adjusted + Aligned + Nuth-Aligned",
                 "og_vs_final_offsets.png",
             )
-            _ = self.__export_aligned_orthomosaic(nuth_aligned_dem_file)
+            _ = self.__export_aligned_orthomosaic(nuth_aligned_dem_file, project_file)
             
             return self.nuthed_aligned_bundle_adjusted_metadata_file
         else:
@@ -398,11 +398,11 @@ class Pipeline:
         if len(file_list) > 0:
             return os.path.join(dir_list[0], file_list[0])
 
-    def __export_aligned_orthomosaic(self, dem):
+    def __export_aligned_orthomosaic(self, dem, project_file):
         orthomosaic_file = os.path.join(self.output_path, 'orthomosaic_final.tif')
         print(f'Generating nuth-aligned orthomosaic to path {orthomosaic_file} using dem at path {dem}')
         hsfm.metashape.export_updated_orthomosaic(
-            self.metashape_project_file,
+            project_file,
             self.nuthed_aligned_bundle_adjusted_metadata_file,
             dem,
             orthomosaic_file
