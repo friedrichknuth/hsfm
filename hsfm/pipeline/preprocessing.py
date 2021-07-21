@@ -54,9 +54,9 @@ class NAGAPPreprocessingPipeline:
         print(f'Generated Metashape metadata file saved to path: {self.metashape_metadata_file}')
 
         print('Downloading and preprocessing images')
-        _ = self.__download_and_preprocess_images(selected_images_df)
+        _ = self._download_and_preprocess_images(selected_images_df)
 
-    def __download_and_preprocess_images(self, selected_images_df):
+    def _download_and_preprocess_images(self, selected_images_df):
         preprocessed_images_directory = os.path.join(self.output_directory, "preprocessed_images")
         for (
             fiducial,
@@ -107,7 +107,7 @@ class NAGAPPreprocessingPipeline:
                 missing_proxy=None,
             )
 
-def __parse_args():
+def parse_args():
     parser = argparse.ArgumentParser("Run the NAGAP preprocessing pipeline.")
     parser.add_argument(
         "-o",
@@ -139,7 +139,7 @@ def __parse_args():
 
 def main():
     print("Parsing arguments...")
-    args = __parse_args()
+    args = parse_args()
     print(f"Arguments: \n\t {vars(args)}")
 
     pipeline = NAGAPPreprocessingPipeline(
