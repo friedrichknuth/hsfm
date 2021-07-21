@@ -236,8 +236,9 @@ class TimesiftPipeline:
                 )
 
     def _process_individual_clouds(self):
+        print('Processing individual clouds...')
         for cluster_dir in glob.glob(
-            os.path.join(self.individual_clouds_output_path,"/**/cluster[0-9]*"),
+            os.path.join(self.individual_clouds_output_path,"**/cluster[0-9]*"),
             recursive=True
         ):
             try:
@@ -255,7 +256,7 @@ class TimesiftPipeline:
                     cluster_dir,
                     metadata_file,
                     camera_models_path = self.camera_calibration_directory,
-                    license_path=license_path,
+                    license_path=self.license_path,
                 )
                     
                 updated_cameras = pipeline.run_multi(iterations=2)
