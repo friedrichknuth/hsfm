@@ -1,10 +1,11 @@
 from hsfm.pipeline import TimesiftPipeline
 
-# Example script running timesift processing for a mix of NAGAP and EE images within bounds near Mt Baker.
+# Example script running timesift processing for a mix of NAGAP and EE images within bounds surrounding Mt Baker.
 # Currently the preprocessing to download and prep images is performed manually in a notebook.
 
 # See jupyter notebook for preparation steps
 
+# Instantiate the pipeline
 timesift_pipeline = TimesiftPipeline(
     metashape_metadata_file = "/data2/elilouis/generate_ee_dems_baker/mixed_timesift/combined_metashape_metadata.csv",
     image_metadata_file = "/data2/elilouis/generate_ee_dems_baker/mixed_timesift/combined_image_metadata.csv",
@@ -18,4 +19,12 @@ timesift_pipeline = TimesiftPipeline(
     license_path="/home/elilouis/hsfm/uw_agisoft.lic",
     parallelization=1
 )
+
+# Run the pipeline
 timesift_pipeline.run()
+
+# Create a DEM quality report
+timesift_pipeline.create_results_report()
+
+# Generate mosaic files for each date
+timesift_pipeline.create_mosaics(3.5)

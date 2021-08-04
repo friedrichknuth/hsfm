@@ -8,7 +8,8 @@ class NAGAPPreprocessingPipeline:
     """Perform preprocessing steps for NAGAP image datasets.
 
     Given an output directory, directory of fiducial templates, a csv file listing NAGAP image info,
-    and a set of bounds, NAGAP images will be downloaded and preprocessed. 
+    and a set of bounds, NAGAP images will be downloaded and preprocessed. The results can be easily 
+    used as inputs to the Pipeline or TimesiftPipeline classes.
 
     This pipeline outputs 3 crucial outputs into the specified output directory:
         1. image_metadata.csv (contains file names and date of image capture)

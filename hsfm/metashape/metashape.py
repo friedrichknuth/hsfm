@@ -542,6 +542,13 @@ def export_updated_orthomosaic(metashape_project_file, metadata_csv_path, dem_pa
     chunk.importRaster(dem_path)
     chunk.calibrateColors(source_data=Metashape.ElevationData)
     chunk.buildOrthomosaic(surface_data=Metashape.ElevationData)
-    chunk.exportRaster(ortho_output_path,
-                       source_data= Metashape.OrthomosaicData)
+    chunk.exportRaster(ortho_output_path, source_data= Metashape.OrthomosaicData)
+    # chunk.exportRaster(
+    #     ortho_output_path, 
+    #     nodata_value=-10000, 
+    #     save_alpha=True, 
+    #     white_background=False,
+    #     source_data=Metashape.OrthomosaicData
+    # )
+
     return ortho_output_path
