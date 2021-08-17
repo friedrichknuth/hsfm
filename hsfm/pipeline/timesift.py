@@ -201,6 +201,7 @@ class TimesiftPipeline:
                     export_point_cloud      = False
                 )
                 ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file, input_images_metadata_file)
+                # ToDo: need to do something with the unaligned cameras!!! I'm losing data by not using them
                 ba_cameras_df.to_csv(
                     input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv"),
                     index=False

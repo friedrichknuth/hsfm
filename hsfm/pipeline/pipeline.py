@@ -239,29 +239,16 @@ class Pipeline:
         print(
             f"Running Metashape Camera Bundle Adjustment and Point Cloud Creation with camera metadata file {self.input_images_metadata_file}..."
         )
-        #ToDo I think i can just pass self.camera_models_path directly in because the default images2las value is None
-        if self.camera_models_path is not None:
-            print("Using camera model")
-            project_file, point_cloud_file = hsfm.metashape.images2las(
-                self.project_name,
-                self.input_images_path,
-                self.input_images_metadata_file,
-                self.output_path,
-                image_matching_accuracy=self.image_matching_accuracy,
-                densecloud_quality=self.densecloud_quality,
-                rotation_enabled=rotation_enabled,
-                camera_model_xml_files_path=self.camera_models_path
-            )
-        else: 
-            project_file, point_cloud_file = hsfm.metashape.images2las(
-                self.project_name,
-                self.input_images_path,
-                self.input_images_metadata_file,
-                self.output_path,
-                image_matching_accuracy=self.image_matching_accuracy,
-                densecloud_quality=self.densecloud_quality,
-                rotation_enabled=rotation_enabled,
-            )
+        project_file, point_cloud_file = hsfm.metashape.images2las(
+            self.project_name,
+            self.input_images_path,
+            self.input_images_metadata_file,
+            self.output_path,
+            image_matching_accuracy=self.image_matching_accuracy,
+            densecloud_quality=self.densecloud_quality,
+            rotation_enabled=rotation_enabled,
+            camera_model_xml_files_path=self.camera_models_path
+        )
         return project_file, point_cloud_file
 
     def _reset_yaw_pitch_roll(self, camera_metadata_file_path):
@@ -297,6 +284,7 @@ class Pipeline:
 
     def _update_camera_data(self, project_file):
         print("Updating and extracting bundle-adjusted camera metadata...")
+        # ToDo: DO NOT JUST DROP THESE UNALIGNED CAMERAS!!! Try processing them again...how to do this?
         ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(
             metashape_project_file=project_file,
             metashape_metadata_csv=self.input_images_metadata_file,
