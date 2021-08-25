@@ -300,7 +300,7 @@ def oc32dem(project_name,
     import Metashape
 
     doc = Metashape.Document()
-    doc.open(output_path + project_name + ".psx")
+    doc.open(os.path.join(output_path,  project_name + ".psx"))
     doc.read_only = False
 
     chunk = doc.chunk
@@ -310,7 +310,7 @@ def oc32dem(project_name,
 
     doc.save()
 
-    chunk.exportRaster(output_path + project_name + "_DEM.tif", 
+    chunk.exportRaster(os.path.join(output_path, project_name + "_DEM.tif"), 
                        source_data= Metashape.ElevationData,
                        image_format=Metashape.ImageFormatTIFF, 
                        format=Metashape.RasterFormatTiles, 
@@ -331,7 +331,9 @@ def images2ortho(project_name,
     ortho_file = os.path.join(output_path, project_name  +"_orthomosaic.tif")
 
     doc = Metashape.Document()
-    doc.open(output_path + project_name + ".psx")
+    doc.open(
+        os.path.join(output_path, project_name + ".psx")
+    )
     doc.read_only = False
 
     chunk = doc.chunk
