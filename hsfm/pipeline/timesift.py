@@ -266,7 +266,7 @@ class TimesiftPipeline:
                     index=False
                 )
 
-    def _process_individual_clouds(self, date_keys=[]):
+    def _process_individual_clouds(self, date_keys=[], output_DEM_resolution_override=None):
         print('Processing individual clouds...')
         all_dates_folders = glob.glob(
             os.path.join(self.individual_clouds_output_path,"**/cluster[0-9]*"),
@@ -288,12 +288,13 @@ class TimesiftPipeline:
                 print("\n\n")
                 print(f"Running pipeline for single date and cluster: {cluster_dir}")
                 print(f"Using metashape metadata in file: {metadata_file}")
+                final_output_DEM_resolution = output_DEM_resolution_override if output_DEM_resolution_override else self.output_DEM_resolution
                 pipeline = hsfm.pipeline.Pipeline(
                     self.raw_images_directory,
                     self.reference_dem_hires,
                     self.image_matching_accuracy,
                     self.densecloud_quality,
-                    self.output_DEM_resolution,
+                    final_output_DEM_resolution,
                     "project",
                     cluster_dir,
                     metadata_file,
