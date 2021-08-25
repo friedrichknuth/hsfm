@@ -217,7 +217,7 @@ def images2las(project_name,
     # BUILD DENSE CLOUD
 
     chunk.buildDepthMaps(downscale=densecloud_quality,
-                         filter_mode=Metashape.MildFiltering)
+                         filter_mode=Metashape.AggressiveFiltering)
     chunk.buildDenseCloud()
     doc.save()
     
