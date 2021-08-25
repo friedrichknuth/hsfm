@@ -89,8 +89,8 @@ class TimesiftPipeline:
         pipeline = hsfm.pipeline.Pipeline(
             self.raw_images_directory,
             self.reference_dem_lowres,
+            1,
             2,
-            4,
             10,
             self.multi_epoch_project_name,
             self.multi_epoch_cloud_output_path,
