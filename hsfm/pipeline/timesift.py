@@ -227,8 +227,8 @@ class TimesiftPipeline:
                     focal_length            = pd.read_csv(input_images_metadata_file)['focal_length'].iloc[0],
                     image_matching_accuracy = self.image_matching_accuracy,
                     densecloud_quality      = self.densecloud_quality,
-                    keypoint_limit          = 40000,
-                    tiepoint_limit          = 4000,
+                    keypoint_limit          = 80000,
+                    tiepoint_limit          = 8000,
                     rotation_enabled        = True,
                     export_point_cloud      = False
                 )
