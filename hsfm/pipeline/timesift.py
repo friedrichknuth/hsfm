@@ -83,12 +83,15 @@ class TimesiftPipeline:
 
     def _generate_multi_epoch_densecloud(self):
         print("Generating and aligning multi-epoch densecloud...")
+        # It makes sense not to make these parameters configurable form the immediate interface,
+        # but hard coding them is bad too. Maybe a configuration file would be useful at this point... 
+        # so many parameters,
         pipeline = hsfm.pipeline.Pipeline(
             self.raw_images_directory,
             self.reference_dem_lowres,
-            self.image_matching_accuracy,
-            self.densecloud_quality,
-            self.output_DEM_resolution,
+            2,
+            4,
+            10,
             self.multi_epoch_project_name,
             self.multi_epoch_cloud_output_path,
             self.metashape_metadata_file,
