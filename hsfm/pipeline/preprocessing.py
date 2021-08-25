@@ -2,7 +2,9 @@ import os
 import argparse
 import hipp
 import hsfm
+import pandas as pd
 
+NAGAP_PIXEL_PITCH = 0.02
 
 class NAGAPPreprocessingPipeline:
     """Perform preprocessing steps for NAGAP image datasets.
@@ -47,11 +49,18 @@ class NAGAPPreprocessingPipeline:
         selected_images_df = hipp.dataquery.NAGAP_pre_select_images(
             self.nagap_images_csv_path, bounds=self.bounds
         )
-        selected_images_df.to_csv(self.image_metadata_file, index=False)
+        # focal_length is saved to the metashape_metadata_file (created below) and 
+        # we don't want focal_length info in both files
+        selected_images_df.drop(
+            'focal_length', axis='columns'
+        ).to_csv(self.image_metadata_file, index=False)
         print(f'Query results include {len(selected_images_df)} images.')
 
         print('Preparing Metashape metadata CSV file...')
-        hsfm.core.prepare_metashape_metadata(selected_images_df, output_directory=self.output_directory)    
+        hsfm.core.prepare_metashape_metadata(selected_images_df, output_directory=self.output_directory)  
+        df = pd.read_csv(self.metashape_metadata_file)
+        df['pixel_pitch'] = NAGAP_PIXEL_PITCH
+        df.to_csv(self.metashape_metadata_file, index=False)
         print(f'Generated Metashape metadata file saved to path: {self.metashape_metadata_file}')
 
         print('Downloading and preprocessing images')
