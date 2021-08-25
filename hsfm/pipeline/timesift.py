@@ -71,8 +71,9 @@ class TimesiftPipeline:
             densecloud (images taken the same month are grouped together for "individual date" 
             processing).
         """
-
-        metadata_timesift_aligned_file = self._generate_multi_epoch_densecloud()
+                
+        metadata_timesift_aligned_file, unaligned_cameras_df = self._generate_multi_epoch_densecloud()
+        # Do something with the unaligned cameras!!!
         _ = self._save_image_footprints()
         _ = self._export_camera_calibration_files()
         _ = self._prepare_single_date_data(metadata_timesift_aligned_file)
@@ -93,7 +94,35 @@ class TimesiftPipeline:
             self.metashape_metadata_file,
             license_path=self.license_path,
         )
-        return pipeline.run(export_orthomosaic=False)
+        nuthed_aligned_bundle_adjusted_metadata_file, unaligned_cameras_df = pipeline.run(export_orthomosaic=False)
+        if len(unaligned_cameras_df) > 2:
+            unaligned_cams_file = nuthed_aligned_bundle_adjusted_metadata_file.replace('nuth_aligned_bundle_adj_metadata.csv', 'metaflow_bundle_adj_unaligned_metadata.csv')
+            print(f"Unaligned cameras count more than 2, running a pipeline with unaligned images with metadata in file {unaligned_cams_file}")
+            pipeline = hsfm.pipeline.Pipeline(
+                self.raw_images_directory,
+                self.reference_dem_lowres,
+                self.image_matching_accuracy,
+                self.densecloud_quality,
+                self.output_DEM_resolution,
+                self.multi_epoch_project_name,
+                os.path.join(self.multi_epoch_cloud_output_path, 'unaligned_retry'),
+                unaligned_cams_file,
+                license_path=self.license_path,
+            )
+            nuthed_aligned_bundle_adjusted_metadata_file_2, unaligned_cameras_df_2 = pipeline.run(export_orthomosaic=False)
+            if len(unaligned_cameras_df_2) > 0:
+                print(f"Some unaligned cameras remain ({len(unaligned_cameras_df_2)})")
+        
+        combined_nuthed_aligned_bundle_adjusted_metadata_df = pd.concat([
+            pd.read_csv(nuthed_aligned_bundle_adjusted_metadata_file), 
+            pd.read_csv(nuthed_aligned_bundle_adjusted_metadata_file_2)
+        ])
+        combined_nuthed_aligned_bundle_adjusted_metadata_file = os.path.join(self.multi_epoch_cloud_output_path, 'unaligned_retry', 'all_aligned_cameras_metadata.csv')
+        combined_nuthed_aligned_bundle_adjusted_metadata_df.to_csv(
+            combined_nuthed_aligned_bundle_adjusted_metadata_file, 
+            index=False
+        )
+        return combined_nuthed_aligned_bundle_adjusted_metadata_file, unaligned_cameras_df_2
 
     def _save_image_footprints(self):
         """Creates geojson file with image footprints exported from the timesift Metashape project 
@@ -202,6 +231,7 @@ class TimesiftPipeline:
                 )
                 ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file, input_images_metadata_file)
                 # ToDo: need to do something with the unaligned cameras!!! I'm losing data by not using them
+                # Can I just run images2las with the unaligned cameras only?
                 ba_cameras_df.to_csv(
                     input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv"),
                     index=False
@@ -236,12 +266,22 @@ class TimesiftPipeline:
                     index=False
                 )
 
-    def _process_individual_clouds(self):
+    def _process_individual_clouds(self, date_keys=[]):
         print('Processing individual clouds...')
-        for cluster_dir in glob.glob(
+        all_dates_folders = glob.glob(
             os.path.join(self.individual_clouds_output_path,"**/cluster[0-9]*"),
             recursive=True
-        ):
+        )
+        if date_keys:
+            def flatten_list_of_lists(ls):
+                return [item for sublist in ls for item in sublist]
+            valid_cluster_dates = flatten_list_of_lists(
+                [[f for f in all_dates_folders if date_key in f] for date_key in date_keys]
+            )
+        else:
+            valid_cluster_dates = all_dates_folders
+
+        for cluster_dir in valid_cluster_dates:
             try:
                 metadata_file = os.path.join(cluster_dir, "metashape_metadata.csv")
                 assert len(pd.read_csv(metadata_file)) > 2, "Skipping cluster because not enougn images."
@@ -261,8 +301,10 @@ class TimesiftPipeline:
                     license_path=self.license_path,
                 )
                     
-                updated_cameras = pipeline.run_multi(iterations=2)
-                print(f"Final updated cameras for {cluster_dir}: {updated_cameras} ")
+                updated_cameras_file, unaligned_cameras_df = pipeline.run()
+                # ToDo what to do with unaligned cameras df? Run another pipeline if more than two cameras!?
+                print(f"Final updated cameras for {cluster_dir}: {updated_cameras_file} ")
+                print(f"There are {len(unaligned_cameras_df)} unaligned cameras remaining.")
                 updated_cameras=None
             
             except Exception as e:

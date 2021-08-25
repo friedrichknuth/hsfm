@@ -103,6 +103,9 @@ class Pipeline:
         self.bundle_adjusted_metadata_file = os.path.join(
             output_path, "metaflow_bundle_adj_metadata.csv"
         )
+        self.bundle_adjusted_unaligned_metadata_file = os.path.join(
+            output_path, "metaflow_bundle_adj_unaligned_metadata.csv"
+        )
         self.aligned_bundle_adjusted_metadata_file = os.path.join(
             output_path, "aligned_bundle_adj_metadata.csv"
         )
@@ -140,6 +143,7 @@ class Pipeline:
         Has the side effect of modifying:
             self.output_path
             self.bundle_adjusted_metadata_file
+            self.bundle_adjusted_unaligned_metadata_file
             self.aligned_bundle_adjusted_metadata_file
             self.nuthed_aligned_bundle_adjusted_metadata_file
         """
@@ -147,6 +151,9 @@ class Pipeline:
         self.output_path = new_output_path
         self.bundle_adjusted_metadata_file = os.path.join(
             self.output_path, "metaflow_bundle_adj_metadata.csv"
+        )
+        self.bundle_adjusted_unaligned_metadata_file = os.path.join(
+            self.output_path, "metaflow_bundle_adj_unaligned_metadata.csv"
         )
         self.aligned_bundle_adjusted_metadata_file = os.path.join(
             self.output_path, "aligned_bundle_adj_metadata.csv"
@@ -170,7 +177,10 @@ class Pipeline:
             rotation_enabled (bool, optional): Metashape parameter.. Defaults to True.
 
         Returns:
-            str: Path to CSV file containing the most updated/aligned camera positions after all pipeline steps.
+            (str, str): (
+                Path to CSV file containing the most updated/aligned camera positions after all pipeline steps.,
+                Dataframe containing info for all cameras that could not be aligned
+            )
         """
         metashape_is_activated = self._is_metashape_activated()
         if metashape_is_activated:
@@ -183,7 +193,7 @@ class Pipeline:
             if export_orthomosaic:
                 _ = self._extract_orthomosaic()
             dem = self._extract_dem(point_cloud_file)
-            _ = self._update_camera_data(project_file)
+            unaligned_cameras_df = self._update_camera_data(project_file)
             _ = self._compare_camera_positions(
                 self.input_images_metadata_file,
                 self.bundle_adjusted_metadata_file,
@@ -219,7 +229,7 @@ class Pipeline:
             if export_orthomosaic:
                 _ = self._export_aligned_orthomosaic(nuth_aligned_dem_file, project_file)
             
-            return self.nuthed_aligned_bundle_adjusted_metadata_file
+            return self.nuthed_aligned_bundle_adjusted_metadata_file, unaligned_cameras_df
         else:
             print("Exiting...Metashape is not activated.")
             exit
@@ -290,6 +300,8 @@ class Pipeline:
             metashape_metadata_csv=self.input_images_metadata_file,
         )
         ba_cameras_df.to_csv(self.bundle_adjusted_metadata_file, index=False)
+        unaligned_cameras_df.to_csv(self.bundle_adjusted_unaligned_metadata_file, index=False)
+        return unaligned_cameras_df
 
     def _compare_camera_positions(
         self, metadata_file_1, metadata_file_2, title, plot_file_name
