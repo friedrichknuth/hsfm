@@ -305,7 +305,7 @@ class TimesiftPipeline:
                     license_path=self.license_path,
                 )
                     
-                updated_cameras_file, unaligned_cameras_df = pipeline.run()
+                updated_cameras_file, unaligned_cameras_df = pipeline.run_multi()
                 # ToDo what to do with unaligned cameras df? Run another pipeline if more than two cameras!?
                 print(f"Final updated cameras for {cluster_dir}: {updated_cameras_file} ")
                 print(f"There are {len(unaligned_cameras_df)} unaligned cameras remaining.")

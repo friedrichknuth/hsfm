@@ -117,7 +117,7 @@ class Pipeline:
         )
 
 
-    def run_multi(self, iterations=3, export_orthomosaic=True):
+    def run_multi(self, iterations=2, export_orthomosaic=True):
         """Run n pipeline iterations for further alignment/refinement.
         The final output camera locations of one pipeline iteration are fed in as the original camera positions
         for the subsequent pipeline run. During the first iteration, the Metashape rotation_enabled parameter is
