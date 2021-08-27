@@ -461,36 +461,39 @@ def NAGAP_pre_process_set(df,
         for i,v in enumerate(template_types):
             df_tmp = df[df['fiducial_proxy_type']  == v].copy()
             if not df_tmp.empty:
-                if download_images == True:
-                    image_directory = hipp.dataquery.NAGAP_download_images_to_disk(
-                                                     df_tmp,
-                                                     output_directory=os.path.join(output_directory,
-                                                                                   v+'_raw_images'))
-                    template_directory = template_dirs[i]
-                    image_square_dim = hipp.batch.preprocess_with_fiducial_proxies(
-                                                  image_directory,
-                                                  template_directory,
-                                                  threshold_px = threshold_px,
-                                                  image_square_dim = image_square_dim,
-                                                  output_directory=os.path.join(output_directory,
-                                                                                v+'_cropped_images'),
-                                                  missing_proxy = missing_proxy,
+                if len(df_tmp.index) > 2:
+                    if download_images == True :
+                        image_directory = hipp.dataquery.NAGAP_download_images_to_disk(
+                                                         df_tmp,
+                                                         output_directory=os.path.join(output_directory,
+                                                                                       v+'_raw_images'))
+                        template_directory = template_dirs[i]
+                        image_square_dim = hipp.batch.preprocess_with_fiducial_proxies(
+                                                      image_directory,
+                                                      template_directory,
+                                                      threshold_px = threshold_px,
+                                                      image_square_dim = image_square_dim,
+                                                      output_directory=os.path.join(output_directory,
+                                                                                    v+'_cropped_images'),
+                                                      missing_proxy = missing_proxy,
 
-                                                  qc_df_output_directory=os.path.join(output_directory,
-                                                                                      'qc', v+'_proxy_detection_data_frames'),
-                                                  qc_plots_output_directory=os.path.join(output_directory,
-                                                                                         'qc', v+'_proxy_detection_plots'))
-                    if keep_raw == False:
-                        shutil.rmtree(image_directory)
-                    
-                if isinstance(focal_length, type(None)):
-                    focal_length = df_tmp['focal_length'].values[0]
-                hsfm.core.determine_image_clusters(df_tmp,
-#                                                    image_square_dim = image_square_dim,
-                                                   pixel_pitch      = pixel_pitch,
-                                                   focal_length     = focal_length,
-                                                   output_directory = os.path.join(output_directory,'sfm'),
-                                                   buffer_m         = buffer_m)
+                                                      qc_df_output_directory=os.path.join(output_directory,
+                                                                                          'qc', v+'_proxy_detection_data_frames'),
+                                                      qc_plots_output_directory=os.path.join(output_directory,
+                                                                                             'qc', v+'_proxy_detection_plots'))
+                        if keep_raw == False:
+                            shutil.rmtree(image_directory)
+
+                    if isinstance(focal_length, type(None)):
+                        focal_length = df_tmp['focal_length'].values[0]
+                    hsfm.core.determine_image_clusters(df_tmp,
+    #                                                    image_square_dim = image_square_dim,
+                                                       pixel_pitch      = pixel_pitch,
+                                                       focal_length     = focal_length,
+                                                       output_directory = os.path.join(output_directory,'sfm'),
+                                                       buffer_m         = buffer_m)
+                else:
+                    print("Only",str(len(df_tmp)),'images found. Skipping.')
                 
 
 def plot_match_overlap(match_files_directory, images_directory, output_directory='qc/matches/'):
