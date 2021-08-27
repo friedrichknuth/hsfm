@@ -22,6 +22,7 @@ import utm
 import cv2
 import py3dep
 from pathlib import Path
+from holoviews.streams import BoxEdit
 
 
 hv.extension('bokeh')
@@ -33,6 +34,54 @@ import hsfm.geospatial
 """
 Utilities that call other software as subprocesses.
 """
+
+def bbox_bounds(poly):
+    "Convert the polygon returned by the BoxEdit stream into a bounding box tuple"
+    xs,ys = poly.array().T
+    return (xs[0], ys[0], xs[2], ys[2])
+
+def bbox_selector(metadata_csv = None,
+                  metadata_csv_lon_column = 'Longitude',
+                  metadata_csv_lat_column = 'Latitude',
+                  bounds = (-124.5, 40, -108, 50),
+                  basemap_url = None):
+    '''
+    Draw bounding box (hold shift) on basemap and return vertices.
+    Select bounding box to delete.
+    '''
+    OpenTopoMap       = 'https://tile.opentopomap.org/{Z}/{X}/{Y}.png'
+    OpenStreetMap     = 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png'
+    GoogleHybrid      = 'https://mt1.google.com/vt/lyrs=y&x={X}&y={Y}&z={Z}'
+    GoogleSatellite   = 'https://mt1.google.com/vt/lyrs=s&x={X}&y={Y}&z={Z}'
+    GoogleRoad        = 'https://mt1.google.com/vt/lyrs=m&x={X}&y={Y}&z={Z}'
+    GoogleTerrain     = 'http://mt0.google.com/vt/lyrs=p&hl=en&x={X}&y={Y}&z={Z}'
+    GoogleTerrainOnly = 'http://mt0.google.com/vt/lyrs=t&hl=en&x={X}&y={Y}&z={Z}'
+    ESRIImagery       = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{Z}/{Y}/{X}.jpg'
+    Wikimedia         = 'https://maps.wikimedia.org/osm-intl/{Z}/{X}/{Y}@2x.png'
+    
+    if not basemap_url:
+        url = GoogleSatellite
+        
+    basemap = gv.WMTS(url,extents=bounds).opts(aspect=1,frame_height=500)
+        
+    if metadata_csv:
+        df = pd.read_csv(metadata_csv)
+        df = df.loc[(df['Latitude'] < bounds[3]) &
+                    (df['Latitude'] > bounds[1]) &
+                    (df['Longitude'] > bounds[0]) &
+                    (df['Longitude'] < bounds[2])].reset_index(drop=True)
+        coords = list(zip(df['Longitude'].values,df['Latitude'].values))
+        points = gv.Points(coords).opts(size=10,frame_height=500)
+    else:
+        points = gv.Points({}).opts(size=10,frame_height=500)
+        
+    box_poly = gv.Polygons([{}]).opts(opts.Polygons(fill_alpha=0,
+                                                line_color='yellow',
+                                                line_width=3,
+                                                selection_fill_color='red'))
+    box_stream = BoxEdit(source=box_poly)
+    
+    return basemap * points * box_poly, box_stream
 
 
 def dem_align_custom(reference_dem,
