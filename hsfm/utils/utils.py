@@ -20,6 +20,8 @@ from subprocess import Popen, PIPE, STDOUT
 import time
 import utm
 import cv2
+import py3dep
+from pathlib import Path
 
 
 hv.extension('bokeh')
@@ -223,6 +225,70 @@ def download_srtm(bounds,
         else:
             return adjusted_vrt_subset_file_name
 
+def download_3DEP_DTM(bounds,
+                      res=1,
+                      utm_epsg_code = None,
+                      output_file = 'outputs/3DEP_dem.tif',
+                      cleanup=True):
+    '''
+    bounds = (west_lon, south_lat, east_lon, north_lat)
+    '''
+
+    # get utm crs if not specified
+    if not utm_epsg_code:
+        south_west_corner      = (bounds[0],bounds[1])
+        south_west_epsg_code   = hsfm.geospatial.lon_lat_to_utm_epsg_code(*south_west_corner)
+        north_west_corner      = (bounds[2],bounds[3])
+        north_west_epsg_code   = hsfm.geospatial.lon_lat_to_utm_epsg_code(*north_west_corner)
+        if south_west_epsg_code == north_west_epsg_code:
+            print('EPSG', north_west_epsg_code, 'detected.')
+            utm_crs = 'EPSG:'+ str(north_west_epsg_code)
+        else:
+            message = 'Bounds span multiple UTM zones. Please specify utm_epsg_code as e.g. "32610".'
+            sys.exit(message)
+    else:
+        utm_crs = 'EPSG:'+ str(utm_epsg_code)
+    
+    # vertical datum for 3DEP DTM is presumably in NAVD88. 
+    utm_navd88_epsg_code = hsfm.geospatial.lon_lat_to_utm_navd88_epsg_code(*south_west_corner)
+    utm_navd88_crs = 'EPSG:'+ str(utm_navd88_epsg_code)
+    
+    # download DTM
+    print('Downloading DTM with bounds', bounds)
+    dtm = py3dep.get_map("DEM", bounds, resolution=res, geo_crs="epsg:4326", crs="epsg:4326")
+    dtm = dtm.rio.reproject(utm_crs, resampling=rasterio.enums.Resampling.cubic)
+    dtm = dtm.rio.write_nodata(-9999.0, encoded=True, inplace=True)
+    dtm.attrs['scales'] = [1.0]
+    dtm.attrs['offsets'] = [0.0]
+
+    file_path = str(Path(output_file).parent.resolve())
+    Path(file_path).mkdir(parents=True, exist_ok=True)
+    file_name = str(Path(output_file).stem)
+    extention = '.tif'
+    out_put_file = os.path.join(file_path, file_name + extention)
+    
+    
+    dtm.rio.to_raster(output_file, compress='LZW', tiled=True)
+    
+    # adjust geoid to ellipsoid
+    out = os.path.join(file_path,file_name)
+    call = ["dem_geoid", "--reverse-adjustment", '-o',out, out_put_file]
+    subprocess.call(call)
+    out = os.path.join(file_path,file_name) + '-adj'+extention
+    
+    # modify crs from utm geoid to utm ellipsoid
+    call = ['gdal_edit.py', '-a_srs', utm_crs, out]
+    subprocess.call(call)
+    
+    if cleanup:
+        print('Writing final DTM to', out_put_file)
+        shutil.move(out, out_put_file)
+        log_files = glob.glob(os.path.join(file_path,'*.txt'))
+        for f in log_files:
+            os.remove(f)
+        shutil.rmtree('cache')
+    else:
+        print('Writing final DTM to', out)
 
 def clip_reference_dem(dem_file, 
                        reference_dem_file,

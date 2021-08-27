@@ -121,7 +121,19 @@ def lon_lat_to_utm_epsg_code(lon, lat):
         epsg_code = '327' + utm_band
     return epsg_code
     
-    
+def lon_lat_to_utm_navd88_epsg_code(lon, lat):
+    """
+    Function to retrieve local UTM EPSG code from WGS84 geographic coordinates using NAVD88 as vertical datum.
+    """
+    utm_band = str((math.floor((lon + 180) / 6 ) % 60) + 1)
+    if len(utm_band) == 1:
+        utm_band = '0'+ utm_band
+    if lat >= 0:
+        epsg_code = '269' + utm_band
+        return epsg_code
+    else:
+        print('Not sure what the right NAD83 / UTM zone EPSG code is for southern latitudes.')
+
 def distance_two_point_on_earth(point1_lon, point1_lat, point2_lon, point2_lat):
     """
     Function to calculate distance between two WGS84 geographic points on earth.
