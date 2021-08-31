@@ -172,7 +172,7 @@ class TimesiftPipeline:
         joined_df["Day"] = joined_df["Day"].astype('str').fillna("0")
         
         daily_dir_names = []
-        for date_tuple, df in joined_df.groupby(["Year", "Month"]):
+        for date_tuple, df in joined_df.groupby(["Year", "Month", "Day"]):
             if len(df) < 3:
                 print(f"Skipping individual cloud for {date_tuple} because there are less than 3 images.")
             else:
