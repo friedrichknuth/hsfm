@@ -235,17 +235,42 @@ class TimesiftPipeline:
                 ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file, input_images_metadata_file)
                 # ToDo: need to do something with the unaligned cameras!!! I'm losing data by not using them
                 # Can I just run images2las with the unaligned cameras only?
-                ba_cameras_df.to_csv(
-                    input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv"),
-                    index=False
+                ba_cameras_metadata_file_path = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv")
+                unaligned_cameras_metadata_file_path = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_unaligned_metashape_metadata.csv")
+                ba_cameras_df.to_csv(ba_cameras_metadata_file_path, index=False)
+                unaligned_cameras_df.to_csv(unaligned_cameras_metadata_file_path, index=False)
+                
+                if len(unaligned_cameras_df) > 2:
+                    output_path_2 = output_path.replace('.csv', '2.csv')
+                    metashape_project_file_2, point_cloud_file_2 = hsfm.metashape.images2las(
+                        individual_sfm_dir,
+                        self.raw_images_directory,
+                        unaligned_cameras_metadata_file_path,
+                        output_path_2,
+                        focal_length            = pd.read_csv(unaligned_cameras_metadata_file_path)['focal_length'].iloc[0],
+                        image_matching_accuracy = self.image_matching_accuracy,
+                        densecloud_quality      = self.densecloud_quality,
+                        keypoint_limit          = 80000,
+                        tiepoint_limit          = 8000,
+                        rotation_enabled        = True,
+                        export_point_cloud      = False
                     )
+                    ba_cameras_df_2, unaligned_cameras_df_2 = hsfm.metashape.update_ba_camera_metadata(metashape_project_file_2, unaligned_cameras_metadata_file_path)
+                    
+                    ba_cameras_metadata_file_path_2 = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata2.csv")
+                    unaligned_cameras_metadata_file_path_2 = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_unaligned_metashape_metadata2.csv")
+                    ba_cameras_df_2.to_csv(ba_cameras_metadata_file_path_2, index=False)
+                    unaligned_cameras_df_2.to_csv(unaligned_cameras_metadata_file_path_2, index=False)
+                    
                 list_of_subsets = hsfm.metashape.determine_clusters(metashape_project_file)
+                list_of_subsets2 = hsfm.metashape.determine_clusters(metashape_project_file_2)
+                combined_list_of_subsets = list_of_subsets2 + list_of_subsets
                 with open(
                     input_images_metadata_file.replace("metashape_metadata.csv", "subsets.txt"), 
                     'w'
                 ) as f:
-                    f.write(str(list_of_subsets))
-                individual_dir_to_subset_list_dict[individual_sfm_dir] =  list_of_subsets
+                    f.write(str(combined_list_of_subsets))
+                individual_dir_to_subset_list_dict[individual_sfm_dir] =  combined_list_of_subsets
             except Exception as e:
                 print(f'Failure processing/finding clusters in individual clouds for cloud {individual_sfm_dir}: \n {e}')
         return individual_dir_to_subset_list_dict
