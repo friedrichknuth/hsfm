@@ -9,3 +9,4 @@ import hsfm.utils
 import hsfm.plot
 import hsfm.qc
 import hsfm.metashape
+import hsfm.dataquery
