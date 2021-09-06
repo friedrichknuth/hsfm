@@ -31,9 +31,15 @@ def process_3DEP_laz_to_DEM(
     cleanup=False,
     cache_directory='cache',
 ):
-
+    """
+    Grids bounds into 0.01 deg tiles and processes to laz to DSM. 
+    Some tiles may contain no data on AWS and are expexted to fail.
+    bounds = [east, south, west, north]
+    """
+    print('Requested bounds:',bounds)
+    print('Should be in order of [east, south, west, north]')
+    
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
-
     result_gdf, bounds_gdf = hsfm.dataquery.get_3DEP_lidar_data_dirs(bounds, cache_directory=cache_directory)
 
     if not epsg_code:
@@ -59,25 +65,56 @@ def process_3DEP_laz_to_DEM(
     if len(result_gdf.index) != 1:
         print(
             "Multiple directories with laz data found on AWS.",
-            "Check bounds_qc_plot.png in",
-            output_path,
-            "directory. Rerun and specify a valid aws_3DEP_directory",
+            "Rerun and specify a valid aws_3DEP_directory",
             "you would like to download data from. Options include",
-            " ".join(result_gdf["directory"].to_list()),
+            " ".join(result_gdf["directory"].to_list()),"Check bounds_qc_plot.png in",
+            output_path,"directory for coverage."
         )
 
     else:
         aws_3DEP_directory = result_gdf["directory"].loc[0]
-        tiles = hsfm.dataquery.divide_bounds_to_tiles(bounds)
+        
+        # reduce bounds to extent of available data
+        # may need to increase default 0.01 deg tiling else hangs if no data
+        # within requested bounds.
+        r_minx, r_miny, r_maxx, r_maxy = result_gdf.bounds.values[0]
+        b_minx, b_miny, b_maxx, b_maxy = bounds_gdf.bounds.values[0]
+        if r_minx > b_minx:
+            minx = r_minx
+        else:
+            minx = b_minx
+        if r_miny > b_miny:
+            miny = r_miny
+        else:
+            miny = b_miny
+        if r_maxx < b_maxx:
+            maxx = r_maxx
+        else:
+            maxx = b_maxx
+        if r_maxy < b_maxy:
+            maxy = r_maxy
+        else:
+            maxy = b_maxy
+        bounds = [maxx, miny, minx, maxy]
+        print('Bounds with available data:',bounds)
+
+        tiles, tile_polygons = hsfm.dataquery.divide_bounds_to_tiles(bounds, result_gdf)
+        tile_polygons_gdf = gpd.GeoDataFrame({'geometry':tile_polygons})
+        tile_polygons_gdf.crs = result_gdf.crs
+        hsfm.dataquery.plot_3DEP_bounds(result_gdf, 
+                                        bounds_gdf, 
+                                        tile_polygons_gdf = tile_polygons_gdf,
+                                        qc_plot_output_directory=output_path)
+        
+        print("Processing", len(tiles), "tiles.")
         
         c = 0
         for tile in tiles:
             result_gdf, bounds_gdf = hsfm.dataquery.get_3DEP_lidar_data_dirs(tile, cache_directory=cache_directory)
             try:
-                output_path_tmp = os.path.join(output_path, str(c).zfill(3))
+                output_path_tmp = os.path.join(output_path, str(c).zfill(5))
                 pathlib.Path(output_path_tmp).mkdir(parents=True, exist_ok=True)
                 
-
                 pipeline_json_file, output_laz_file = hsfm.dataquery.create_3DEP_pipeline(
                     bounds_gdf,
                     aws_3DEP_directory,
@@ -134,7 +171,8 @@ def process_3DEP_laz_to_DEM(
         return out
         
 def divide_bounds_to_tiles(bounds,
-                           pad = 0.001,
+                           result_gdf,
+                           pad = 0.0001,
                            width = 0.01,
                            height = 0.01):
     xmin,ymin,xmax,ymax =  [bounds[2],bounds[1],bounds[0],bounds[3]]
@@ -142,21 +180,33 @@ def divide_bounds_to_tiles(bounds,
     rows = int(np.ceil((ymax-ymin) /  height))
     cols = int(np.ceil((xmax-xmin) / width))
     XleftOrigin = xmin
-    XrightOrigin = xmin + width
+    XrightOrigin = xmin+width
     YtopOrigin = ymax
-    YbottomOrigin = ymax- height
+    YbottomOrigin = ymax-height
     tiles = []
+    tile_polygons = []
     for i in range(cols):
-        Ytop = YtopOrigin
-        Ybottom = YbottomOrigin
+        XleftOrigin_tmp = XleftOrigin -pad
+        XrightOrigin_tmp = XrightOrigin +pad
+        Ytop = YtopOrigin+pad
+        Ybottom = YbottomOrigin-pad
         for j in range(rows):
-            tiles.append([XrightOrigin,Ybottom,XleftOrigin,Ytop])
+            polygon = Polygon([(XleftOrigin_tmp, Ytop), 
+                               (XrightOrigin_tmp, Ytop), 
+                               (XrightOrigin_tmp, Ybottom), 
+                               (XleftOrigin_tmp, Ybottom)])
+            grid = gpd.GeoDataFrame({'geometry':[polygon]})
+            grid.crs = result_gdf.crs
+            tmp_gdf = gpd.overlay(grid,result_gdf)
+            if not tmp_gdf.empty:
+                tiles.append([XrightOrigin,Ybottom,XleftOrigin,Ytop])
+                tile_polygons.append(polygon)
             Ytop = Ytop - height
             Ybottom = Ybottom - height
         XleftOrigin = XleftOrigin + width
         XrightOrigin = XrightOrigin + width
         
-    return tiles
+    return tiles, tile_polygons
 
 def grid_3DEP_multi_laz(input_directory, 
                         epsg_code, 
@@ -245,21 +295,24 @@ def create_3DEP_pipeline(
             },
             {"type": "filters.returns", "groups": "first,only"},
             {"type": "filters.reprojection", "out_srs": out_srs},
-                        {
-                            "type": "filters.splitter",
-                            "length": "1000",
-                            "buffer": "10",
-                        },
-                        {
-                            "type":"filters.outlier",
-                            "method":"statistical",
-                            "mean_k":12,
-                            "multiplier":2.2
-                        },
-                        {
-                            "type":"filters.range",
-                            "limits":"Classification![7:7]"
-                        },
+            # using the splitter causes noisy data points and requires
+            # filtering which takes more time. 
+            # using the splitter doesn't seem to have a speed advantage.
+#                         {
+#                             "type": "filters.splitter",
+#                             "length": "1000",
+#                             "buffer": "10",
+#                         },
+#                         {
+#                             "type":"filters.outlier",
+#                             "method":"statistical",
+#                             "mean_k":12,
+#                             "multiplier":2.2
+#                         },
+#                         {
+#                             "type":"filters.range",
+#                             "limits":"Classification![7:7]"
+#                         },
 
             output_laz_file,
         ]
@@ -352,7 +405,10 @@ def get_UTM_EPSG_code_from_bounds(bounds):
         return epsg_code
 
 
-def plot_3DEP_bounds(result_gdf, bounds_gdf, qc_plot_output_directory="./"):
+def plot_3DEP_bounds(result_gdf, 
+                     bounds_gdf, 
+                     tile_polygons_gdf = None,
+                     qc_plot_output_directory=None):
     """
     takes outputs from tools.get_3DEP_lidar_data_dirs()
 
@@ -377,7 +433,17 @@ def plot_3DEP_bounds(result_gdf, bounds_gdf, qc_plot_output_directory="./"):
         result_gdf.loc[result_gdf.index == i].plot(
             ax=ax, edgecolor=colors[i], facecolor="none", linewidth=3
         )
-
+        
+    if not isinstance(tile_polygons_gdf,type(None)):
+        tile_polygons_gdf["coords"] = tile_polygons_gdf["geometry"].apply(
+            lambda x: x.representative_point().coords[:]
+        )
+        tile_polygons_gdf.plot(ax=ax, edgecolor="black", facecolor="none")
+        for idx, row in tile_polygons_gdf.iterrows():
+            plt.annotate(
+                s=str(idx), xy=row["coords"][0], horizontalalignment="center"
+            )
+    
     bounds_gdf.plot(ax=ax, edgecolor="black", facecolor="none", linewidth=1)
 
     try:
@@ -396,7 +462,7 @@ def plot_3DEP_bounds(result_gdf, bounds_gdf, qc_plot_output_directory="./"):
             s=row["directory"], xy=row["coords"][0], horizontalalignment="center"
         )
 
-    out = os.path.join(qc_plot_output_directory, "bounds_qc_plot.png")
-    plt.tight_layout()
-    plt.savefig(out, bbox_inches="tight", pad_inches=0.1)
-
+    if qc_plot_output_directory:
+        out = os.path.join(qc_plot_output_directory, "bounds_qc_plot.png")
+        plt.tight_layout()
+        plt.savefig(out, bbox_inches="tight", pad_inches=0.1)
