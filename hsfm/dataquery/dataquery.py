@@ -74,7 +74,7 @@ def process_3DEP_laz_to_DEM(
         for tile in tiles:
             result_gdf, bounds_gdf = hsfm.dataquery.get_3DEP_lidar_data_dirs(tile, cache_directory=cache_directory)
             try:
-                output_path_tmp = os.path.join(output_path, str(c))
+                output_path_tmp = os.path.join(output_path, str(c).zfill(3))
                 pathlib.Path(output_path_tmp).mkdir(parents=True, exist_ok=True)
                 
 
@@ -250,6 +250,17 @@ def create_3DEP_pipeline(
                             "length": "1000",
                             "buffer": "10",
                         },
+                        {
+                            "type":"filters.outlier",
+                            "method":"statistical",
+                            "mean_k":12,
+                            "multiplier":2.2
+                        },
+                        {
+                            "type":"filters.range",
+                            "limits":"Classification![7:7]"
+                        },
+
             output_laz_file,
         ]
     }
