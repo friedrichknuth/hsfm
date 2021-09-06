@@ -20,6 +20,9 @@ from subprocess import Popen, PIPE, STDOUT
 import time
 import utm
 import cv2
+import py3dep
+from pathlib import Path
+from holoviews.streams import BoxEdit
 
 
 hv.extension('bokeh')
@@ -31,6 +34,54 @@ import hsfm.geospatial
 """
 Utilities that call other software as subprocesses.
 """
+
+def bbox_bounds(poly):
+    "Convert the polygon returned by the BoxEdit stream into a bounding box tuple"
+    xs,ys = poly.array().T
+    return (xs[0], ys[0], xs[2], ys[2])
+
+def bbox_selector(metadata_csv = None,
+                  metadata_csv_lon_column = 'Longitude',
+                  metadata_csv_lat_column = 'Latitude',
+                  bounds = (-124.5, 40, -108, 50),
+                  basemap_url = None):
+    '''
+    Draw bounding box (hold shift) on basemap and return vertices.
+    Select bounding box to delete.
+    '''
+    OpenTopoMap       = 'https://tile.opentopomap.org/{Z}/{X}/{Y}.png'
+    OpenStreetMap     = 'http://tile.openstreetmap.org/{Z}/{X}/{Y}.png'
+    GoogleHybrid      = 'https://mt1.google.com/vt/lyrs=y&x={X}&y={Y}&z={Z}'
+    GoogleSatellite   = 'https://mt1.google.com/vt/lyrs=s&x={X}&y={Y}&z={Z}'
+    GoogleRoad        = 'https://mt1.google.com/vt/lyrs=m&x={X}&y={Y}&z={Z}'
+    GoogleTerrain     = 'http://mt0.google.com/vt/lyrs=p&hl=en&x={X}&y={Y}&z={Z}'
+    GoogleTerrainOnly = 'http://mt0.google.com/vt/lyrs=t&hl=en&x={X}&y={Y}&z={Z}'
+    ESRIImagery       = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{Z}/{Y}/{X}.jpg'
+    Wikimedia         = 'https://maps.wikimedia.org/osm-intl/{Z}/{X}/{Y}@2x.png'
+    
+    if not basemap_url:
+        url = GoogleSatellite
+        
+    basemap = gv.WMTS(url,extents=bounds).opts(aspect=1,frame_height=500)
+        
+    if metadata_csv:
+        df = pd.read_csv(metadata_csv)
+        df = df.loc[(df['Latitude'] < bounds[3]) &
+                    (df['Latitude'] > bounds[1]) &
+                    (df['Longitude'] > bounds[0]) &
+                    (df['Longitude'] < bounds[2])].reset_index(drop=True)
+        coords = list(zip(df['Longitude'].values,df['Latitude'].values))
+        points = gv.Points(coords).opts(size=10,frame_height=500)
+    else:
+        points = gv.Points({}).opts(size=10,frame_height=500)
+        
+    box_poly = gv.Polygons([{}]).opts(opts.Polygons(fill_alpha=0,
+                                                line_color='yellow',
+                                                line_width=3,
+                                                selection_fill_color='red'))
+    box_stream = BoxEdit(source=box_poly)
+    
+    return basemap * points * box_poly, box_stream
 
 
 def dem_align_custom(reference_dem,
@@ -223,6 +274,70 @@ def download_srtm(bounds,
         else:
             return adjusted_vrt_subset_file_name
 
+def download_3DEP_DTM(bounds,
+                      res=1,
+                      utm_epsg_code = None,
+                      output_file = 'outputs/3DEP_dem.tif',
+                      cleanup=True):
+    '''
+    bounds = (west_lon, south_lat, east_lon, north_lat)
+    '''
+
+    # get utm crs if not specified
+    if not utm_epsg_code:
+        south_west_corner      = (bounds[0],bounds[1])
+        south_west_epsg_code   = hsfm.geospatial.lon_lat_to_utm_epsg_code(*south_west_corner)
+        north_west_corner      = (bounds[2],bounds[3])
+        north_west_epsg_code   = hsfm.geospatial.lon_lat_to_utm_epsg_code(*north_west_corner)
+        if south_west_epsg_code == north_west_epsg_code:
+            print('EPSG', north_west_epsg_code, 'detected.')
+            utm_crs = 'EPSG:'+ str(north_west_epsg_code)
+        else:
+            message = 'Bounds span multiple UTM zones. Please specify utm_epsg_code as e.g. "32610".'
+            sys.exit(message)
+    else:
+        utm_crs = 'EPSG:'+ str(utm_epsg_code)
+    
+    # vertical datum for 3DEP DTM is presumably in NAVD88. 
+    utm_navd88_epsg_code = hsfm.geospatial.lon_lat_to_utm_navd88_epsg_code(*south_west_corner)
+    utm_navd88_crs = 'EPSG:'+ str(utm_navd88_epsg_code)
+    
+    # download DTM
+    print('Downloading DTM with bounds', bounds)
+    dtm = py3dep.get_map("DEM", bounds, resolution=res, geo_crs="epsg:4326", crs="epsg:4326")
+    dtm = dtm.rio.reproject(utm_crs, resampling=rasterio.enums.Resampling.cubic)
+    dtm = dtm.rio.write_nodata(-9999.0, encoded=True, inplace=True)
+    dtm.attrs['scales'] = [1.0]
+    dtm.attrs['offsets'] = [0.0]
+
+    file_path = str(Path(output_file).parent.resolve())
+    Path(file_path).mkdir(parents=True, exist_ok=True)
+    file_name = str(Path(output_file).stem)
+    extention = '.tif'
+    out_put_file = os.path.join(file_path, file_name + extention)
+    
+    
+    dtm.rio.to_raster(output_file, compress='LZW', tiled=True)
+    
+    # adjust geoid to ellipsoid
+    out = os.path.join(file_path,file_name)
+    call = ["dem_geoid", "--reverse-adjustment", '-o',out, out_put_file]
+    subprocess.call(call)
+    out = os.path.join(file_path,file_name) + '-adj'+extention
+    
+    # modify crs from utm geoid to utm ellipsoid
+    call = ['gdal_edit.py', '-a_srs', utm_crs, out]
+    subprocess.call(call)
+    
+    if cleanup:
+        print('Writing final DTM to', out_put_file)
+        shutil.move(out, out_put_file)
+        log_files = glob.glob(os.path.join(file_path,'*.txt'))
+        for f in log_files:
+            os.remove(f)
+        shutil.rmtree('cache')
+    else:
+        print('Writing final DTM to', out)
 
 def clip_reference_dem(dem_file, 
                        reference_dem_file,

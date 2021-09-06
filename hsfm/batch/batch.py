@@ -461,36 +461,39 @@ def NAGAP_pre_process_set(df,
         for i,v in enumerate(template_types):
             df_tmp = df[df['fiducial_proxy_type']  == v].copy()
             if not df_tmp.empty:
-                if download_images == True:
-                    image_directory = hipp.dataquery.NAGAP_download_images_to_disk(
-                                                     df_tmp,
-                                                     output_directory=os.path.join(output_directory,
-                                                                                   v+'_raw_images'))
-                    template_directory = template_dirs[i]
-                    image_square_dim = hipp.batch.preprocess_with_fiducial_proxies(
-                                                  image_directory,
-                                                  template_directory,
-                                                  threshold_px = threshold_px,
-                                                  image_square_dim = image_square_dim,
-                                                  output_directory=os.path.join(output_directory,
-                                                                                v+'_cropped_images'),
-                                                  missing_proxy = missing_proxy,
+                if len(df_tmp.index) > 2:
+                    if download_images == True :
+                        image_directory = hipp.dataquery.NAGAP_download_images_to_disk(
+                                                         df_tmp,
+                                                         output_directory=os.path.join(output_directory,
+                                                                                       v+'_raw_images'))
+                        template_directory = template_dirs[i]
+                        image_square_dim = hipp.batch.preprocess_with_fiducial_proxies(
+                                                      image_directory,
+                                                      template_directory,
+                                                      threshold_px = threshold_px,
+                                                      image_square_dim = image_square_dim,
+                                                      output_directory=os.path.join(output_directory,
+                                                                                    v+'_cropped_images'),
+                                                      missing_proxy = missing_proxy,
 
-                                                  qc_df_output_directory=os.path.join(output_directory,
-                                                                                      'qc', v+'_proxy_detection_data_frames'),
-                                                  qc_plots_output_directory=os.path.join(output_directory,
-                                                                                         'qc', v+'_proxy_detection_plots'))
-                    if keep_raw == False:
-                        shutil.rmtree(image_directory)
-                    
-                if isinstance(focal_length, type(None)):
-                    focal_length = df_tmp['focal_length'].values[0]
-                hsfm.core.determine_image_clusters(df_tmp,
-#                                                    image_square_dim = image_square_dim,
-                                                   pixel_pitch      = pixel_pitch,
-                                                   focal_length     = focal_length,
-                                                   output_directory = os.path.join(output_directory,'sfm'),
-                                                   buffer_m         = buffer_m)
+                                                      qc_df_output_directory=os.path.join(output_directory,
+                                                                                          'qc', v+'_proxy_detection_data_frames'),
+                                                      qc_plots_output_directory=os.path.join(output_directory,
+                                                                                             'qc', v+'_proxy_detection_plots'))
+                        if keep_raw == False:
+                            shutil.rmtree(image_directory)
+
+                    if isinstance(focal_length, type(None)):
+                        focal_length = df_tmp['focal_length'].values[0]
+                    hsfm.core.determine_image_clusters(df_tmp,
+    #                                                    image_square_dim = image_square_dim,
+                                                       pixel_pitch      = pixel_pitch,
+                                                       focal_length     = focal_length,
+                                                       output_directory = os.path.join(output_directory,'sfm'),
+                                                       buffer_m         = buffer_m)
+                else:
+                    print("Only",str(len(df_tmp)),'images found. Skipping.')
                 
 
 def plot_match_overlap(match_files_directory, images_directory, output_directory='qc/matches/'):
@@ -810,9 +813,9 @@ def metaflow(project_name,
                 tmp    = hsfm.core.select_strings_with_sub_strings(image_file_names, sub)
                 ## might be better to restart with the original input positions as subset could be displaced
                 ## after matching without actually connecting to the other cluster.
-#                 tmp_df = pd.read_csv(images_metadata_file)
-#                 tmp_df = tmp_df[tmp_df['image_file_name'].isin(tmp)].reset_index(drop=True)
-                tmp_df = ba_cameras_df[ba_cameras_df['image_file_name'].isin(tmp)].reset_index(drop=True)
+                tmp_df = pd.read_csv(images_metadata_file)
+                tmp_df = tmp_df[tmp_df['image_file_name'].isin(tmp)].reset_index(drop=True)
+#                 tmp_df = ba_cameras_df[ba_cameras_df['image_file_name'].isin(tmp)].reset_index(drop=True)
                 cameras_sub_clusters_dfs.append(tmp_df)
 
             sub_counter = 0
@@ -825,7 +828,8 @@ def metaflow(project_name,
                 sub_images_metadata_file = os.path.join(sub_output_path,'metashape_metadata.csv')
                 sub_df.to_csv(sub_images_metadata_file, index = False)
 
-                hsfm.batch.metaflow(project_name+'_sub_cluster'+str(sub_counter),
+                try:
+                    hsfm.batch.metaflow(project_name+'_sub_cluster'+str(sub_counter),
                                     images_path,
                                     sub_images_metadata_file,
                                     reference_dem,
@@ -844,6 +848,8 @@ def metaflow(project_name,
                                     cleanup                 = cleanup,
                                     check_subsets           = False,
                                     attempts_to_adjust_cams = attempts_to_adjust_cams)
+                except:
+                    pass
 
                 sub_counter = sub_counter+1
         else:
