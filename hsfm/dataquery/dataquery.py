@@ -3,6 +3,7 @@ import fsspec
 import geopandas as gpd
 import os
 import glob
+import shutil
 import sys
 import pathlib
 import subprocess
@@ -12,7 +13,7 @@ import json
 from shapely.geometry import Polygon
 import matplotlib.pyplot as plt
 import psutil
-
+import numpy as np
 import hsfm
 
 
@@ -52,7 +53,7 @@ def process_3DEP_laz_to_DEM(
                 ]
             )
             sys.exit(message)
-
+    
     hsfm.dataquery.plot_3DEP_bounds(result_gdf, bounds_gdf, qc_plot_output_directory=output_path)
     
     if len(result_gdf.index) != 1:
@@ -67,31 +68,116 @@ def process_3DEP_laz_to_DEM(
 
     else:
         aws_3DEP_directory = result_gdf["directory"].loc[0]
+        tiles = hsfm.dataquery.divide_bounds_to_tiles(bounds)
+        
+        c = 0
+        for tile in tiles:
+            result_gdf, bounds_gdf = hsfm.dataquery.get_3DEP_lidar_data_dirs(tile, cache_directory=cache_directory)
+            if not result_gdf.empty:
+                output_path_tmp = os.path.join(output_path, str(c))
+                pathlib.Path(output_path_tmp).mkdir(parents=True, exist_ok=True)
+                c+=1
 
-        pipeline_json_file, output_laz_file = hsfm.dataquery.create_3DEP_pipeline(
-            bounds_gdf,
-            aws_3DEP_directory,
-            epsg_code,
-            output_path=output_path,
-        )
+                pipeline_json_file, output_laz_file = hsfm.dataquery.create_3DEP_pipeline(
+                    bounds_gdf,
+                    aws_3DEP_directory,
+                    epsg_code,
+                    output_path=output_path_tmp,
+                )
 
-        hsfm.dataquery.run_3DEP_pdal_pipeline(pipeline_json_file, verbose=verbose)
-        print(output_laz_file)
+                hsfm.dataquery.run_3DEP_pdal_pipeline(pipeline_json_file, verbose=verbose)
+                print(output_laz_file)
 
-        output_dem_file = hsfm.dataquery.grid_3DEP_laz(output_laz_file, epsg_code, verbose=verbose)
+            #         output_dem_file = hsfm.dataquery.grid_3DEP_laz(output_laz_file, epsg_code, verbose=verbose)
+                output_dem_file = grid_3DEP_multi_laz(output_path_tmp, epsg_code, verbose=verbose)
 
+                out = os.path.join(output_path_tmp, DEM_file_name)
+                os.rename(output_dem_file, out)
+
+                if cleanup == True:
+                    files = glob.glob(os.path.join(output_path_tmp, "*.laz"))
+                    for i in files:
+                        os.remove(i)
+                    os.remove(pipeline_json_file)
+                    files = glob.glob(os.path.join(output_path_tmp, "*log*.txt"))
+                    for i in files:
+                        os.remove(i)
+                    files = glob.glob(os.path.join(output_path_tmp, "output*-DEM.tif"))
+                    for i in files:
+                        os.remove(i)
+        
+        tmp = os.path.join(output_path, '*/*dem.tif')
+        output_dem_file = os.path.join(output_path, 'output-DEM.tif')
+        call = ['dem_mosaic',
+                tmp,
+                "--threads", str(psutil.cpu_count(logical=True)),
+               '-o', output_dem_file]
+        call = ' '.join(call)
+        hsfm.utils.run_command2(call)
+        if cleanup == True:
+            files = glob.glob(tmp)
+            for i in files:
+                dir_path = str(pathlib.Path(i).parent.resolve())
+                shutil.rmtree(dir_path)
+            files = glob.glob(os.path.join(output_path, "*log*.txt"))
+            for i in files:
+                os.remove(i)
         out = os.path.join(output_path, DEM_file_name)
         os.rename(output_dem_file, out)
         print(out)
         print('DONE')
+        return out
+        
+def divide_bounds_to_tiles(bounds,
+                           pad = 0.001,
+                           width = 0.01,
+                           height = 0.01):
+    xmin,ymin,xmax,ymax =  [bounds[2],bounds[1],bounds[0],bounds[3]]
+    xmin,ymin,xmax,ymax = xmin-pad ,ymin-pad ,xmax+pad , ymax+pad
+    rows = int(np.ceil((ymax-ymin) /  height))
+    cols = int(np.ceil((xmax-xmin) / width))
+    XleftOrigin = xmin
+    XrightOrigin = xmin + width
+    YtopOrigin = ymax
+    YbottomOrigin = ymax- height
+    tiles = []
+    for i in range(cols):
+        Ytop = YtopOrigin
+        Ybottom = YbottomOrigin
+        for j in range(rows):
+            tiles.append([XrightOrigin,Ybottom,XleftOrigin,Ytop])
+            Ytop = Ytop - height
+            Ybottom = Ybottom - height
+        XleftOrigin = XleftOrigin + width
+        XrightOrigin = XrightOrigin + width
+        
+    return tiles
 
-        if cleanup == True:
-            os.remove(output_laz_file)
-            os.remove(pipeline_json_file)
-            files = glob.glob(os.path.join(output_path, "*log*.txt"))
-            for i in files:
-                os.remove(i)
-
+def grid_3DEP_multi_laz(input_directory, 
+                        epsg_code, 
+                        target_resolution=1,
+                        verbose=False):
+    out_srs = "EPSG:" + str(epsg_code)
+    call = ['parallel']
+    sub_call = '"point2dem --nodata-value -9999 --t_srs ' + out_srs + \
+    ' --threads '+ str(psutil.cpu_count(logical=True)) + ' --tr '+\
+    str(target_resolution)+' {}"'
+    call.append(sub_call)
+    tmp = os.path.join(input_directory, '*.laz')
+    call.extend([':::',tmp])
+    call = ' '.join(call)
+    hsfm.utils.run_command2(call,verbose=verbose)
+    
+    tmp = os.path.join(input_directory, '*DEM.tif')
+    out = os.path.join(input_directory, 'output-DEM.tif')
+    call = ['dem_mosaic',
+            tmp,
+            "--threads", str(psutil.cpu_count(logical=True)),
+           '-o', out]
+    call = ' '.join(call)
+    hsfm.utils.run_command2(call,verbose=verbose)
+    
+    return out
 
 def grid_3DEP_laz(laz_file, epsg_code, target_resolution=1, verbose=False):
     out_srs = "EPSG:" + str(epsg_code)
@@ -128,7 +214,7 @@ def create_3DEP_pipeline(
     epsg_code,
     output_path="./",
     pipeline_json_file="pipeline.json",
-    output_laz_file="output.laz",
+    output_laz_file="output#.laz",
 ):
     pipeline_json_file = os.path.join(output_path, pipeline_json_file)
     output_laz_file = os.path.join(output_path, output_laz_file)
@@ -154,10 +240,11 @@ def create_3DEP_pipeline(
             },
             {"type": "filters.returns", "groups": "first,only"},
             {"type": "filters.reprojection", "out_srs": out_srs},
-            #             {
-            #                 "type": "filters.splitter",
-            #                 "length": "100",
-            #             },
+                        {
+                            "type": "filters.splitter",
+                            "length": "1000",
+                            "buffer": "10",
+                        },
             output_laz_file,
         ]
     }
