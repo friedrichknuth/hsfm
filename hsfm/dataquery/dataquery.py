@@ -75,8 +75,6 @@ def process_3DEP_laz_to_DEM(
         aws_3DEP_directory = result_gdf["directory"].loc[0]
         
         # reduce bounds to extent of available data
-        # may need to increase default 0.01 deg tiling else hangs if no data
-        # within requested bounds.
         r_minx, r_miny, r_maxx, r_maxy = result_gdf.bounds.values[0]
         b_minx, b_miny, b_maxx, b_maxy = bounds_gdf.bounds.values[0]
         if r_minx > b_minx:
@@ -98,6 +96,7 @@ def process_3DEP_laz_to_DEM(
         bounds = [maxx, miny, minx, maxy]
         print('Bounds with available data:',bounds)
 
+        # get only intersecting tiles
         tiles, tile_polygons = hsfm.dataquery.divide_bounds_to_tiles(bounds, result_gdf)
         tile_polygons_gdf = gpd.GeoDataFrame({'geometry':tile_polygons})
         tile_polygons_gdf.crs = result_gdf.crs
