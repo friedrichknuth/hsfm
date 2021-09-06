@@ -73,10 +73,10 @@ def process_3DEP_laz_to_DEM(
         c = 0
         for tile in tiles:
             result_gdf, bounds_gdf = hsfm.dataquery.get_3DEP_lidar_data_dirs(tile, cache_directory=cache_directory)
-            if not result_gdf.empty:
+            try:
                 output_path_tmp = os.path.join(output_path, str(c))
                 pathlib.Path(output_path_tmp).mkdir(parents=True, exist_ok=True)
-                c+=1
+                
 
                 pipeline_json_file, output_laz_file = hsfm.dataquery.create_3DEP_pipeline(
                     bounds_gdf,
@@ -105,6 +105,11 @@ def process_3DEP_laz_to_DEM(
                     files = glob.glob(os.path.join(output_path_tmp, "output*-DEM.tif"))
                     for i in files:
                         os.remove(i)
+                c+=1
+            except:
+                shutil.rmtree(output_path_tmp)
+                pass
+            
         
         tmp = os.path.join(output_path, '*/*dem.tif')
         output_dem_file = os.path.join(output_path, 'output-DEM.tif')
