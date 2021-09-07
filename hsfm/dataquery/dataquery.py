@@ -71,9 +71,9 @@ def process_3DEP_laz_to_DEM(
         print(
             "Multiple directories with laz data found on AWS.",
             "Rerun and specify a valid aws_3DEP_directory",
-            "you would like to download data from. Options include",
-            " ".join(result_gdf["directory"].to_list()),
-            "Check bounds_qc_plot.png in",
+            "you would like to download data from. Options include:\n"+\
+            "\n".join(result_gdf["directory"].to_list()),
+            "\nCheck bounds_qc_plot.png in",
             output_path,
             "directory for coverage.",
         )
@@ -384,6 +384,9 @@ def get_3DEP_lidar_data_dirs(bounds, cache_directory="cache"):
         result_gdf = gpd.overlay(df, bounds_gdf)
 
     else:
+        print('Caching boundary.json files in',
+              cache_directory,
+              'directory')
         df = gpd.GeoDataFrame(columns=["directory", "geometry"])
         for directory in aws_3DEP_directories:
             if os.path.isfile(out):
@@ -493,3 +496,4 @@ def plot_3DEP_bounds(
         out = os.path.join(qc_plot_output_directory, "bounds_qc_plot.png")
         plt.tight_layout()
         plt.savefig(out, bbox_inches="tight", pad_inches=0.1)
+#         plt.close()
