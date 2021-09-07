@@ -191,7 +191,7 @@ def process_3DEP_laz_to_DEM(
         return out
 
 
-def divide_bounds_to_tiles(bounds, result_gdf, pad=0.0001, width=0.01, height=0.01):
+def divide_bounds_to_tiles(bounds, result_gdf, pad=0.0003, width=0.01, height=0.01):
     xmin, ymin, xmax, ymax = [bounds[2], bounds[1], bounds[0], bounds[3]]
     xmin, ymin, xmax, ymax = xmin - pad, ymin - pad, xmax + pad, ymax + pad
     rows = int(np.ceil((ymax - ymin) / height))
