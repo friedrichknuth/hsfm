@@ -39,8 +39,9 @@ def process_3DEP_laz_to_DEM(
     Intersects bounds with boundaries to find directories with available data.
     If multiple directories are available, the program will stop and ask which directory to download from.
     Provides plot with bounds and overlapping boundaries / directory names for reference.
-    Grids bounds into 0.01 deg (1 km) tiles with 0.0003 deg (30m) overlap for download and mosaicking.
+    Grids bounds into 0.01 deg (1 km) tiles with 0.0003 deg (30m) overlap.
     laz files are downloaded in the appropriate UTM zone.
+    Processes first,only to DSM.
     No additional horizontal and vertical crs transformations are performed.
     
     
