@@ -19,7 +19,7 @@ import hsfm
 
 ##### 3DEP AWS lidar #####
 # TODO
-# - make this a class
+# - make this a class to reduce passing redundant inputs
 
 
 def process_3DEP_laz_to_DEM(
@@ -30,12 +30,22 @@ def process_3DEP_laz_to_DEM(
     DEM_file_name="dem.tif",
     verbose=True,
     cleanup=False,
+    dem_resolution = 1,
     cache_directory="cache",
 ):
     """
-    Grids bounds into 0.01 deg tiles and processes to laz to DSM.
-    Some tiles may contain no data on AWS and are expexted to fail.
+    Finds boundary.json files available at http://usgs-lidar-public.s3.amazonaws.com/*/
+    Directories that do not have a boundary.json file at the top level are omitted.
+    Intersects bounds with boundaries to find directories with available data.
+    If multiple directories are available, the program will stop and ask which directory to download from.
+    Provides plot with bounds and overlapping boundaries / directory names for reference.
+    Grids bounds into 0.01 deg (1 km) tiles with 0.0003 deg (30m) overlap for download and mosaicking.
+    laz. files are downloaded in the appropriate UTM zone.
+    No additional horizontal and vertical crs transformations are performed.
+    
+    
     bounds = [east, south, west, north]
+    
     """
     print("Requested bounds:", bounds)
     print("Should be in order of [east, south, west, north]")
@@ -140,9 +150,15 @@ def process_3DEP_laz_to_DEM(
                 )
                 print(output_laz_file)
 
-                #         output_dem_file = hsfm.dataquery.grid_3DEP_laz(output_laz_file, epsg_code, verbose=verbose)
+#                 output_dem_file = hsfm.dataquery.grid_3DEP_laz(output_laz_file, 
+#                                                                epsg_code, 
+#                                                                dem_resolution=dem_resolution,
+#                                                                verbose=verbose)
                 output_dem_file = grid_3DEP_multi_laz(
-                    output_path_tmp, epsg_code, verbose=verbose
+                    output_path_tmp, 
+                    epsg_code, 
+                    dem_resolution=dem_resolution,
+                    verbose=verbose
                 )
 
                 out = os.path.join(output_path_tmp, DEM_file_name)
@@ -230,7 +246,7 @@ def divide_bounds_to_tiles(bounds, result_gdf, pad=0.0003, width=0.01, height=0.
     return tiles, tile_polygons
 
 
-def grid_3DEP_multi_laz(input_directory, epsg_code, target_resolution=1, verbose=False):
+def grid_3DEP_multi_laz(input_directory, epsg_code, dem_resolution=1, verbose=False):
     out_srs = "EPSG:" + str(epsg_code)
     call = ["parallel"]
     sub_call = (
@@ -239,7 +255,7 @@ def grid_3DEP_multi_laz(input_directory, epsg_code, target_resolution=1, verbose
         + " --threads "
         + str(psutil.cpu_count(logical=True))
         + " --tr "
-        + str(target_resolution)
+        + str(dem_resolution)
         + ' {}"'
     )
     call.append(sub_call)
@@ -264,7 +280,7 @@ def grid_3DEP_multi_laz(input_directory, epsg_code, target_resolution=1, verbose
     return out
 
 
-def grid_3DEP_laz(laz_file, epsg_code, target_resolution=1, verbose=False):
+def grid_3DEP_laz(laz_file, epsg_code, dem_resolution=1, verbose=False):
     out_srs = "EPSG:" + str(epsg_code)
     call = [
         "point2dem",
@@ -275,7 +291,7 @@ def grid_3DEP_laz(laz_file, epsg_code, target_resolution=1, verbose=False):
         "--t_srs",
         out_srs,
         "--tr",
-        str(target_resolution),
+        str(dem_resolution),
         laz_file,
     ]
     hsfm.utils.run_command(call, verbose=verbose)
@@ -300,7 +316,8 @@ def create_3DEP_pipeline(
     epsg_code,
     output_path="./",
     pipeline_json_file="pipeline.json",
-    output_laz_file="output#.laz",
+    output_laz_file="output.laz",
+#     output_laz_file="output#.laz", # use this if using filters.splitter
 ):
     pipeline_json_file = os.path.join(output_path, pipeline_json_file)
     output_laz_file = os.path.join(output_path, output_laz_file)
