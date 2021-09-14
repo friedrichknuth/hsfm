@@ -48,6 +48,7 @@ def process_3DEP_laz_to_DEM(
     bounds = [east, south, west, north]
     
     """
+    print("You can view available data here: https://usgs.entwine.io")
     print("Requested bounds:", bounds)
     print("Should be in order of [east, south, west, north]")
 
@@ -317,7 +318,7 @@ def create_3DEP_pipeline(
     epsg_code,
     output_path="./",
     pipeline_json_file="pipeline.json",
-    output_laz_file="output.laz",
+    output_laz_file="output#.laz",
 #     output_laz_file="output#.laz", # use this if using filters.splitter
 ):
     pipeline_json_file = os.path.join(output_path, pipeline_json_file)
