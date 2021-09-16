@@ -1,5 +1,7 @@
-# Historical Structure from Motion
-Automated SfM processing of historical aerial photographs for land surface elevation change detection and quantitative analysis.
+# Historical Structure from Motion 
+
+Automated SfM processing of historical aerial photographs for land surface elevation change detection and quantitative analysis. 
+[![DOI](https://zenodo.org/badge/202800494.svg)](https://zenodo.org/badge/latestdoi/202800494)
 
 
 ### Features
