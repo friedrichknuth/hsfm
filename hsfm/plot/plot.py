@@ -258,16 +258,16 @@ def plot_offsets(LE90,
     #         pass
 
     axs[0].scatter(x,y)
-    axs[0].set_xlabel('X offset (m)')
-    axs[0].set_ylabel('Y offset (m)')
+    axs[0].set_xlabel('X offset (m)',size=15)
+    axs[0].set_ylabel('Y offset (m)',size=15)
 
     axs[1].scatter(x,z)
-    axs[1].set_xlabel('X offset (m)')
-    axs[1].set_ylabel('Z offset (m)')
+    axs[1].set_xlabel('X offset (m)',size=15)
+    axs[1].set_ylabel('Z offset (m)',size=15)
 
     axs[2].scatter(y,z)
-    axs[2].set_xlabel('Y offset (m)')
-    axs[2].set_ylabel('Z offset (m)')
+    axs[2].set_xlabel('Y offset (m)',size=15)
+    axs[2].set_ylabel('Z offset (m)',size=15)
 
     for ax in axs:
         ax.set_aspect('equal', 'box')
@@ -285,13 +285,13 @@ def plot_offsets(LE90,
 
     LE90_label = str(np.round(LE90,10))
     CE90_label = str(np.round(CE90,10))
-    title = title + '\nLE90: ' + LE90_label +' m | CE90: '+ CE90_label+' m'
+    title = title+ '\nLE90: ' + LE90_label +' m | CE90: '+ CE90_label+' m'
 
-    plt.suptitle(title)
+    plt.suptitle(title,size=20)
     plt.tight_layout()
     plt.subplots_adjust(top=0.85)
     if not isinstance(plot_file_name, type(None)):
-        plt.savefig(plot_file_name)
+        plt.savefig(plot_file_name, bbox_inches='tight', pad_inches=0,dpi=300)
     
     else:
         plt.show()
