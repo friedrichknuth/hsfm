@@ -34,6 +34,76 @@ import hsfm.geospatial
 """
 Utilities that call other software as subprocesses.
 """
+def replace_and_fill_nodata_value(array, nodata_value, fill_value):
+    """
+    Replace nodata values with fill value in array.
+    Parameters
+    ----------
+    array : numpy.ndarray
+    nodata_value : value similar to array.dtype
+    fill_value : value similar to array.dtype
+    Returns
+    -------
+    masked_array : numpy.ndarray
+    """
+    if np.isnan(nodata_value):
+        masked_array = np.nan_to_num(array, nan=fill_value)
+    else:
+        mask = array == nodata_value
+        masked_array = np.ma.masked_array(array, mask=mask)
+        masked_array = np.ma.filled(masked_array, fill_value=fill_value)
+
+    return masked_array
+
+def parse_dem_align_json(dem_align_json, km=True):
+    """
+    Returns
+    -------
+    [pc_aligned_file,
+     coreg_aligned_file,
+     shift_x,
+     shift_y,
+     shift_z,
+     nmad_after_filt, 
+     spread_after_filt,
+     coreg_res, 
+     coreg_pixel_count, 
+     pc_align_res, 
+     pc_align_pixel_count,
+     coreg_area, 
+     pc_align_area,
+     percent_area_change]
+    """
+    df = pd.read_json(dem_align_json)
+    pc_aligned_file        = df.iloc[0]['src_fn']
+    coreg_aligned_file     = df.iloc[0]['align_fn']
+    shift_x                = df['shift']['dx']
+    shift_y                = df['shift']['dy']
+    shift_z                = df['shift']['dz']
+    nmad_after_filt        = df['after_filt']['nmad']
+    spread_after_filt      = df['after_filt']['spread']
+    coreg_res              = df.loc['coreg']['res']              
+    coreg_pixel_count      = df['after']['count']
+    pc_align_res           = df.loc['src']['res']              
+    pc_align_pixel_count   = df['before']['count']
+    coreg_area             = int(coreg_pixel_count*coreg_res*coreg_res)
+    pc_align_area          = int(pc_align_pixel_count*pc_align_res*pc_align_res)
+    
+    percent_area_change    = coreg_area/pc_align_area 
+        
+    if km == True:
+        coreg_area    = coreg_area / 1e6
+        pc_align_area = pc_align_area / 1e6
+        
+    results = [pc_aligned_file, coreg_aligned_file,
+               shift_x, shift_y, shift_z,
+               nmad_after_filt, spread_after_filt,
+               coreg_res, coreg_pixel_count, 
+               pc_align_res, pc_align_pixel_count,
+               coreg_area, pc_align_area,
+               percent_area_change]
+        
+    return results
 
 def bbox_bounds(poly):
     "Convert the polygon returned by the BoxEdit stream into a bounding box tuple"
