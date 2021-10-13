@@ -4,6 +4,8 @@ import pandas as pd
 import geopandas as gpd
 import json
 import argparse
+import rioxarray as rix
+from shapely.geometry import box
 
 
 class Pipeline:
@@ -326,16 +328,24 @@ class Pipeline:
 
     def _pc_align_routine(self, dem):
         print("Running Point Cloud Alignment Routine...")
-        clipped_reference_dem_file = hsfm.utils.clip_reference_dem(
-            dem,
-            self.reference_dem,
-            output_file_name=self.clipped_reference_dem_file,
-            buff_size=2000,
-            verbose=self.verbose,
-        )
-        aligned_dem_file, transform = hsfm.asp.pc_align_p2p_sp2p(
-            dem, clipped_reference_dem_file, self.output_path, verbose=self.verbose
-        )
+        #clip reference DEM if its larger than the DEM to be aligned
+        reference_dem_bounds = rix.open_rasterio(self.reference_dem).rio.bounds()
+        new_dem_bounds = rix.open_rasterio(dem).rio.bounds()
+        if box(*reference_dem_bounds).area > box(*new_dem_bounds).area:
+            clipped_reference_dem_file = hsfm.utils.clip_reference_dem(
+                dem,
+                self.reference_dem,
+                output_file_name=self.clipped_reference_dem_file,
+                buff_size=2000,
+                verbose=self.verbose,
+            )
+            aligned_dem_file, transform = hsfm.asp.pc_align_p2p_sp2p(
+                dem, clipped_reference_dem_file, self.output_path, verbose=self.verbose
+            )
+        else:
+            aligned_dem_file, transform = hsfm.asp.pc_align_p2p_sp2p(
+                dem, self.reference_dem, self.output_path, verbose=self.verbose
+            )
         return aligned_dem_file, transform
 
     def _apply_transform_and_update_camera_data(self, transform):

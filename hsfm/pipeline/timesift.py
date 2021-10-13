@@ -81,6 +81,7 @@ class TimesiftPipeline:
         _ = self._generate_subsets_for_each_date(dict_of_subsets_by_date)
         _ = self._process_individual_clouds()
 
+    # ToDo must check iteratively - determine clusters in this step too
     def _generate_multi_epoch_densecloud(self):
         print("Generating and aligning multi-epoch densecloud...")
         # It makes sense not to make these parameters configurable form the immediate interface,
@@ -172,6 +173,7 @@ class TimesiftPipeline:
         joined_df["Day"] = joined_df["Day"].astype('str').fillna("0")
         
         daily_dir_names = []
+        # ToDo may fail here if day is Nan
         for date_tuple, df in joined_df.groupby(["Year", "Month", "Day"]):
             if len(df) < 3:
                 print(f"Skipping individual cloud for {date_tuple} because there are less than 3 images.")
@@ -210,7 +212,7 @@ class TimesiftPipeline:
                 df.to_csv(csv_output_path, index=False)
                 daily_dir_names.append(parent_dir)
         
-
+    #ToDo make the clustering recursive until no more than 2 unaligned cameras - should be a separate function
     def _find_clusters_in_individual_clouds(self):
         print("Searching all dates for clusters/subsets")
         individual_dir_to_subset_list_dict = {}
