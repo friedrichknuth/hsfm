@@ -145,7 +145,7 @@ dependencies:
   - libcblas=3.9.0=11_linux64_openblas
   - libclang=10.0.1=default_hde54327_1
   - libcurl=7.71.1=hcdd3856_8
-  - libdap4=3.20.6=hd7c4107_1
+#  - libdap4=3.20.6=hd7c4107_1
   - libedit=3.1.20191231=he28a2e2_2
   - libev=4.33=h516909a_1
   - libevent=2.1.10=hcdb4288_3
@@ -366,7 +366,7 @@ dependencies:
     - future==0.18.2
     - matplotlib-colorbar==0.4.0
     - matplotlib-scalebar==0.6.2
-    - metashape==1.6.1
+#    - metashape==1.6.1
     - monotonic==1.5
     - soupsieve==2.0.1
     - wget==3.2
