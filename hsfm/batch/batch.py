@@ -12,6 +12,7 @@ import psutil
 import pathlib
 import shutil
 import time
+import getpass
 
 
 import hipp
@@ -330,7 +331,176 @@ def download_images_to_disk(image_metadata,
         os.rename(final_output, out)
     
     return output_directory
+
+def EE_create_fiducial_marker_for_project_date(
+    bounds, #i shouldn't need this, but who knows how EE sorts stuff!
+    ee_project_name,
+    year,
+    month,
+    day,
+    output_directory    = '../',
+    ee_query_max_results   = 50000,
+    ee_query_label = 'test_download'
+):
+    print("Input username:")
+    username = input()
+    print("Input password:")
+    apiKey = hipp.dataquery.EE_login(username, getpass.getpass())
+
+    ULLON, ULLAT, LRLON, LRLAT = bounds
+    scenes = hipp.dataquery.EE_sceneSearch(
+        apiKey,
+        xmin = LRLON,
+        ymin = LRLAT,
+        xmax = ULLON,
+        ymax = ULLAT,
+        startDate = f"{year}-{month}-{day}",
+        endDate = f"{year}-{month}-{day}",
+        maxResults   = ee_query_max_results
+    )
+
+    ee_results_df = hipp.dataquery.EE_filterSceneRecords(scenes)
+
+    ee_results_df = ee_results_df[ee_results_df['project'] == ee_project_name]
+    ee_results_df = ee_results_df.head(1)
+
+    images_directory, calibration_reports_directory = hipp.dataquery.EE_downloadImages(
+        apiKey,
+        ee_results_df['entityId'].tolist(),
+        ee_query_label,
+        os.path.join(output_directory, 'raw_image')
+    )
+    single_image_file = os.listdir()[0]
+    print(i+1, end=' ')
+    x = cv2.imread(single_image_file)
+    cv2.imwrite(single_image_file)
+
+    fiducial_template_directory = os.path.join(output_directory, 'fiducials')
+
+    hipp.core.create_fiducial_template(
+        os.path.join(images_directory, single_image_file),
+        fiducial_template_directory   
+    )
+
+
+        
+
     
+def EE_pre_process_images(
+        project_name,
+        bounds,
+        ee_project_name,
+        year,
+        month,
+        day,
+        pixel_pitch = None,
+        focal_length        = None,
+        buffer_m            = 2000,
+        threshold_px        = 50,
+        missing_proxy       = None,
+        keep_raw            = True,
+        download_images     = True,
+        image_square_dim    = None,
+        template_parent_dir = None,
+        output_directory    = '../',
+        ee_query_max_results   = 50000,
+        ee_query_label = 'test_download'
+    ):
+    """[summary]
+
+    Args:
+        project_name ([type]): [description]
+        bounds ([type]): Tuple or list in order: ULLON, ULLAT, LRLON, LRLAT
+        ee_project_name ([type], optional): [description]. Defaults to None.
+        year ([type], optional): [description]. Defaults to None.
+        month ([type], optional): [description]. Defaults to None.
+        day ([type], optional): [description]. Defaults to None.
+        pixel_pitch ([type], optional): [description]. Defaults to None.
+        focal_length ([type], optional): [description]. Defaults to None.
+        buffer_m (int, optional): [description]. Defaults to 2000.
+        threshold_px (int, optional): [description]. Defaults to 50.
+        missing_proxy ([type], optional): [description]. Defaults to None.
+        keep_raw (bool, optional): [description]. Defaults to True.
+        download_images (bool, optional): [description]. Defaults to True.
+        image_square_dim ([type], optional): [description]. Defaults to None.
+        template_parent_dir ([type], optional): [description]. Defaults to None.
+        output_directory (str, optional): [description]. Defaults to '../'.
+        ee_query_max_results (int, optional): [description]. Defaults to 50000.
+        ee_query_label (string): The label required by the EE api. Defaults to "test_download" only because thats a previously used value that makes downloading easy for me personally.
+    """
+
+    output_directory = os.path.join(output_directory, project_name, 'input_data')
+
+    #template dirs are named by EE project - is this reasonable?
+    template_dirs = sorted(glob.glob(os.path.join(template_parent_dir, '*')))
+    template_types = []
+    for i in template_dirs:
+        template_types.append(i.split('/')[-1])
+    
+    # Get username and password from user - this is really bad...
+    print("Input username:")
+    username = input()
+    print("Input password:")
+    apiKey = hipp.dataquery.EE_login(username, getpass.getpass())
+
+    ULLON, ULLAT, LRLON, LRLAT = bounds
+    scenes = hipp.dataquery.EE_sceneSearch(
+        apiKey,
+        xmin = LRLON,
+        ymin = LRLAT,
+        xmax = ULLON,
+        ymax = ULLAT,
+        startDate = f"{year}-{month}-{day}",
+        endDate = f"{year}-{month}-{day}",
+        maxResults   = ee_query_max_results
+    )
+
+    ee_results_df = hipp.dataquery.EE_filterSceneRecords(scenes)
+
+    ee_results_df = ee_results_df[ee_results_df['project'] == ee_project_name]
+
+    raw_images_directory = os.path.join(output_directory, f"EE_{year}", str(month), str(day), "raw_images")
+
+    images_directory, calibration_reports_directory = hipp.dataquery.EE_downloadImages(
+        apiKey,
+        ee_results_df['entityId'].tolist(),
+        ee_query_label,
+        raw_images_directory
+    )
+
+    fixed_image_directory = raw_images_directory.replace("raw_images", "raw_images_fixed")
+
+    #iterate over files, open them and rewrite them to fix the grid organization
+    # of EE images
+    files = glob.glob(os.path.join(images_directory, "*.tif"))
+    fixed_images_directory = images_directory.replace("raw_images", "raw_images_fixed")
+    if not os.path.exists(fixed_images_directory):
+        os.makedirs(fixed_images_directory)
+    print(f'Of {len(files)}, processing...', end=' ')
+    for i,file in enumerate(files):
+        print(i+1, end=' ')
+        x = cv2.imread(file)
+        cv2.imwrite(file.replace(images_directory, fixed_images_directory), x)
+      
+    preprocessed_images_directory = fixed_image_directory.replace('raw_images_fixed', 'preprocessed_images')
+    qc_directory = preprocessed_images_directory.replace("preprocessed_images", "preprocess_qc")
+
+    hipp.batch.preprocess_with_fiducial_proxies(
+        fixed_image_directory,
+        template_parent_dir,
+        output_directory=preprocessed_images_directory,
+        verbose=True,
+        missing_proxy=None,
+        qc_df=True,
+        qc_df_output_directory=os.path.join(qc_directory, 'proxy_detection_data_frames'),
+        qc_plots=True,
+        qc_plots_output_directory=os.path.join(qc_directory, 'proxy_detection')
+    )
+
+    
+    
+
+
 def NAGAP_pre_process_images(project_name,
                              bounds,
                              roll                = None,
