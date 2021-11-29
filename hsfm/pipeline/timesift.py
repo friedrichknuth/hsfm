@@ -235,8 +235,8 @@ class TimesiftPipeline:
                     export_point_cloud      = False
                 )
                 ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file, input_images_metadata_file)
-                # ToDo: need to do something with the unaligned cameras!!! I'm losing data by not using them
-                # Can I just run images2las with the unaligned cameras only?
+                # ToDo: Come up with a cleaner way of rerunning images2las with the unaligned cameras
+                # This should really act recursively, but after the second try, still-unaligned cameras are left to rot
                 ba_cameras_metadata_file_path = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata.csv")
                 unaligned_cameras_metadata_file_path = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_unaligned_metashape_metadata.csv")
                 ba_cameras_df.to_csv(ba_cameras_metadata_file_path, index=False)
@@ -249,7 +249,6 @@ class TimesiftPipeline:
                         self.raw_images_directory,
                         unaligned_cameras_metadata_file_path,
                         output_path_2,
-                        focal_length            = pd.read_csv(unaligned_cameras_metadata_file_path)['focal_length'].iloc[0],
                         image_matching_accuracy = self.image_matching_accuracy,
                         densecloud_quality      = self.densecloud_quality,
                         keypoint_limit          = 80000,

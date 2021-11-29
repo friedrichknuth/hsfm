@@ -100,8 +100,8 @@ class Pipeline:
 
         self.original_output_path = self.output_path
 
-        # TODO: ALL OF THESE PATHS NEED TO BE UPDATED WHEN OUTPUT PATH IS UPDATED FOR MULTIPLE ITERATIONS
         # Assign paths for files that we will create
+        #   These class members get updated when the output path is updated, which happens when running multiple iterations
         self.bundle_adjusted_metadata_file = os.path.join(
             output_path, "metaflow_bundle_adj_metadata.csv"
         )
