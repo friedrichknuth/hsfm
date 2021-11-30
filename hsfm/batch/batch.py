@@ -332,7 +332,8 @@ def download_images_to_disk(image_metadata,
     
     return output_directory
 
-def EE_create_fiducial_marker_for_project_date(
+# Remove this - just make an example notebook in HIPP
+def EE_create_fiducial_marker_proxies_for_project_date(
     bounds, #i shouldn't need this, but who knows how EE sorts stuff!
     ee_project_name,
     year,
@@ -348,7 +349,7 @@ def EE_create_fiducial_marker_for_project_date(
     apiKey = hipp.dataquery.EE_login(username, getpass.getpass())
 
     ULLON, ULLAT, LRLON, LRLAT = bounds
-    scenes = hipp.dataquery.EE_sceneSearch(
+    ee_results_df = hipp.dataquery.EE_pre_select_images(
         apiKey,
         xmin = LRLON,
         ymin = LRLAT,
@@ -359,12 +360,10 @@ def EE_create_fiducial_marker_for_project_date(
         maxResults   = ee_query_max_results
     )
 
-    ee_results_df = hipp.dataquery.EE_filterSceneRecords(scenes)
-
     ee_results_df = ee_results_df[ee_results_df['project'] == ee_project_name]
     ee_results_df = ee_results_df.head(1)
 
-    images_directory, calibration_reports_directory = hipp.dataquery.EE_downloadImages(
+    images_directory, calibration_reports_directory = hipp.dataquery.EE_download_images_to_disk(
         apiKey,
         ee_results_df['entityId'].tolist(),
         ee_query_label,
@@ -380,14 +379,11 @@ def EE_create_fiducial_marker_for_project_date(
         os.path.join(images_directory, single_image_file),
         fiducial_template_directory,
         buffer_distance= 400
-
     )
-
-
         
 
-    
 def EE_pre_process_images(
+        apiKey,
         project_name,
         bounds,
         ee_project_name,
@@ -407,8 +403,11 @@ def EE_pre_process_images(
         ee_query_max_results   = 50000,
         ee_query_label = 'test_download'
     ):
-    """[summary]
-
+    """
+    Download and preprocess images from the EE archive.
+    Assumes you already have fiducial marker proxy template files available (see examples in the HIPP repo).
+    Requires an api key to be passed in, which can be retrieved using hipp.dataquery.EE_login.
+    
     Args:
         project_name ([type]): [description]
         bounds ([type]): Tuple or list in order: ULLON, ULLAT, LRLON, LRLAT
@@ -437,15 +436,9 @@ def EE_pre_process_images(
     template_types = []
     for i in template_dirs:
         template_types.append(i.split('/')[-1])
-    
-    # Get username and password from user - this is really bad...
-    print("Input username:")
-    username = input()
-    print("Input password:")
-    apiKey = hipp.dataquery.EE_login(username, getpass.getpass())
 
     ULLON, ULLAT, LRLON, LRLAT = bounds
-    scenes = hipp.dataquery.EE_sceneSearch(
+    ee_results_df = hipp.dataquery.EE_pre_select_images(
         apiKey,
         xmin = LRLON,
         ymin = LRLAT,
@@ -456,13 +449,11 @@ def EE_pre_process_images(
         maxResults   = ee_query_max_results
     )
 
-    ee_results_df = hipp.dataquery.EE_filterSceneRecords(scenes)
-
     ee_results_df = ee_results_df[ee_results_df['project'] == ee_project_name]
 
     raw_images_directory = os.path.join(output_directory, f"EE_{year}", str(month), str(day), "raw_images")
 
-    images_directory, calibration_reports_directory = hipp.dataquery.EE_downloadImages(
+    images_directory, calibration_reports_directory = hipp.dataquery.EE_download_images_to_disk(
         apiKey,
         ee_results_df['entityId'].tolist(),
         ee_query_label,
@@ -480,8 +471,8 @@ def EE_pre_process_images(
     print(f'Of {len(files)}, processing...', end=' ')
     for i,file in enumerate(files):
         print(i+1, end=' ')
-        x = cv2.imread(file)
-        cv2.imwrite(file.replace(images_directory, fixed_images_directory), x)
+        im = cv2.imread(file)
+        cv2.imwrite(file.replace(images_directory, fixed_images_directory), im)
       
     preprocessed_images_directory = fixed_image_directory.replace('raw_images_fixed', 'preprocessed_images')
     qc_directory = preprocessed_images_directory.replace("preprocessed_images", "preprocess_qc")
@@ -497,6 +488,8 @@ def EE_pre_process_images(
         qc_plots=True,
         qc_plots_output_directory=os.path.join(qc_directory, 'proxy_detection')
     )
+
+    #Organize files, cluster, and generate metashape_metadata.csv file as necessary so it matches the output of NAGAP_pre_process_images
 
     
     

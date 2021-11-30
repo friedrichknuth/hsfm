@@ -22,7 +22,6 @@ dependencies:
   - opencv
   - rasterstats
   - hvplot
-  - rasterstats
   - rasterio
   - scikit-image
   - xarray
@@ -30,6 +29,7 @@ dependencies:
   - pandas
   - s3fs
   - pdal
+  - py3dep
   - pip:
     - elevation
     - "--editable=git+https://github.com/dshean/pygeotools.git#egg=pygeotools"
