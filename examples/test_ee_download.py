@@ -6,8 +6,9 @@ batch.EE_create_fiducial_marker_for_project_date(
     year = 1950,
     month = 9,
     day = 2,
-    output_directory    = '/data2/elilouis/hsfm_testing',
-    ee_query_max_results   = 50000,
+    # output_directory    = '/data2/elilouis/hsfm_testing',
+    output_directory    = '/Users/elischwat/Downloads/hsfm_testing',
+    ee_query_max_results   = 10,
     ee_query_label = 'test_download'
 )
 
@@ -26,10 +27,8 @@ batch.EE_create_fiducial_marker_for_project_date(
 #         keep_raw            = True,
 #         download_images     = True,
 #         image_square_dim    = None,
-#         template_parent_dir = None,
-#         output_directory    = '../',
+#         template_parent_dir = '/Users/elischwat/Downloads/fiducials',
+#         output_directory    = /Users/elischwat/Downloads/hsfm_testing',
 #         ee_query_max_results   = 50000,
 #         ee_query_label = 'test_download'
-#     )
-
-batch  core  dataquery  image  __init__.py  io  math  plot  __pycache__  qc  tools  utils
+#     )e

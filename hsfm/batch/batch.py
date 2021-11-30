@@ -371,9 +371,8 @@ def EE_create_fiducial_marker_for_project_date(
         os.path.join(output_directory, 'raw_image')
     )
     single_image_file = os.listdir()[0]
-    print(i+1, end=' ')
     x = cv2.imread(single_image_file)
-    cv2.imwrite(single_image_file)
+    cv2.imwrite(single_image_file, x)
 
     fiducial_template_directory = os.path.join(output_directory, 'fiducials')
 
