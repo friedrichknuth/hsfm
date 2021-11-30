@@ -339,7 +339,7 @@ def EE_create_fiducial_marker_for_project_date(
     month,
     day,
     output_directory    = '../',
-    ee_query_max_results   = 50000,
+    ee_query_max_results   = 10, #do more than 1 because you may get a calibration file
     ee_query_label = 'test_download'
 ):
     print("Input username:")
@@ -368,17 +368,19 @@ def EE_create_fiducial_marker_for_project_date(
         apiKey,
         ee_results_df['entityId'].tolist(),
         ee_query_label,
-        os.path.join(output_directory, 'raw_image')
+        output_directory
     )
-    single_image_file = os.listdir()[0]
-    x = cv2.imread(single_image_file)
-    cv2.imwrite(single_image_file, x)
+    single_image_file = glob.glob(os.path.join(images_directory,'*.tif'))[0]
+    image = cv2.imread(single_image_file)
+    cv2.imwrite(single_image_file, image)
 
     fiducial_template_directory = os.path.join(output_directory, 'fiducials')
 
-    hipp.core.create_fiducial_template(
+    hipp.core.create_midside_fiducial_proxies_template(
         os.path.join(images_directory, single_image_file),
-        fiducial_template_directory   
+        fiducial_template_directory,
+        buffer_distance= 400
+
     )
 
 
