@@ -331,55 +331,6 @@ def download_images_to_disk(image_metadata,
         os.rename(final_output, out)
     
     return output_directory
-
-# Remove this - just make an example notebook in HIPP
-def EE_create_fiducial_marker_proxies_for_project_date(
-    bounds, #i shouldn't need this, but who knows how EE sorts stuff!
-    ee_project_name,
-    year,
-    month,
-    day,
-    output_directory    = '../',
-    ee_query_max_results   = 10, #do more than 1 because you may get a calibration file
-    ee_query_label = 'test_download'
-):
-    print("Input username:")
-    username = input()
-    print("Input password:")
-    apiKey = hipp.dataquery.EE_login(username, getpass.getpass())
-
-    ULLON, ULLAT, LRLON, LRLAT = bounds
-    ee_results_df = hipp.dataquery.EE_pre_select_images(
-        apiKey,
-        xmin = LRLON,
-        ymin = LRLAT,
-        xmax = ULLON,
-        ymax = ULLAT,
-        startDate = f"{year}-{month}-{day}",
-        endDate = f"{year}-{month}-{day}",
-        maxResults   = ee_query_max_results
-    )
-
-    ee_results_df = ee_results_df[ee_results_df['project'] == ee_project_name]
-    ee_results_df = ee_results_df.head(1)
-
-    images_directory, calibration_reports_directory = hipp.dataquery.EE_download_images_to_disk(
-        apiKey,
-        ee_results_df['entityId'].tolist(),
-        ee_query_label,
-        output_directory
-    )
-    single_image_file = glob.glob(os.path.join(images_directory,'*.tif'))[0]
-    image = cv2.imread(single_image_file)
-    cv2.imwrite(single_image_file, image)
-
-    fiducial_template_directory = os.path.join(output_directory, 'fiducials')
-
-    hipp.core.create_midside_fiducial_proxies_template(
-        os.path.join(images_directory, single_image_file),
-        fiducial_template_directory,
-        buffer_distance= 400
-    )
         
 
 def EE_pre_process_images(
