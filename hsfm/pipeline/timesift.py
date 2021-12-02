@@ -241,6 +241,7 @@ class TimesiftPipeline:
                 unaligned_cameras_metadata_file_path = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_unaligned_metashape_metadata.csv")
                 ba_cameras_df.to_csv(ba_cameras_metadata_file_path, index=False)
                 unaligned_cameras_df.to_csv(unaligned_cameras_metadata_file_path, index=False)
+                list_of_subsets = hsfm.metashape.determine_clusters(metashape_project_file)
                 
                 if len(unaligned_cameras_df) > 2:
                     output_path_2 = output_path.replace('.csv', '2.csv')
@@ -261,17 +262,16 @@ class TimesiftPipeline:
                     ba_cameras_metadata_file_path_2 = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata2.csv")
                     unaligned_cameras_metadata_file_path_2 = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_unaligned_metashape_metadata2.csv")
                     ba_cameras_df_2.to_csv(ba_cameras_metadata_file_path_2, index=False)
-                    unaligned_cameras_df_2.to_csv(unaligned_cameras_metadata_file_path_2, index=False)
-                    
-                list_of_subsets = hsfm.metashape.determine_clusters(metashape_project_file)
-                list_of_subsets2 = hsfm.metashape.determine_clusters(metashape_project_file_2)
-                combined_list_of_subsets = list_of_subsets2 + list_of_subsets
+                    unaligned_cameras_df_2.to_csv(unaligned_cameras_metadata_file_path_2, index=False)               
+                    list_of_subsets2 = hsfm.metashape.determine_clusters(metashape_project_file_2)
+                    list_of_subsets = list_of_subsets + list_of_subsets2
+            
                 with open(
                     input_images_metadata_file.replace("metashape_metadata.csv", "subsets.txt"), 
                     'w'
                 ) as f:
-                    f.write(str(combined_list_of_subsets))
-                individual_dir_to_subset_list_dict[individual_sfm_dir] =  combined_list_of_subsets
+                    f.write(str(list_of_subsets))
+                individual_dir_to_subset_list_dict[individual_sfm_dir] =  list_of_subsets
             except Exception as e:
                 print(f'Failure processing/finding clusters in individual clouds for cloud {individual_sfm_dir}: \n {e}')
         return individual_dir_to_subset_list_dict
