@@ -1,11 +1,12 @@
-import hsfm
-from hsfm.pipeline import Pipeline
-import hipp
 from pathlib import Path
 import pandas as pd
 import os
 import argparse
 import glob
+
+from hsfm.pipeline.pipeline import Pipeline
+import hipp.dataquery
+import hipp.batch
 
 
 class TimesiftPipeline:
@@ -87,7 +88,7 @@ class TimesiftPipeline:
         # It makes sense not to make these parameters configurable form the immediate interface,
         # but hard coding them is bad too. Maybe a configuration file would be useful at this point... 
         # so many parameters,
-        pipeline = hsfm.pipeline.Pipeline(
+        pipeline = Pipeline(
             self.raw_images_directory,
             self.reference_dem_lowres,
             2,
@@ -102,7 +103,7 @@ class TimesiftPipeline:
         if len(unaligned_cameras_df) > 2:
             unaligned_cams_file = nuthed_aligned_bundle_adjusted_metadata_file.replace('nuth_aligned_bundle_adj_metadata.csv', 'metaflow_bundle_adj_unaligned_metadata.csv')
             print(f"Unaligned cameras count more than 2, running a pipeline with unaligned images with metadata in file {unaligned_cams_file}")
-            pipeline = hsfm.pipeline.Pipeline(
+            pipeline = Pipeline(
                 self.raw_images_directory,
                 self.reference_dem_lowres,
                 self.image_matching_accuracy,
@@ -318,7 +319,7 @@ class TimesiftPipeline:
                 print(f"Running pipeline for single date and cluster: {cluster_dir}")
                 print(f"Using metashape metadata in file: {metadata_file}")
                 final_output_DEM_resolution = output_DEM_resolution_override if output_DEM_resolution_override else self.output_DEM_resolution
-                pipeline = hsfm.pipeline.Pipeline(
+                pipeline = Pipeline(
                     self.raw_images_directory,
                     self.reference_dem_hires,
                     self.image_matching_accuracy,

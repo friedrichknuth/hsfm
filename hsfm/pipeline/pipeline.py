@@ -1,4 +1,3 @@
-import hsfm
 import os
 import pandas as pd
 import geopandas as gpd
@@ -7,6 +6,12 @@ import argparse
 import rioxarray as rix
 from shapely.geometry import box
 
+import hsfm.metashape
+import hsfm.geospatial
+import hsfm.asp
+import hsfm.core
+import hsfm.plot
+import hsfm.utils
 
 class Pipeline:
     """
@@ -328,16 +333,17 @@ class Pipeline:
 
     def _pc_align_routine(self, dem):
         print("Running Point Cloud Alignment Routine...")
-        #clip reference DEM if its larger than the DEM to be aligned
+        #clip reference DEM if its completely surrounds the new DEM - otherwise leave it alone.
         reference_dem_bounds = rix.open_rasterio(self.reference_dem).rio.bounds()
         new_dem_bounds = rix.open_rasterio(dem).rio.bounds()
-        if box(*reference_dem_bounds).area > box(*new_dem_bounds).area:
+        ref_box = box(*reference_dem_bounds)
+        src_box = box(*new_dem_bounds)
+        if ref_box.contains(src_box):
             clipped_reference_dem_file = hsfm.utils.clip_reference_dem(
                 dem,
                 self.reference_dem,
                 output_file_name=self.clipped_reference_dem_file,
-                buff_size=2000,
-                verbose=self.verbose,
+                verbose=self.verbose
             )
             aligned_dem_file, transform = hsfm.asp.pc_align_p2p_sp2p(
                 dem, clipped_reference_dem_file, self.output_path, verbose=self.verbose
@@ -359,14 +365,28 @@ class Pipeline:
         df.to_csv(self.aligned_bundle_adjusted_metadata_file, index=False)
         return df
 
+    #ToDo this using/not using clipped reference dem logic is repeated with the pc_align step above
+    # ...amend that somehow
     def _nuth_kaab_align_routine(self, aligned_dem_file):
         print("Running Nuth and Kaab Alignment Routine...")
-        return hsfm.utils.dem_align_custom(
-            self.clipped_reference_dem_file,
-            aligned_dem_file,
-            self.output_path,
-            verbose=self.verbose,
-        )
+        reference_dem_bounds = rix.open_rasterio(self.reference_dem).rio.bounds()
+        new_dem_bounds = rix.open_rasterio(dem).rio.bounds()
+        ref_box = box(*reference_dem_bounds)
+        src_box = box(*new_dem_bounds)
+        if ref_box.contains(src_box):
+            return hsfm.utils.dem_align_custom(
+                self.clipped_reference_dem_file,
+                aligned_dem_file,
+                self.output_path,
+                verbose=self.verbose,
+            )
+        else:
+            return hsfm.utils.dem_align_custom(
+                self.reference_dem,
+                aligned_dem_file,
+                self.output_path,
+                verbose=self.verbose,
+            )
 
     def _apply_nuth_transform_and_update_camera_data(self, df):
         print(
