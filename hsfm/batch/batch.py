@@ -16,8 +16,18 @@ import shutil
 import time
 
 
-import hipp
-import hsfm
+import hipp.dataquery
+import hipp.batch
+
+import hsfm.asp
+import hsfm.batch
+import hsfm.core
+import hsfm.geospatial
+import hsfm.io
+import hsfm.metashape
+import hsfm.plot
+import hsfm.qc
+import hsfm.utils
 
 """
 Wrappers around other hsfm functions for batch processing. 

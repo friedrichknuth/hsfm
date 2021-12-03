@@ -6,7 +6,7 @@ import geopandas as gpd
 import sys
 import numpy as np
 
-import hsfm
+import hsfm.core
 
 """
 Agisoft Metashape processing pipeline.

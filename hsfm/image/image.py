@@ -4,8 +4,6 @@ import cv2
 import numpy as np
 from skimage import exposure
 
-import hsfm.io
-
 """
 Basic image processing functions. 
 """

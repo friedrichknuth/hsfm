@@ -19,7 +19,15 @@ import contextily as ctx
 import time
 cycle = list(mcd.XKCD_COLORS.values())
 
-import hsfm
+import hsfm.batch
+import hsfm.geospatial
+import hsfm.image
+import hsfm.io
+import hsfm.metashape
+import hsfm.plot
+import hsfm.trig
+import hsfm.utils
+
 import bare
 
 """

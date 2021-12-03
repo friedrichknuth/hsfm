@@ -20,7 +20,8 @@ from shapely.geometry import Point, Polygon, LineString, mapping
 import utm
 import time
 
-import hsfm
+import hsfm.io
+import hsfm.utils
 
 """
 Geospatial data processing functions.
