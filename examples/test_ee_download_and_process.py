@@ -2,6 +2,7 @@ from hsfm import batch
 from hipp.dataquery import EE_login
 from getpass import getpass
 
+print('Enter username:')
 username = input()
 
 api_key = EE_login(username, password = getpass())
@@ -17,10 +18,8 @@ batch.EE_pre_process_images(
         pixel_pitch = None,
         buffer_m            = 2000,
         threshold_px        = 50,
-        missing_proxy       = None,
-        keep_raw            = True,
+        missing_proxy       = None, 
         download_images     = True,
-        image_square_dim    = None,
         template_parent_dir = '/data2/elilouis/LK000_fiducials',
         output_directory    = '/data2/elilouis/hsfm_testing',
         ee_query_max_results   = 2,

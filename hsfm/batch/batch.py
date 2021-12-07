@@ -380,16 +380,9 @@ def EE_pre_process_images(
 
     output_directory = os.path.join(output_directory, project_name, 'input_data')
 
-    #template dirs are named by EE project - is this reasonable?
-    template_dirs = sorted(glob.glob(os.path.join(template_parent_dir, '*')))
-    template_types = []
-    for i in template_dirs:
-        template_types.append(i.split('/')[-1])
-
-    ULLON, ULLAT, LRLON, LRLAT = bounds
-
-    #ToDo fix beahvior of this query - you can get more than the maxResults parameter returned
+    #ToDo fix behavior of this query - you can get more than the maxResults parameter returned
     # Also remove the head() hack that fixes the issue
+    ULLON, ULLAT, LRLON, LRLAT = bounds
     ee_results_df = hipp.dataquery.EE_pre_select_images(
         apiKey,
         xmin = LRLON,
@@ -422,9 +415,8 @@ def EE_pre_process_images(
 
     fixed_images_directory = raw_images_directory.replace("raw_images", "raw_images_fixed")
 
-    #iterate over files, open them and rewrite them to fix the grid organization
-    # of EE images
-    # ToDo: Transfer this to HIPP! Maybe do when downloading them?
+    # iterate over files, open them and rewrite them to fix the grid organization of EE images
+    # ToDo: Transfer this to HIPP! Maybe do this when downloading them?
     files = glob.glob(os.path.join(raw_images_directory, "*.tif"))
     
     if not os.path.exists(fixed_images_directory):
@@ -436,8 +428,8 @@ def EE_pre_process_images(
         fixed_file = file.replace(raw_images_directory, fixed_images_directory)
         cv2.imwrite(fixed_file, im)
     
-    preprocessed_images_directory = fixed_images_directory.replace('raw_images_fixed', 'preprocessed_images')
-    qc_directory = preprocessed_images_directory.replace("preprocessed_images", "preprocess_qc")
+    preprocessed_images_directory = fixed_images_directory.replace('raw_images_fixed', 'cropped_images')
+    qc_directory = preprocessed_images_directory.replace("cropped_images", "preprocess_qc")
 
     # Sometimes this silently throws errors... but continues to run ok
     hipp.batch.preprocess_with_fiducial_proxies(
@@ -538,8 +530,6 @@ def EE_pre_process_images(
         image_metadata_latitude_column = 'lat'
     )
 
-    # Copy preprocessed images to common location
-    #???
     
     
 
