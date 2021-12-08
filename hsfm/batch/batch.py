@@ -12,7 +12,6 @@ import psutil
 import pathlib
 import shutil
 import time
-import getpass
 import geopandas as gpd
 
 import hipp
@@ -422,7 +421,7 @@ def EE_pre_process_images(
     if not os.path.exists(fixed_images_directory):
         os.makedirs(fixed_images_directory)
     print(f'Of {len(files)}, processing...', end=' ')
-    for i,file in enumerate(files):
+    for i, file in enumerate(files):
         print(i+1, end=' ')
         im = cv2.imread(file)
         fixed_file = file.replace(raw_images_directory, fixed_images_directory)
@@ -431,7 +430,6 @@ def EE_pre_process_images(
     preprocessed_images_directory = fixed_images_directory.replace('raw_images_fixed', 'cropped_images')
     qc_directory = preprocessed_images_directory.replace("cropped_images", "preprocess_qc")
 
-    # Sometimes this silently throws errors... but continues to run ok
     hipp.batch.preprocess_with_fiducial_proxies(
         fixed_images_directory,
         template_parent_dir,
