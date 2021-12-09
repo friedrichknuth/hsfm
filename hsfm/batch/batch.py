@@ -411,27 +411,12 @@ def EE_pre_process_images(
         )
     else:
         raw_images_directory = os.path.join(download_directory, raw_images_directory_name)
-
-    fixed_images_directory = raw_images_directory.replace("raw_images", "raw_images_fixed")
-
-    # iterate over files, open them and rewrite them to fix the grid organization of EE images
-    # ToDo: Transfer this to HIPP! Maybe do this when downloading them?
-    files = glob.glob(os.path.join(raw_images_directory, "*.tif"))
     
-    if not os.path.exists(fixed_images_directory):
-        os.makedirs(fixed_images_directory)
-    print(f'Of {len(files)}, processing...', end=' ')
-    for i, file in enumerate(files):
-        print(i+1, end=' ')
-        im = cv2.imread(file)
-        fixed_file = file.replace(raw_images_directory, fixed_images_directory)
-        cv2.imwrite(fixed_file, im)
-    
-    preprocessed_images_directory = fixed_images_directory.replace('raw_images_fixed', 'cropped_images')
+    preprocessed_images_directory = raw_images_directory.replace('raw_images', 'cropped_images')
     qc_directory = preprocessed_images_directory.replace("cropped_images", "preprocess_qc")
 
     hipp.batch.preprocess_with_fiducial_proxies(
-        fixed_images_directory,
+        raw_images_directory,
         template_parent_dir,
         output_directory=preprocessed_images_directory,
         verbose=True,

@@ -20,8 +20,8 @@ batch.EE_pre_process_images(
         threshold_px        = 50,
         missing_proxy       = None, 
         download_images     = True,
-        template_parent_dir = '/data2/elilouis/LK000_fiducials',
-        output_directory    = '/data2/elilouis/hsfm_testing',
+        template_parent_dir = 'examples/input_data/fiducials/ee/LK000',
+        output_directory    = 'examples/input_data/test_ee_download_and_process',
         ee_query_max_results   = 2,
         ee_query_label = 'test_download'
     )

@@ -1406,7 +1406,7 @@ def determine_image_clusters(image_metadata,
             # label cluster
             p = gpd.GeoSeries(shapely.ops.cascaded_union(c['polygon']))
             p = (p.representative_point().x[0], p.representative_point().y[0])
-            ax.annotate(s=str(i).zfill(3),
+            ax.annotate(str(i).zfill(3),
                         xy=p,
                         horizontalalignment='center',
                         size=15)
