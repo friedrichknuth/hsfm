@@ -610,7 +610,6 @@ def run_metashape(project_name,
         print('Setting output DEM resolution to 10 m. You can regrid the las file to a higher resolution as desired.')
         output_DEM_resolution = 10
         
-        
     out = hsfm.metashape.images2las(project_name,
                                     images_path,
                                     images_metadata_file,
@@ -644,6 +643,11 @@ def run_metashape(project_name,
                                plot_file_name = os.path.join(output_path, 'qc_ba_ce90le90.png'))
 
 
+    if os.path.exists(reference_dem):
+        pass
+    else:
+        print("\nCan't find reference DEM at",output_path)
+        sys.exit(0) 
     epsg_code = 'EPSG:'+ hsfm.geospatial.get_epsg_code(reference_dem)
     dem = hsfm.asp.point2dem(point_cloud_file,
                              '--nodata-value','-9999',
@@ -1048,8 +1052,15 @@ def batch_process(project_name,
     camera_models = sorted(glob.glob(os.path.join(output_directory,'camera_models','*.xml')))
     if len(camera_models) ==0:
         print('No camera models found in ', os.path.join(output_directory,'camera_models'))
+        print('Proceeding without them...')
         camera_models = None
-
+    
+    if os.path.exists(reference_dem):
+        pass
+    else:
+        print("\nCan't find reference DEM at",output_path)
+        sys.exit(0) 
+        
     for i in batches:
         try:
             print('\n\n'+i)
@@ -1058,7 +1069,6 @@ def batch_process(project_name,
 
             cluster_project_name = project_name+'_'+i.split('/')[-1]
 
-#             images_path          = os.path.join(i,'images')
             images_metadata_file = os.path.join(i,'metashape_metadata.csv')
             output_path          = os.path.join(i,'metashape')
              
@@ -1084,4 +1094,5 @@ def batch_process(project_name,
 
         print('\n\n'+i)
         print("Elapsed time", str(datetime.now() - now), '\n\n')
+        print("DONE")
 
