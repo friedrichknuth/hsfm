@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 import hsfm
-
+import driveanon as da
 
 project_name = 'easton'
 out_dir      = '../'
@@ -23,12 +23,14 @@ hsfm.batch.NAGAP_pre_process_images(project_name,
                                     month = 9,
                                     output_directory=out_dir)
 
-reference_dem           = '../input_data/reference_dem/lidar/baker.tif'
+reference_dem           = './baker.tif'
+da.save('1ObQyjhYB_fjhvqtBq-vK3CdPoQ1Iauyd', filename=reference_dem)
+
 output_DEM_resolution   = 1
 image_matching_accuracy = 1
 densecloud_quality      = 2
 dem_align_all           = True
-metashape_licence_file  = '/mnt/working/knuth/sw/metashape-pro/uw_agisoft.lic'
+metashape_licence_file  = '/mnt/Backups/knuth/sw/metashape-pro/uw_agisoft.lic'
 
 
 hsfm.batch.batch_process(project_name,
