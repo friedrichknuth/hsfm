@@ -12,7 +12,7 @@ import psutil
 import pathlib
 import shutil
 import time
-
+import geopandas as gpd
 
 import hipp
 import hsfm
@@ -330,7 +330,195 @@ def download_images_to_disk(image_metadata,
         os.rename(final_output, out)
     
     return output_directory
+        
+
+def EE_pre_process_images(
+        apiKey,
+        project_name,
+        bounds,
+        ee_project_name,
+        year,
+        month,
+        day,
+        pixel_pitch = 0.025,
+        buffer_m            = 2000,
+        threshold_px        = 50,
+        missing_proxy       = None,
+        download_images     = True,
+        template_parent_dir = None,
+        output_directory    = '../',
+        ee_query_max_results   = 50000,
+        ee_query_label = 'test_download'
+    ):
+    """
+    Download and preprocess images from the EE archive.
+    Assumes you already have fiducial marker proxy template files available (see examples in the HIPP repo).
+    Requires an api key to be passed in, which can be retrieved using hipp.dataquery.EE_login.
     
+    Args:
+        project_name ([type]): [description]
+        bounds ([type]): Tuple or list in order: ULLON, ULLAT, LRLON, LRLAT
+        ee_project_name ([type], optional): [description]. Defaults to None.
+        year ([type], optional): [description]. Defaults to None.
+        month ([type], optional): [description]. Defaults to None.
+        day ([type], optional): [description]. Defaults to None.
+        pixel_pitch ([type], optional): [description]. Defaults to None.
+        focal_length ([type], optional): [description]. Defaults to None.
+        buffer_m (int, optional): [description]. Defaults to 2000.
+        threshold_px (int, optional): [description]. Defaults to 50.
+        missing_proxy ([type], optional): [description]. Defaults to None.
+        keep_raw (bool, optional): [description]. Defaults to True.
+        download_images (bool, optional): [description]. Defaults to True.
+        image_square_dim ([type], optional): [description]. Defaults to None.
+        template_parent_dir ([type], optional): [description]. Defaults to None.
+        output_directory (str, optional): [description]. Defaults to '../'.
+        ee_query_max_results (int, optional): [description]. Defaults to 50000.
+        ee_query_label (string): The label required by the EE api. Defaults to "test_download" only because thats a previously used value that makes downloading easy for me personally.
+        skip_download (bool, optional): Skip download step of this process. Useful if you have called this function before (with the same arguments) and something bad happened. Defaults to False
+    """
+
+    output_directory = os.path.join(output_directory, project_name, 'input_data')
+
+    #ToDo fix behavior of this query - you can get more than the maxResults parameter returned
+    # Also remove the head() hack that fixes the issue
+    ULLON, ULLAT, LRLON, LRLAT = bounds
+    ee_results_df = hipp.dataquery.EE_pre_select_images(
+        apiKey,
+        xmin = LRLON,
+        ymin = LRLAT,
+        xmax = ULLON,
+        ymax = ULLAT,
+        startDate = f"{year}-{month}-{day}",
+        endDate = f"{year}-{month}-{day}",
+        maxResults   = ee_query_max_results
+    ).head(ee_query_max_results)
+    print(f'Images found matching bounds and date range: {len(ee_results_df)}')
+
+    ee_results_df = ee_results_df[ee_results_df['project'] == ee_project_name]
+    print(f'Images found matching bounds, date range, and project name: {len(ee_results_df)}')
+
+    download_directory = os.path.join(output_directory, f"EE_{year}", str(month), str(day))
+
+    # If you do not download the images, you need to generate the name of the directory that holds the raw tif files
+    raw_images_directory_name = 'raw_images'
+    if download_images:
+        raw_images_directory, calibration_reports_directory = hipp.dataquery.EE_download_images_to_disk(
+            apiKey,
+            ee_results_df['entityId'].tolist(),
+            ee_query_label,
+            download_directory,
+            images_directory_suffix=raw_images_directory_name
+        )
+    else:
+        raw_images_directory = os.path.join(download_directory, raw_images_directory_name)
+    
+    preprocessed_images_directory = raw_images_directory.replace('raw_images', 'cropped_images')
+    qc_directory = preprocessed_images_directory.replace("cropped_images", "preprocess_qc")
+
+    hipp.batch.preprocess_with_fiducial_proxies(
+        raw_images_directory,
+        template_parent_dir,
+        output_directory=preprocessed_images_directory,
+        verbose=True,
+        missing_proxy=missing_proxy,
+        threshold_px=threshold_px,
+        qc_df=True,
+        qc_df_output_directory=os.path.join(qc_directory, 'proxy_detection_data_frames'),
+        qc_plots=True,
+        qc_plots_output_directory=os.path.join(qc_directory, 'proxy_detection')
+    )
+
+        # Generate metashape_metadata.csv file for all images
+
+    metashape_metadata_df = ee_results_df[[
+        'entityId',
+        'centerLon',
+        'centerLat',
+        'altitudesFeet', #needs conversion to meters
+        'focalLength'
+    ]]
+
+    convert_column_names = {
+        'entityId': 'image_file_name',
+        'centerLon': 'lon',
+        'centerLat': 'lat',
+        'altitudesFeet': 'alt',
+        'focalLength': 'focal_length'
+    }
+
+    metashape_metadata_df = metashape_metadata_df.rename(convert_column_names, axis=1)
+
+    #convert feet to meters
+    FEET_IN_1_METER = 3.28084
+    metashape_metadata_df['alt'] = metashape_metadata_df['alt'] / FEET_IN_1_METER
+
+    # Add default values
+    metashape_metadata_df['lon_acc'] = 1000
+    metashape_metadata_df['lat_acc'] = 1000
+    metashape_metadata_df['alt_acc'] = 1000
+    metashape_metadata_df['yaw'] = 0
+    metashape_metadata_df['pitch'] = 0 
+    metashape_metadata_df['roll'] = 0
+    metashape_metadata_df['yaw_acc'] = 180
+    metashape_metadata_df['pitch_acc'] = 20
+    metashape_metadata_df['roll_acc'] = 20
+    metashape_metadata_df['pixel_pitch'] = pixel_pitch
+    
+    target_column_names_in_order = [
+        'image_file_name',
+        'lon',
+        'lat',
+        'alt',
+        'lon_acc', #default 1000
+        'lat_acc', #default 1000
+        'alt_acc', #default 1000
+        'yaw', #default 0
+        'pitch', #default 0
+        'roll', #default 0
+        'yaw_acc', #default 180
+        'pitch_acc', #default 20
+        'roll_acc', #default 20
+        'focal_length',
+        'pixel_pitch'
+    ]
+    
+    #order the columns appropriately
+    metashape_metadata_df = metashape_metadata_df[target_column_names_in_order]
+    
+    
+
+    #Crude function to estimate length of an image footprint using EE metadata. This is our best guess
+    # without running SfM
+    
+    def estimate_image_footprint_from_ee_results(df, arcsecond_to_meters=111111):
+        points1 = gpd.points_from_xy(x=df['NElon'], y=df['NElat'])
+        points2 = gpd.points_from_xy(x=df['NWlon'], y=df['NWlat'])
+        lat_distances = points1.distance(points2)
+        
+        points1 = gpd.points_from_xy(x=df['NElon'], y=df['NElat'])
+        points2 = gpd.points_from_xy(x=df['SElon'], y=df['SElat'])
+        lon_distances = points1.distance(points2)
+        max_edge_length = np.concatenate([lat_distances, lon_distances]).max()
+        return max_edge_length * arcsecond_to_meters
+
+    estimated_max_image_footprint_length = estimate_image_footprint_from_ee_results(ee_results_df)
+    
+    # Run a clustering detection algorithm
+    # Feed in our calculation of image foot print
+    hsfm.core.determine_image_clusters(
+        metashape_metadata_df,
+        output_directory = raw_images_directory.replace("raw_images", "sfm"),
+        buffer_m         = estimated_max_image_footprint_length,
+        image_file_name_column= 'image_file_name',
+        image_metadata_longitude_column = 'lon',
+        image_metadata_latitude_column = 'lat',
+        image_metadata_altitude_column = 'alt',
+    )
+
+    
+    
+
+
 def NAGAP_pre_process_images(project_name,
                              bounds,
                              roll                = None,

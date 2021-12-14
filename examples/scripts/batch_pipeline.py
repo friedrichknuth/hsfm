@@ -4,7 +4,7 @@ import hsfm
 import driveanon as da
 
 project_name = 'easton'
-out_dir      = '../'
+out_dir      = './'
 nagap_metadata_csv  = 'https://github.com/friedrichknuth/hipp/raw/master/examples/fiducial_proxy_detection/input_data/nagap_image_metadata.csv'
 template_parent_dir = '../../../hipp/examples/fiducial_proxy_detection/input_data/fiducials/nagap'
 

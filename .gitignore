@@ -102,3 +102,8 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+.vscode
+uw_agisoft.lic
+examples/sandbox/*
+src/*

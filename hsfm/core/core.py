@@ -1084,7 +1084,13 @@ def prepare_metashape_metadata(camera_positions_file_name,
                                output_directory='input_data',
                                flight_altitude_above_ground_m = 1500,
                                flight_altitude_m = None,
-                               focal_length = None):
+                               focal_length = None,
+                               # The following names are NAGAP source metadata convention. Could change this.
+                               image_file_name_column = 'fileName', 
+                               image_metadata_longitude_column = 'Longitude',
+                               image_metadata_latitude_column = 'Latitude',
+                               image_metadata_altitude_column = 'Altitude' 
+                               ):
                                
 
     if isinstance(camera_positions_file_name, type(pd.DataFrame())):
@@ -1097,31 +1103,58 @@ def prepare_metashape_metadata(camera_positions_file_name,
     df['yaw']             = 0.0
     df['pitch']           = 0.0
     df['roll']            = 0.0
-    df['image_file_name'] = df['fileName']+'.tif'
+    df['image_file_name'] = df[image_file_name_column]+'.tif'
 
-    lons = df['Longitude'].values
-    lats = df['Latitude'].values
+    lons = df[image_metadata_longitude_column].values
+    lats = df[image_metadata_latitude_column].values
     
-    if isinstance(flight_altitude_m, type(None)):
-        df['alt'] = hsfm.geospatial.USGS_elevation_function(lats, lons)
-        df['alt'] = df['alt'] + flight_altitude_above_ground_m
-        df['alt'] = round(df['alt'].max())
-    else:
-        df['alt'] = flight_altitude_m
-#     df['alt'] = df['Altitude']
-    df['lon']             = df['Longitude'].astype(float).round(6)
-    df['lat']             = df['Latitude'].astype(float).round(6)
+    # only request information from USGS elevation API (which can be slow)
+    # if all images altitudes are specifies as 'unknown' or None.
+    
+    # unrelated issue: (df[image_metadata_altitude_column].values == 'unknown') can return a bool
+    # in which case (df[image_metadata_altitude_column].values == 'unknown').all() can't be called.
+    # hence the try except. there is probably a better way to handle this.
+    try:
+        if (df[image_metadata_altitude_column].values == 'unknown').all() \
+        or (df[image_metadata_altitude_column].isnull()).any():
+            if isinstance(flight_altitude_m, type(None)):
+                df['alt'] = hsfm.geospatial.USGS_elevation_function(lats, lons)
+                df['alt'] = df['alt'] + flight_altitude_above_ground_m
+                df['alt'] = round(df['alt'].max())
+            else:
+                # assign a constant flight altitude if it is known but not specified in the metadata
+                # (might as well specify it in the metadata that is being read in, but this option is here.)
+                df['alt'] = flight_altitude_m
+
+        # if only a few of the images in the metadata set are missing information, assign the average 
+        # altitude to the images missing altitude information.
+        elif (df[image_metadata_altitude_column].values == 'unknown').any() \
+        or (df[image_metadata_altitude_column].isnull()).any():
+            m = np.nanmean(df.loc[~df[image_metadata_altitude_column].str.contains('unknown'),
+                                  image_metadata_altitude_column].values.astype(float))
+            list(df[df[image_metadata_altitude_column].values == 'unknown'][image_file_name_column].values)
+            df.loc[df[image_metadata_altitude_column].values == 'unknown',
+                   image_metadata_altitude_column] = m
+            df.loc[df[image_metadata_altitude_column].isnull().values,
+                   image_metadata_altitude_column] = m
+
+            df['alt'] = df[image_metadata_altitude_column].values
+        else:
+            df['alt'] = df[image_metadata_altitude_column].values
+
+    except:
+        df['alt'] = df[image_metadata_altitude_column].values
+        
+
+    df['lon']             = df[image_metadata_longitude_column].astype(float).round(6)
+    df['lat']             = df[image_metadata_latitude_column].astype(float).round(6)
     df['lon_acc']         = 1000
     df['lat_acc']         = 1000
     df['alt_acc']         = 1000
     df['yaw_acc']         = 180
     df['pitch_acc']       = 20
     df['roll_acc']        = 20
-    # get values from nagap_image_metadata_updated.csv if it is being used as the input
-    df.loc[~df['Altitude'].str.contains('unknown'),'alt'] = \
-    df.loc[~df['Altitude'].str.contains('unknown')]['Altitude'].values
 
-    
     if not isinstance(focal_length, type(None)):
         df['focal_length'] = focal_length
 
@@ -1282,7 +1315,11 @@ def determine_image_clusters(image_metadata,
                              image_extension                = '.tif',
                              image_file_name_column         = 'fileName',
                              move_images                    = False,
-                             qc                             = True):
+                             qc                             = True,
+                             image_metadata_longitude_column = 'Longitude',
+                             image_metadata_latitude_column = 'Latitude',
+                             image_metadata_altitude_column = 'Altitude' 
+                             ):
     
     """
     buffer_m = Approximate image footprint diameter in meters.
@@ -1298,9 +1335,9 @@ def determine_image_clusters(image_metadata,
         focal_length = df['focal_length'].values[0]
         
     # convert to geopandas.GeoDataFrame() and UTM
-    gdf = hsfm.geospatial.df_xy_coords_to_gdf(df, lon='Longitude', lat='Latitude')
-    lon = df['Longitude'].iloc[0]
-    lat = df['Latitude'].iloc[0]
+    gdf = hsfm.geospatial.df_xy_coords_to_gdf(df, lon=image_metadata_longitude_column, lat=image_metadata_latitude_column)
+    lon = df[image_metadata_longitude_column].iloc[0]
+    lat = df[image_metadata_latitude_column].iloc[0]
     epsg_code = hsfm.geospatial.lon_lat_to_utm_epsg_code(lon, lat)
     gdf = gdf.to_crs('epsg:' +epsg_code)
     
@@ -1352,8 +1389,8 @@ def determine_image_clusters(image_metadata,
         print('Images not part of a cluster:', *unmatched_files, sep = "\n")
         radius_m = radius_m + 500
         print('Increasing estimated footprint diameter to:', int(2*radius_m))
-        gdf.loc[gdf['fileName'].isin(unmatched_files),'polygon'] = \
-        gdf.loc[gdf['fileName'].isin(unmatched_files),'geometry'].buffer(radius_m)
+        gdf.loc[gdf[image_file_name_column].isin(unmatched_files),'polygon'] = \
+        gdf.loc[gdf[image_file_name_column].isin(unmatched_files),'geometry'].buffer(radius_m)
 
         footprints = []
         for i in gdf.polygon.values:
@@ -1388,13 +1425,13 @@ def determine_image_clusters(image_metadata,
         gdf['geometry'] = gdf['polygon']
         fig, ax = plt.subplots(1,figsize=(10,10))
         for i,v in enumerate(clusters):
-            c = gdf[gdf['fileName'].isin(v)].copy()
+            c = gdf[gdf[image_file_name_column].isin(v)].copy()
             c.plot(ax=ax,alpha=0.5,color=cycle[i])
             
             # label cluster
             p = gpd.GeoSeries(shapely.ops.cascaded_union(c['polygon']))
             p = (p.representative_point().x[0], p.representative_point().y[0])
-            ax.annotate(s=str(i).zfill(3),
+            ax.annotate(str(i).zfill(3),
                         xy=p,
                         horizontalalignment='center',
                         size=15)
@@ -1418,16 +1455,21 @@ def determine_image_clusters(image_metadata,
             p = pathlib.Path(outdir)
             p.mkdir(parents=True, exist_ok=True)
 
-            tmp = gdf[gdf['fileName'].isin(v)].copy()
+            tmp = gdf[gdf[image_file_name_column].isin(v)].copy()
             hsfm.core.prepare_metashape_metadata(tmp,
                                                  output_directory=outdir,
 #                                                  flight_altitude_above_ground_m = flight_altitude_above_ground_m,
-                                                 focal_length=focal_length)
+                                                 focal_length=focal_length,
+                                                 image_file_name_column = image_file_name_column,
+                                                image_metadata_longitude_column = image_metadata_longitude_column,
+                                                image_metadata_latitude_column = image_metadata_latitude_column,
+                                                image_metadata_altitude_column = image_metadata_altitude_column
+            )
 
             
             if isinstance(image_directory, type(str())):
                 images = []
-                for i in tmp['fileName'].values:
+                for i in tmp[image_file_name_column].values:
                     images.append(os.path.join(image_directory,i+'.tif'))
 
                 p = pathlib.Path(os.path.join(outdir,'images'))
