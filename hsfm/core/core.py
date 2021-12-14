@@ -1085,10 +1085,11 @@ def prepare_metashape_metadata(camera_positions_file_name,
                                flight_altitude_above_ground_m = 1500,
                                flight_altitude_m = None,
                                focal_length = None,
-                               image_file_name_column = 'fileName',
+                               # The following names are NAGAP source metadata convention. Could change this.
+                               image_file_name_column = 'fileName', 
                                image_metadata_longitude_column = 'Longitude',
-                                image_metadata_latitude_column = 'Latitude',
-                                image_metadata_altitude_column = 'alt' 
+                               image_metadata_latitude_column = 'Latitude',
+                               image_metadata_altitude_column = 'Altitude' 
                                ):
                                
 
@@ -1107,13 +1108,44 @@ def prepare_metashape_metadata(camera_positions_file_name,
     lons = df[image_metadata_longitude_column].values
     lats = df[image_metadata_latitude_column].values
     
-    if isinstance(flight_altitude_m, type(None)):
-        df['alt'] = hsfm.geospatial.USGS_elevation_function(lats, lons)
-        df['alt'] = df[image_metadata_altitude_column] + flight_altitude_above_ground_m
-        df['alt'] = round(df[image_metadata_altitude_column].max())
-    else:
-        df['alt'] = flight_altitude_m
-#     df['alt'] = df['Altitude']
+    # only request information from USGS elevation API (which can be slow)
+    # if all images altitudes are specifies as 'unknown' or None.
+    
+    # unrelated issue: (df[image_metadata_altitude_column].values == 'unknown') can return a bool
+    # in which case (df[image_metadata_altitude_column].values == 'unknown').all() can't be called.
+    # hence the try except. there is probably a better way to handle this.
+    try:
+        if (df[image_metadata_altitude_column].values == 'unknown').all() \
+        or (df[image_metadata_altitude_column].isnull()).any():
+            if isinstance(flight_altitude_m, type(None)):
+                df['alt'] = hsfm.geospatial.USGS_elevation_function(lats, lons)
+                df['alt'] = df['alt'] + flight_altitude_above_ground_m
+                df['alt'] = round(df['alt'].max())
+            else:
+                # assign a constant flight altitude if it is known but not specified in the metadata
+                # (might as well specify it in the metadata that is being read in, but this option is here.)
+                df['alt'] = flight_altitude_m
+
+        # if only a few of the images in the metadata set are missing information, assign the average 
+        # altitude to the images missing altitude information.
+        elif (df[image_metadata_altitude_column].values == 'unknown').any() \
+        or (df[image_metadata_altitude_column].isnull()).any():
+            m = np.nanmean(df.loc[~df[image_metadata_altitude_column].str.contains('unknown'),
+                                  image_metadata_altitude_column].values.astype(float))
+            list(df[df[image_metadata_altitude_column].values == 'unknown'][image_file_name_column].values)
+            df.loc[df[image_metadata_altitude_column].values == 'unknown',
+                   image_metadata_altitude_column] = m
+            df.loc[df[image_metadata_altitude_column].isnull().values,
+                   image_metadata_altitude_column] = m
+
+            df['alt'] = df[image_metadata_altitude_column].values
+        else:
+            df['alt'] = df[image_metadata_altitude_column].values
+
+    except:
+        df['alt'] = df[image_metadata_altitude_column].values
+        
+
     df['lon']             = df[image_metadata_longitude_column].astype(float).round(6)
     df['lat']             = df[image_metadata_latitude_column].astype(float).round(6)
     df['lon_acc']         = 1000
@@ -1123,14 +1155,6 @@ def prepare_metashape_metadata(camera_positions_file_name,
     df['pitch_acc']       = 20
     df['roll_acc']        = 20
 
-    #What's happening here?
-    # get values from nagap_image_metadata_updated.csv if it is being used as the input
-    if 'Altitude' in df.columns:
-        df.loc[~df['Altitude'].str.contains('unknown'),'alt'] = (
-            df.loc[~df['Altitude'].str.contains('unknown')]['Altitude'].values
-        )
-
-    
     if not isinstance(focal_length, type(None)):
         df['focal_length'] = focal_length
 
@@ -1293,7 +1317,8 @@ def determine_image_clusters(image_metadata,
                              move_images                    = False,
                              qc                             = True,
                              image_metadata_longitude_column = 'Longitude',
-                             image_metadata_latitude_column = 'Latitude'
+                             image_metadata_latitude_column = 'Latitude',
+                             image_metadata_altitude_column = 'Altitude' 
                              ):
     
     """
@@ -1438,7 +1463,7 @@ def determine_image_clusters(image_metadata,
                                                  image_file_name_column = image_file_name_column,
                                                 image_metadata_longitude_column = image_metadata_longitude_column,
                                                 image_metadata_latitude_column = image_metadata_latitude_column,
-                                                image_metadata_altitude_column = 'alt' 
+                                                image_metadata_altitude_column = image_metadata_altitude_column
             )
 
             

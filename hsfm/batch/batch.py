@@ -485,6 +485,7 @@ def EE_pre_process_images(
     #order the columns appropriately
     metashape_metadata_df = metashape_metadata_df[target_column_names_in_order]
     
+    
 
     #Crude function to estimate length of an image footprint using EE metadata. This is our best guess
     # without running SfM
@@ -510,7 +511,8 @@ def EE_pre_process_images(
         buffer_m         = estimated_max_image_footprint_length,
         image_file_name_column= 'image_file_name',
         image_metadata_longitude_column = 'lon',
-        image_metadata_latitude_column = 'lat'
+        image_metadata_latitude_column = 'lat',
+        image_metadata_altitude_column = 'alt',
     )
 
     
