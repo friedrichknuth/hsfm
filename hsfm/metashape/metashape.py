@@ -46,16 +46,23 @@ def images2las(project_name,
     image_matching_accuracy = Highest/High/Medium/Low/Lowest -> 0/1/2/4/8
     densecloud_quality      = Ultra/High/Medium/Low/Lowest   -> 1/2/4/8/16
     """
-    
-    import Metashape
+
+    try:
+        import Metashape
+    except:
+        print('\nCould not import Metashape python library. Check your licence and installation.\n')
+        sys.exit(0)
     
     # PROJECT SETUP
     
-    # TODO
-    # check if project already exists and prompt for overwrite or pickup where left off
-    # doc.open(output_path + project_name + ".psx")
+    # This is desired behaviour. Makes it easy to deleted or rename a single directory
+    # and rerun the top level batch scripts.
+    try:
+        os.makedirs(output_path)
+    except:
+        print('\nDirectory exists:',output_path, '\nMRemove or rename it.\n')
+        sys.exit(0) 
     
-    os.makedirs(output_path)
     metashape_project_file = os.path.join(output_path, project_name  + ".psx")
     report_file            = os.path.join(output_path, project_name  + "_report.pdf")
     point_cloud_file       = os.path.join(output_path, project_name  + ".las")
@@ -99,7 +106,7 @@ def images2las(project_name,
     for i,v in enumerate(chunk.cameras):
         v.reference.rotation_enabled = rotation_enabled
         
-#     # DEFINE INTRINSICS
+    # DEFINE INTRINSICS
     if isinstance(camera_model_xml_file, type(None)) and isinstance(focal_length, type(None)):
         # try to grab a focal length for every camera from metadata in case run on mix match of cameras
         try:
