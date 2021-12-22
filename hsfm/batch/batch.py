@@ -974,6 +974,21 @@ def metaflow(project_name,
         except:
             print('No focal length specified in metadata csv file.')
             pass
+    if isinstance(pixel_pitch, type(None)) and isinstance(camera_model_xml_file, type(None)):
+        try:
+            df_tmp        = pd.read_csv(images_metadata_file)
+            pixel_pitches = df_tmp['pixel_pitch'].values
+            if len(set(pixel_pitches)) == 1:
+                pixel_pitch = pixel_pitches[0]
+                print('Pixel Pitch:', pixel_pitch)
+            else:
+                print('Multiple pixel pitches provided in metadata csv file.')
+                print('hsfm.metashape.images2las will read the pixel pitch')
+                print('provided for each camera from the meteadata csv file.')
+                pass
+        except:
+            print('No pixel pitch specified in metadata csv file.')
+            pass
         
     # determine if there are subset clusters of images that do not overlap and/or unaligned images  
     if check_subsets:
