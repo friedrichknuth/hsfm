@@ -60,7 +60,7 @@ def images2las(project_name,
     try:
         os.makedirs(output_path)
     except:
-        print('\nDirectory exists:',output_path, '\nMRemove or rename it.\n')
+        print('\nDirectory exists:',output_path, '\nRemove or rename it.\n')
         sys.exit(0) 
     
     metashape_project_file = os.path.join(output_path, project_name  + ".psx")
@@ -108,7 +108,7 @@ def images2las(project_name,
         
     # DEFINE INTRINSICS
     if isinstance(camera_model_xml_file, type(None)) and isinstance(focal_length, type(None)):
-        # try to grab a focal length for every camera from metadata in case run on mix match of cameras
+        # try to grab a focal length for every camera from metadata in case run on mix of cameras
         try:
             df_tmp        = pd.read_csv(images_metadata_file)
             focal_lengths = df_tmp['focal_length'].values
@@ -126,7 +126,21 @@ def images2las(project_name,
             v.sensor.focal_length = focal_length
 #             v.sensor.fixed_params = ['F']
 
-    if not isinstance(pixel_pitch, type(None)):
+    if isinstance(camera_model_xml_file, type(None)) and isinstance(pixel_pitch, type(None)):
+        # try to grab a pixel pitch for every camera from metadata in case run on mix of cameras
+        try:
+            df_tmp        = pd.read_csv(images_metadata_file)
+            pixel_pitches = df_tmp['pixel_pitch'].values
+            print('Assigning pixel pitch for each camera specified in metadata csv file.')
+            for i,v in enumerate(chunk.cameras):
+                print('Camera',i,pixel_pitches[i])
+                v.sensor.pixel_height = pixel_pitches[i]
+                v.sensor.pixel_width  = pixel_pitches[i]
+        except:
+            print('No pixel pitch found in metadata csv file.')
+            pass
+    elif not isinstance(pixel_pitch, type(None)):
+        print('Pixel pitch provided as:', pixel_pitch)
         for i,v in enumerate(chunk.cameras):
             v.sensor.pixel_height = pixel_pitch
             v.sensor.pixel_width  = pixel_pitch
