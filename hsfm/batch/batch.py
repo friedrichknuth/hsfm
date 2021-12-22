@@ -1255,7 +1255,7 @@ def batch_process(project_name,
 
             now = datetime.now()
 
-            cluster_project_name = project_name+'_'+i.split('/')[-1]
+            cluster_project_name = project_name+'_'+os.path.basename(i)
 
             images_metadata_file = os.path.join(i,'metashape_metadata.csv')
             output_path          = os.path.join(i,'metashape')
