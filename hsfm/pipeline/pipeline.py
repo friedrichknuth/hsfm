@@ -370,7 +370,7 @@ class Pipeline:
     def _nuth_kaab_align_routine(self, aligned_dem_file):
         print("Running Nuth and Kaab Alignment Routine...")
         reference_dem_bounds = rix.open_rasterio(self.reference_dem).rio.bounds()
-        new_dem_bounds = rix.open_rasterio(dem).rio.bounds()
+        new_dem_bounds = rix.open_rasterio(aligned_dem_file).rio.bounds()
         ref_box = box(*reference_dem_bounds)
         src_box = box(*new_dem_bounds)
         if ref_box.contains(src_box):
@@ -393,42 +393,14 @@ class Pipeline:
             "Applying transform from Nuth and Kaab to aligned and bundle adjusted camera positions..."
         )
 
-        path = self._find_first_json_file_in_nested_directory(
-            os.path.join(self.output_path, "pc_align")
+        path_to_nuth_output = os.path.join(self.output_path, "pc_align", "spoint2point_bareground-trans_source-DEM_dem_align")
+        transformed_metadata_csv_output_path = self.nuthed_aligned_bundle_adjusted_metadata_file
+
+        hsfm.utils.apply_nuth_transform_to_camera_metadata(
+            df,
+            path_to_nuth_output,
+
         )
-        with open(os.path.join(self.output_path, "pc_align", path)) as src:
-            data = json.load(src)
-        gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(x=df.lon, y=df.lat))
-        # TODO: these should not be hardcoded....or at least the second should not be
-        gdf.crs = "EPSG:4326"
-        gdf = gdf.to_crs("EPSG:32610")
-
-        gdf["new_lat"] = gdf.geometry.y + data["shift"]["dy"]
-        gdf["new_lon"] = gdf.geometry.x + data["shift"]["dx"]
-        gdf = gpd.GeoDataFrame(
-            df, geometry=gpd.points_from_xy(x=gdf.new_lon, y=gdf.new_lat)
-        )
-        gdf.crs = "EPSG:32610"
-        gdf = gdf.to_crs("EPSG:4326")
-
-        df.lat = gdf.geometry.y
-        df.lon = gdf.geometry.x
-        df.alt = df.alt + data["shift"]["dz"]
-        df = df.drop(["geometry"], axis=1)
-        df.to_csv(self.nuthed_aligned_bundle_adjusted_metadata_file, index=False)
-
-    # This is kind of hacky... but works to find the Nuth and Kaab algorithm's json file output...at least in my experience.
-    def _find_first_json_file_in_nested_directory(self, directory):
-        file_list = []
-        dir_list = []
-        for root, dirs, files in os.walk(directory):
-            if len(dirs) > 0:
-                dir_list.append(dirs[0])
-            json_files = [file for file in files if "json" in file]
-            if len(json_files) > 0:
-                file_list.append(json_files[0])
-        if len(file_list) > 0:
-            return os.path.join(dir_list[0], file_list[0])
 
     def _export_aligned_orthomosaic(self, dem, project_file):
         orthomosaic_file = os.path.join(self.output_path, 'orthomosaic_final.tif')

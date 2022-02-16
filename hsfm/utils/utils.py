@@ -11,6 +11,7 @@ import holoviews as hv
 from osgeo import gdal
 import os
 import pandas as pd
+import geopandas as gpd
 import panel as pn
 import numpy as np
 import PIL
@@ -20,6 +21,7 @@ from subprocess import Popen, PIPE, STDOUT
 import time
 import utm
 import cv2
+import json
 
 import hsfm.core
 import hsfm.geospatial
@@ -678,3 +680,54 @@ def run_command2(command, verbose=False, log=False):
             if verbose == True:
                 line = (p.stdout.readline())
                 print(line)
+
+def apply_nuth_transform_to_camera_metadata(df, nuth_output_directory, output_path = None):
+    """_summary_
+
+    Args:
+        df (pd.DataFrame): Dataframe containing camera info, metashape metadata. 
+        nuth_output_directory (str): Path to directory containing output from a run of dem_align.py. 
+                        Should contain a .json file with shift values that the nuth and kaab algorithm
+                        converged upon.
+        output_path (str): File path for transformed metashape metadata csv file to be saved.
+    """
+    path = _find_first_json_file_in_nested_directory(
+            nuth_output_directory
+        )
+    with open(os.path.join(nuth_output_directory, path)) as src:
+        data = json.load(src)
+    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(x=df.lon, y=df.lat))
+    # TODO: these should not be hardcoded....or at least the second should not be
+    gdf.crs = "EPSG:4326"
+    gdf = gdf.to_crs("EPSG:32610")
+
+    gdf["new_lat"] = gdf.geometry.y + data["shift"]["dy"]
+    gdf["new_lon"] = gdf.geometry.x + data["shift"]["dx"]
+    gdf = gpd.GeoDataFrame(
+        df, geometry=gpd.points_from_xy(x=gdf.new_lon, y=gdf.new_lat)
+    )
+    gdf.crs = "EPSG:32610"
+    gdf = gdf.to_crs("EPSG:4326")
+
+    df.lat = gdf.geometry.y
+    df.lon = gdf.geometry.x
+    df.alt = df.alt + data["shift"]["dz"]
+    df = df.drop(["geometry"], axis=1)
+    df['lon_acc'] = 0.0000001
+    df['lat_acc'] = 0.0000001
+    df['alt_acc'] = 0.0000001
+    if output_path:
+        df.to_csv(output_path, index=False)
+    return df
+
+def _find_first_json_file_in_nested_directory(directory):
+    """Finds and returns filepath (a string) of the dem_align.py's (Nuth and Kaab algorithm')s json file 
+    output. Kind of hacky but works.
+    Args:
+        directory (str): Directory containing output.
+    Returns:
+        str: filepath to json file with stats.
+    """
+    json_files = glob.glob(os.path.join(directory, "**/*.json"), recursive=True)
+    assert len(json_files) == 1, "Found more than one JSON file."
+    return json_files[0]

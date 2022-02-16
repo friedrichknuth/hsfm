@@ -5,6 +5,8 @@ import argparse
 import glob
 
 from hsfm.pipeline.pipeline import Pipeline
+import hsfm.metashape
+import hsfm.asp
 import hipp.dataquery
 import hipp.batch
 
@@ -100,15 +102,16 @@ class TimesiftPipeline:
             license_path=self.license_path,
         )
         nuthed_aligned_bundle_adjusted_metadata_file, unaligned_cameras_df = pipeline.run(export_orthomosaic=False)
+
         if len(unaligned_cameras_df) > 2:
             unaligned_cams_file = nuthed_aligned_bundle_adjusted_metadata_file.replace('nuth_aligned_bundle_adj_metadata.csv', 'metaflow_bundle_adj_unaligned_metadata.csv')
             print(f"Unaligned cameras count more than 2, running a pipeline with unaligned images with metadata in file {unaligned_cams_file}")
             pipeline = Pipeline(
                 self.raw_images_directory,
                 self.reference_dem_lowres,
-                self.image_matching_accuracy,
-                self.densecloud_quality,
-                self.output_DEM_resolution,
+                2,
+                4,
+                10,
                 self.multi_epoch_project_name,
                 os.path.join(self.multi_epoch_cloud_output_path, 'unaligned_retry'),
                 unaligned_cams_file,
@@ -165,6 +168,7 @@ class TimesiftPipeline:
         print("Preparing data for individual clouds...")
         aligned_cameras_df = pd.read_csv(aligned_cameras_file)
         image_metadata_df = pd.read_csv(self.image_metadata_file)
+        image_metadata_df = image_metadata_df[['fileName', 'Year', 'Month', 'Day']]
         image_metadata_df['image_file_name'] = image_metadata_df['fileName'] + '.tif'
         joined_df = pd.merge(
             image_metadata_df, aligned_cameras_df, on="image_file_name"
@@ -217,24 +221,29 @@ class TimesiftPipeline:
     def _find_clusters_in_individual_clouds(self):
         print("Searching all dates for clusters/subsets")
         individual_dir_to_subset_list_dict = {}
-        for individual_sfm_dir in os.listdir(self.individual_clouds_output_path):
+        all_individual_sfm_dirs = os.listdir(self.individual_clouds_output_path)
+        for individual_sfm_dir in all_individual_sfm_dirs:
+            list_of_subsets = []
             try:
                 print(f"Processing single date ({individual_sfm_dir}) images to check for clusters/subsets ...")
                 output_path = os.path.join(self.individual_clouds_output_path, individual_sfm_dir, "cluster_metashape_run")
                 input_images_metadata_file = os.path.join(self.individual_clouds_output_path, individual_sfm_dir, "metashape_metadata.csv")
+                #TODO DON't HARDCODE THESE, but also don't take the parameters from the arguments...generally too high
                 metashape_project_file, point_cloud_file = hsfm.metashape.images2las(
                     individual_sfm_dir,
                     self.raw_images_directory,
                     input_images_metadata_file,
                     output_path,
                     focal_length            = pd.read_csv(input_images_metadata_file)['focal_length'].iloc[0],
-                    image_matching_accuracy = self.image_matching_accuracy,
-                    densecloud_quality      = self.densecloud_quality,
+                    image_matching_accuracy = 2,
+                    densecloud_quality      = 4,
                     keypoint_limit          = 80000,
                     tiepoint_limit          = 8000,
                     rotation_enabled        = True,
                     export_point_cloud      = False
                 )
+                print("SfM processing completed. ")
+                print("Updating Cameras.")
                 ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file, input_images_metadata_file)
                 # ToDo: Come up with a cleaner way of rerunning images2las with the unaligned cameras
                 # This should really act recursively, but after the second try, still-unaligned cameras are left to rot
@@ -242,39 +251,48 @@ class TimesiftPipeline:
                 unaligned_cameras_metadata_file_path = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_unaligned_metashape_metadata.csv")
                 ba_cameras_df.to_csv(ba_cameras_metadata_file_path, index=False)
                 unaligned_cameras_df.to_csv(unaligned_cameras_metadata_file_path, index=False)
-                list_of_subsets = hsfm.metashape.determine_clusters(metashape_project_file)
+
+                print("Determining clusters.")
+                clusters_intial_attempt = hsfm.metashape.determine_clusters(metashape_project_file)
+                list_of_subsets = list_of_subsets + clusters_intial_attempt
                 
                 if len(unaligned_cameras_df) > 2:
-                    output_path_2 = output_path.replace('.csv', '2.csv')
+                    print("More than 2 unaligned cameras left.")
+                    print("Processing unaligned cameras.")
+                    output_path_2 = output_path.replace('cluster_metashape_run', 'cluster_metashape_run2')
                     metashape_project_file_2, point_cloud_file_2 = hsfm.metashape.images2las(
                         individual_sfm_dir,
                         self.raw_images_directory,
                         unaligned_cameras_metadata_file_path,
                         output_path_2,
-                        image_matching_accuracy = self.image_matching_accuracy,
-                        densecloud_quality      = self.densecloud_quality,
+                        image_matching_accuracy = 2,
+                        densecloud_quality      = 4,
                         keypoint_limit          = 80000,
                         tiepoint_limit          = 8000,
                         rotation_enabled        = True,
                         export_point_cloud      = False
                     )
+                    print("SfM processing completed for unaligned cameras. ")
+                    print("Updating cameras for unaligned cameras.")
                     ba_cameras_df_2, unaligned_cameras_df_2 = hsfm.metashape.update_ba_camera_metadata(metashape_project_file_2, unaligned_cameras_metadata_file_path)
                     
                     ba_cameras_metadata_file_path_2 = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_metashape_metadata2.csv")
                     unaligned_cameras_metadata_file_path_2 = input_images_metadata_file.replace("metashape_metadata.csv", "single_date_multi_cluster_bundle_adjusted_unaligned_metashape_metadata2.csv")
                     ba_cameras_df_2.to_csv(ba_cameras_metadata_file_path_2, index=False)
-                    unaligned_cameras_df_2.to_csv(unaligned_cameras_metadata_file_path_2, index=False)               
-                    list_of_subsets2 = hsfm.metashape.determine_clusters(metashape_project_file_2)
-                    list_of_subsets = list_of_subsets + list_of_subsets2
-            
-                with open(
-                    input_images_metadata_file.replace("metashape_metadata.csv", "subsets.txt"), 
-                    'w'
-                ) as f:
-                    f.write(str(list_of_subsets))
-                individual_dir_to_subset_list_dict[individual_sfm_dir] =  list_of_subsets
+                    unaligned_cameras_df_2.to_csv(unaligned_cameras_metadata_file_path_2, index=False)  
+                    
+                    print("Determining clusters for unaligned cameras.")   
+                    clusters_second_attempt = hsfm.metashape.determine_clusters(metashape_project_file_2)
+                    list_of_subsets = list_of_subsets + clusters_second_attempt
             except Exception as e:
                 print(f'Failure processing/finding clusters in individual clouds for cloud {individual_sfm_dir}: \n {e}')
+            print("Writing subsets to file/")
+            with open(
+                input_images_metadata_file.replace("metashape_metadata.csv", "subsets.txt"), 
+                'w'
+            ) as f:
+                f.write(str(list_of_subsets))
+            individual_dir_to_subset_list_dict[individual_sfm_dir] =  list_of_subsets
         return individual_dir_to_subset_list_dict
 
     def _generate_subsets_for_each_date(self, dict_of_subsets_by_date):
@@ -314,7 +332,7 @@ class TimesiftPipeline:
         for cluster_dir in valid_cluster_dates:
             try:
                 metadata_file = os.path.join(cluster_dir, "metashape_metadata.csv")
-                assert len(pd.read_csv(metadata_file)) > 2, "Skipping cluster because not enougn images."
+                assert len(pd.read_csv(metadata_file)) > 2, "Skipping cluster because not enough images."
                 print("\n\n")
                 print(f"Running pipeline for single date and cluster: {cluster_dir}")
                 print(f"Using metashape metadata in file: {metadata_file}")
@@ -341,29 +359,29 @@ class TimesiftPipeline:
             except Exception as e:
                 print(f'Failure processing individual clouds at {cluster_dir}: \n {e}')
   
-    def create_results_report(self):
+    def create_results_report(self, iteration=0):
         """Read the nuth-aligned results of each date-cluster. Gather NMAD data and report.
         """
         # ToDo: don't use subprocess here...no guarantee that imagemagick was installed!
         import subprocess
         results_report_file = os.path.join(self.output_directory, 'individual_clouds', 'results.pdf')
-        qc_files = glob.glob(os.path.join(self.output_directory, 'individual_clouds/**/1/**/*align.png'), recursive=True)
+        qc_files = glob.glob(os.path.join(self.output_directory, f'individual_clouds/**/{iteration}/**/*align.png'), recursive=True)
         print(f'Found {len(qc_files)} align.png files')
         subprocess.call(
             ["convert"] + qc_files + [results_report_file]
         )
         return results_report_file
 
-    def create_mosaics(self, nmad_threshold, nmad_source='after_filt'):
+    def create_mosaics(self, nmad_threshold, nmad_source='after_filt', iteration=0):
         """Create a mosaic orthomosaic, DEM, and DoD, using the files that satisfy the NMAD threshold provided.
 
         Args:
             nmad_threshold ([type]): [description]
             nmad_source (str, optional): [description]. Defaults to 'after_filt'.
         """
-        mosaic_ortho_files = self.mosaic_orthos(nmad_threshold, nmad_source)
-        mosaic_dem_files = self.mosaic_dems(nmad_threshold, nmad_source)
-        mosaic_dod_files = self.mosaic_dods(nmad_threshold, nmad_source)
+        mosaic_ortho_files = self.mosaic_orthos(nmad_threshold, nmad_source, iteration)
+        mosaic_dem_files = self.mosaic_dems(nmad_threshold, nmad_source, iteration)
+        mosaic_dod_files = self.mosaic_dods(nmad_threshold, nmad_source, iteration)
 
         print('Mosaic orthomosaic files:')
         print(mosaic_ortho_files)
@@ -375,10 +393,10 @@ class TimesiftPipeline:
         print(mosaic_dod_files)
         print()
 
-    def _get_good_stat_files(self, nmad_threshold, nmad_source='after_filt'):
+    def _get_good_stat_files(self, nmad_threshold, nmad_source='after_filt', iteration=0):
         import json
         all_stat_json_files = glob.glob( 
-            os.path.join(self.output_directory, "individual_clouds/*/cluster*/1/pc_align/spoint2point_bareground-trans_source-DEM_dem_align/*align_stats.json")
+            os.path.join(self.output_directory, f"individual_clouds/*/cluster*/{iteration}/pc_align/spoint2point_bareground-trans_source-DEM_dem_align/*align_stats.json")
         )
         good_stat_json_files = []
         for f in all_stat_json_files:
@@ -388,7 +406,7 @@ class TimesiftPipeline:
                     good_stat_json_files.append(f)
         return good_stat_json_files
 
-    def mosaic_orthos(self, nmad_threshold, nmad_source='after_filt'):
+    def mosaic_orthos(self, nmad_threshold, nmad_source='after_filt', iteration=0):
         """Mosaic orthomosaics from the same year so that one orthomosaic per year is created.
         Only include datasets with final NMADs below the provided threshold. The "final NMAD"
         is the NMAD calculated by the nuth alignment routine, after alignment and filtering of Tree and ice/snow pixels.
@@ -401,16 +419,16 @@ class TimesiftPipeline:
             [list[str]]: List of mosaiced orthomosaic files created.
         """
         # Figure out which dates/clusters have good enough NMAD to be included in the orthomosaic mosaic
-        good_stat_json_files = self._get_good_stat_files(nmad_threshold, nmad_source)
+        good_stat_json_files = self._get_good_stat_files(nmad_threshold, nmad_source, iteration)
         
         print(f'Found {len(good_stat_json_files)} datasets with NMAD below the provided threshold of {nmad_threshold}')
 
         # Gather file paths of the orthomosaic files that satisfy the NMAD criteria
         all_aligned_orthomosaic_files = glob.glob(
-            os.path.join(self.output_directory, "individual_clouds/**/**/1/orthomosaic_final.tif")
+            os.path.join(self.output_directory, f"individual_clouds/**/**/{iteration}/orthomosaic_final.tif")
         )
         good_aligned_orthomosaic_files = [
-            f for f in all_aligned_orthomosaic_files if f.split("/1/")[0] in [f.split("/1/")[0] for f in good_stat_json_files]
+            f for f in all_aligned_orthomosaic_files if f.split(f"/{iteration}/")[0] in [f.split(f"/{iteration}/")[0] for f in good_stat_json_files]
         ]
         assert len(good_aligned_orthomosaic_files) == len(good_stat_json_files)
 
@@ -435,7 +453,7 @@ class TimesiftPipeline:
         )
         return all_orthomosaic_mosaic_files
 
-    def mosaic_dems(self, nmad_threshold, nmad_source='after_filt'):
+    def mosaic_dems(self, nmad_threshold, nmad_source='after_filt', iteration=0):
         """Mosaic DEMs from the same year so that one DEM per year is created.
         Only include datasets with final NMADs below the provided threshold. The "final NMAD"
         is the NMAD calculated by the nuth alignment routine.
@@ -447,17 +465,17 @@ class TimesiftPipeline:
             [list[str]]: List of mosaiced DEM files created.
         """
         # Figure out which dates/clusters have good enough NMAD to be included in the orthomosaic mosaic
-        good_stat_json_files = self._get_good_stat_files(nmad_threshold, nmad_source)
+        good_stat_json_files = self._get_good_stat_files(nmad_threshold, nmad_source, iteration)
         
         print(f'Found {len(good_stat_json_files)} datasets with NMAD below the provided threshold of {nmad_threshold}')
 
         # Gather file paths of the DEM files that satisfy the NMAD criteria
         all_aligned_dem_files = list(set(glob.glob(
-            os.path.join(self.output_directory, "individual_clouds/**/**/1/**/*align.tif"),
+            os.path.join(self.output_directory, f"individual_clouds/**/**/{iteration}/**/*align.tif"),
             recursive = True
         )))
         good_aligned_dem_files = [
-            f for f in all_aligned_dem_files if f.split("/1/")[0] in [f.split("/1/")[0] for f in good_stat_json_files]
+            f for f in all_aligned_dem_files if f.split(f"/{iteration}/")[0] in [f.split(f"/{iteration}/")[0] for f in good_stat_json_files]
         ]
         assert len(good_aligned_dem_files) == len(good_stat_json_files)
 
@@ -482,7 +500,7 @@ class TimesiftPipeline:
         )
         return all_dem_mosaic_files
     
-    def mosaic_dods(self, nmad_threshold, nmad_source='after_filt'):
+    def mosaic_dods(self, nmad_threshold, nmad_source='after_filt', iteration=0):
         """Mosaic DODs from the same year so that one DOD per year is created.
         Only include datasets with final NMADs below the provided threshold. The "final NMAD"
         is the NMAD calculated by the nuth alignment routine.
@@ -494,17 +512,17 @@ class TimesiftPipeline:
             [list[str]]: List of mosaiced DOD files created.
         """
         # Figure out which dates/clusters have good enough NMAD to be included in the orthomosaic mosaic
-        good_stat_json_files = self._get_good_stat_files(nmad_threshold, nmad_source)
+        good_stat_json_files = self._get_good_stat_files(nmad_threshold, nmad_source, iteration)
         
         print(f'Found {len(good_stat_json_files)} datasets with NMAD below the provided threshold of {nmad_threshold}')
 
         # Gather file paths of the DOD files that satisfy the NMAD criteria
         all_aligned_dod_files = list(set(glob.glob(
-            os.path.join(self.output_directory, "individual_clouds/**/**/1/**/*align_diff.tif"),
+            os.path.join(self.output_directory, f"individual_clouds/**/**/{iteration}/**/*align_diff.tif"),
             recursive = True
         )))
         good_aligned_dod_files = [
-            f for f in all_aligned_dod_files if f.split("/1/")[0] in [f.split("/1/")[0] for f in good_stat_json_files]
+            f for f in all_aligned_dod_files if f.split(f"/{iteration}/")[0] in [f.split(f"/{iteration}/")[0] for f in good_stat_json_files]
         ]
         assert len(good_aligned_dod_files) == len(good_stat_json_files)
 
@@ -528,6 +546,116 @@ class TimesiftPipeline:
             os.path.join(self.output_directory, "individual_clouds/**/dod.tif")
         )
         return all_dod_mosaic_files
+
+    def process_dem_align_all_intermediate_steps(self):
+        """
+        Run dem_align.py on all intermediate point cloud alignment products (point2plane, spoint2point, spoint2point-bareground).
+        
+
+        Returns:
+            _type_: _description_
+        """
+        return None
+    
+    def process_final_orthomosaics(self, date_cluster_bests, iteration = 0):
+        """
+        Create "final" aligned mosaics according to a manually approved list of good DEMs. Has the side effect of creating
+        2 files, both of which are saved to the dem_align.py output directory identified by the input date_cluster_bests 
+        dictionary. The generated files are:
+            "final_metashape_metadata.csv" - Camera metadata transformed by the identified (best) PC alignment and by the nuth and kaab alignment
+            "**align_orthomosaic.tif" - Orthomosaic output that is aligned by PC alignment transform and the nuth and kaab alignment. This
+                                        orthomosaic is in alignment with the final DEM output by nuth and kaab.
+                                            
+        For each year-cluster (if included in manually approved list):
+        1. Identify the transform file of the selected best pc_align step
+        2. Apply this transform to the bundle adjusted cameras.
+        3. Apply the nuth and kaab transform to the now-aligned cameras.
+        4. Export orthomosaic using the now-pc-aligned-and-nuth-aligned cameras
+
+
+        date_cluster_bests (dict): Dictionary of strings pointing to strings, indicating for each date-cluster, which 
+        intermediate PC aligned product is best and should be used to generate a final orthomosaic. The keys
+        should be paths to the cluster-date directory, ie ending in .../cluster[0-9] and the values should one of the 
+        following: [
+            "point2plane",
+            "spoint2point",
+            "spoint2point_bareground"
+        ]
+        Args:
+            date_cluster_bests (_type_, optional): _description_. Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """
+        for date_cluster, pc_align_prefix in date_cluster_bests.items():
+            print(f"Processing {date_cluster}:")
+            # 1. identify transform file and selected nuth_aligned output
+                #path to the transform file from the transform that produced the best/manually identified DEM
+            transform_file_full_path = os.path.join(
+                date_cluster,
+                f"{iteration}/pc_align",
+                pc_align_prefix + "-transform.txt"
+            )
+            print(f"\t1/4: Identified transform file: {transform_file_full_path}")
+                #path to the dem_align.py output file that was run for the transform that produced the best/manually identified DEM
+            nuth_aligned_output_directory_full_path = os.path.join(
+                date_cluster,
+                f"{iteration}/pc_align",
+                pc_align_prefix + "-trans_source-DEM_dem_align"
+            )
+                #path to the bundle adjusted metadata from the SfM run. These cameras are pre any transform.
+            bundle_adj_cameras_csv_file = os.path.join(
+                date_cluster,
+                f"{iteration}/metaflow_bundle_adj_metadata.csv"
+            )
+                #new path to where the final metashape metadata will be saved
+            final_aligned_cameras_csv_file = os.path.join(
+                nuth_aligned_output_directory_full_path, 'final_metashape_metadata.csv'
+            )
+                #path to the metashape project file.
+            metashape_project_file = os.path.join(date_cluster, str(iteration), 'project.psx')
+            
+                #list of files grabbed by globbing, should contain only one file path, the DEM output of dem_align.py 
+            final_dem_file_list = glob.glob(
+                os.path.join(nuth_aligned_output_directory_full_path, "*align.tif")
+            )
+            assert len(final_dem_file_list) == 1, f"More or less than one final DEM found (found {len(final_dem_file_list)}). {final_dem_file_list}"
+            final_dem_file = final_dem_file_list[0]
+
+                #new path to where we will save the aligned orthomosaic
+            final_orthomosaic_file = final_dem_file.replace("align.tif", "align_orthomosaic.tif")
+
+            print(f"\t2/4: Applying PC align transform to bundle-adjusted cameras.")
+            # 2. apply transform to bundle adjusted cameras
+            print("Applying PC alignment transform to bundle-adjusted camera positions...")
+            pc_aligned_cameras_df = hsfm.core.metadata_transform(
+                bundle_adj_cameras_csv_file,
+                transform_file_full_path,
+                output_file_name=None #no files will be written
+            )
+
+            print(f"\t3/4: Applying nuth and kaab transform to PC-aligned-and-bundle-adjusted-cameras.")
+            # 3. apply nuth and kaab transform
+            hsfm.utils.apply_nuth_transform_to_camera_metadata(
+                pc_aligned_cameras_df,
+                nuth_aligned_output_directory_full_path,
+                final_aligned_cameras_csv_file
+            )
+            
+            print(f"\t4/4: Exporting final orthomosaic to {final_orthomosaic_file}.")
+            # 4. export final orthomosaic          
+            hsfm.metashape.export_updated_orthomosaic(
+                metashape_project_file,
+                final_aligned_cameras_csv_file,
+                # final_dem_file,
+                final_orthomosaic_file
+            )
+        return None
+
+    def process_selected_dems_into_mosaics(self):
+        """Create mosaics (DEMs, DoDs, and orthos) for selected DEMs 
+        """
+
 
 def parse_args():
     parser = argparse.ArgumentParser(

@@ -1,8 +1,8 @@
 import os
-import argpars
+import argparse
 import pandas as pd
 
-import hsfm.core.prepare_metashape_metadata
+import hsfm.core
 import hipp.dataquery
 import hipp.batch
 
