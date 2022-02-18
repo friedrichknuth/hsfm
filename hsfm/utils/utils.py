@@ -375,7 +375,7 @@ def download_3DEP_DTM(bounds,
     # download DTM
     print('Downloading DTM with bounds', bounds)
     dtm = py3dep.get_map("DEM", bounds, resolution=res, geo_crs="epsg:4326", crs="epsg:4326")
-    dtm = dtm.rio.reproject(utm_crs, resampling=rasterio.enums.Resampling.cubic)
+    dtm = dtm.rio.reproject(utm_crs, resampling=rasterio.enums.Resampling.cubic, resolution=res)
     dtm = dtm.rio.write_nodata(-9999.0, encoded=True, inplace=True)
     dtm.attrs['scales'] = [1.0]
     dtm.attrs['offsets'] = [0.0]
@@ -408,6 +408,7 @@ def download_3DEP_DTM(bounds,
         shutil.rmtree('cache')
     else:
         print('Writing final DTM to', out)
+    return out
 
 def clip_reference_dem(dem_file, 
                        reference_dem_file,

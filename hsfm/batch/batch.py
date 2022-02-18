@@ -1247,6 +1247,12 @@ def batch_process(project_name,
     
     output_directory = os.path.join(input_directory, project_name, 'input_data')
     
+    if os.path.isdir(output_directory):
+        pass
+    else:
+        print("\nCan't find directory",output_directory)
+        sys.exit(0) 
+        
     image_files = os.path.join(output_directory,'*','*','*','*cropped_images','*.tif')
     image_files = sorted(glob.glob(image_files))
     
@@ -1263,7 +1269,7 @@ def batch_process(project_name,
     else:
         print("\nCan't find reference DEM at",output_path)
         sys.exit(0) 
-        
+    print(input_directories)
     for i in batches:
         try:
             print('\n\n'+i)
