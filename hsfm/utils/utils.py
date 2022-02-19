@@ -23,6 +23,7 @@ import cv2
 import py3dep
 from pathlib import Path
 from holoviews.streams import BoxEdit
+import psutil
 
 
 hv.extension('bokeh')
@@ -156,7 +157,6 @@ def bbox_selector(metadata_csv = None,
 
 def dem_align_custom(reference_dem,
                      dem_to_be_aligned,
-                     output_directory,
                      mode='nuth',
                      max_offset = 1000,
                      verbose=False,
@@ -348,10 +348,15 @@ def download_3DEP_DTM(bounds,
                       res=1,
                       utm_epsg_code = None,
                       output_file = 'outputs/3DEP_dem.tif',
+                      threads = 10,
                       cleanup=True):
     '''
     bounds = (west_lon, south_lat, east_lon, north_lat)
     '''
+    
+    if not threads:
+        #use all cores
+        threads = str(psutil.cpu_count(logical=True))
 
     # get utm crs if not specified
     if not utm_epsg_code:
@@ -360,7 +365,7 @@ def download_3DEP_DTM(bounds,
         north_west_corner      = (bounds[2],bounds[3])
         north_west_epsg_code   = hsfm.geospatial.lon_lat_to_utm_epsg_code(*north_west_corner)
         if south_west_epsg_code == north_west_epsg_code:
-            print('EPSG', north_west_epsg_code, 'detected.')
+            print('UTM EPSG from bounds:', north_west_epsg_code)
             utm_crs = 'EPSG:'+ str(north_west_epsg_code)
         else:
             message = 'Bounds span multiple UTM zones. Please specify utm_epsg_code as e.g. "32610".'
@@ -391,7 +396,10 @@ def download_3DEP_DTM(bounds,
     
     # adjust geoid to ellipsoid
     out = os.path.join(file_path,file_name)
-    call = ["dem_geoid", "--reverse-adjustment", '-o',out, out_put_file]
+    call = ["dem_geoid", 
+            "--reverse-adjustment", 
+            "--threads",threads,
+            '-o',out, out_put_file]
     subprocess.call(call)
     out = os.path.join(file_path,file_name) + '-adj'+extention
     
@@ -408,7 +416,7 @@ def download_3DEP_DTM(bounds,
         shutil.rmtree('cache')
     else:
         print('Writing final DTM to', out)
-    return out
+    return output_file
 
 def clip_reference_dem(dem_file, 
                        reference_dem_file,
