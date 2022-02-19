@@ -772,7 +772,8 @@ def run_metashape(project_name,
                   metashape_licence_file  = None,
                   verbose                 = False,
                   iteration               = 0,
-                  cleanup                 = False):
+                  cleanup                 = False,
+                  overwrite               = False):
     
     now = datetime.now()
     
@@ -807,7 +808,8 @@ def run_metashape(project_name,
                                     camera_model_xml_file   = camera_model_xml_file,
                                     image_matching_accuracy = image_matching_accuracy,
                                     densecloud_quality      = densecloud_quality,
-                                    rotation_enabled        = rotation_enabled)
+                                    rotation_enabled        = rotation_enabled,
+                                    overwrite            = overwrite)
     
     metashape_project_file, point_cloud_file = out
     
@@ -901,7 +903,6 @@ def run_metashape(project_name,
             dem_align_output_path,_,_ = hsfm.io.split_file(aligned_dem_file)
             hsfm.utils.dem_align_custom(reference_dem,
                                         aligned_dem_file,
-                                        dem_align_output_path,
                                         verbose = verbose)
         
         return output
@@ -912,7 +913,6 @@ def run_metashape(project_name,
         dem_align_output_path,_,_ = hsfm.io.split_file(dem)
         hsfm.utils.dem_align_custom(reference_dem,
                                     dem,
-                                    dem_align_output_path,
                                     verbose = verbose)
         if generate_ortho:
             ortho_output_path,_,_ = hsfm.io.split_file(dem)
@@ -953,7 +953,8 @@ def metaflow(project_name,
              verbose                 = False,
              cleanup                 = False,
              check_subsets           = True,
-             attempts_to_adjust_cams = 2):
+             attempts_to_adjust_cams = 2,
+             overwrite               = False):
 
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
@@ -974,6 +975,21 @@ def metaflow(project_name,
         except:
             print('No focal length specified in metadata csv file.')
             pass
+    if isinstance(pixel_pitch, type(None)) and isinstance(camera_model_xml_file, type(None)):
+        try:
+            df_tmp        = pd.read_csv(images_metadata_file)
+            pixel_pitches = df_tmp['pixel_pitch'].values
+            if len(set(pixel_pitches)) == 1:
+                pixel_pitch = pixel_pitches[0]
+                print('Pixel Pitch:', pixel_pitch)
+            else:
+                print('Multiple pixel pitches provided in metadata csv file.')
+                print('hsfm.metashape.images2las will read the pixel pitch')
+                print('provided for each camera from the meteadata csv file.')
+                pass
+        except:
+            print('No pixel pitch specified in metadata csv file.')
+            pass
         
     # determine if there are subset clusters of images that do not overlap and/or unaligned images  
     if check_subsets:
@@ -990,7 +1006,8 @@ def metaflow(project_name,
                                                                          keypoint_limit          = 80000,
                                                                          tiepoint_limit          = 8000,
                                                                          rotation_enabled        = True,
-                                                                         export_point_cloud      = False)
+                                                                         export_point_cloud      = False,
+                                                                            overwrite            = overwrite)
 
         subsets = hsfm.metashape.determine_clusters(metashape_project_file)
         ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file,
@@ -1039,7 +1056,8 @@ def metaflow(project_name,
                                     verbose                 = verbose,
                                     cleanup                 = cleanup,
                                     check_subsets           = False,
-                                    attempts_to_adjust_cams = attempts_to_adjust_cams)
+                                    attempts_to_adjust_cams = attempts_to_adjust_cams,
+                                       overwrite            = overwrite)
                 except:
                     pass
 
@@ -1065,7 +1083,8 @@ def metaflow(project_name,
                                            metashape_licence_file  = metashape_licence_file,
                                            verbose                 = verbose,
                                            iteration               = 0,
-                                           cleanup                 = cleanup)
+                                           cleanup                 = cleanup,
+                                           overwrite            = overwrite)
 
             bundle_adjusted_metadata_file,\
             ba_CE90,\
@@ -1097,7 +1116,8 @@ def metaflow(project_name,
                                                        metashape_licence_file  = metashape_licence_file,
                                                        verbose                 = verbose,
                                                        iteration               = i,
-                                                       cleanup                 = cleanup)
+                                                       cleanup                 = cleanup,
+                                                       overwrite            = overwrite)
 
                         bundle_adjusted_metadata_file,\
                         ba_CE90,\
@@ -1142,7 +1162,8 @@ def metaflow(project_name,
                                 verbose                 = verbose,
                                 cleanup                 = cleanup,
                                 check_subsets           = check_subsets,
-                                attempts_to_adjust_cams = attempts_to_adjust_cams)
+                                attempts_to_adjust_cams = attempts_to_adjust_cams,
+                                overwrite            = overwrite)
         if cleanup == True:
             las_files = glob.glob(os.path.join(output_path,'**/*.las'), recursive=True)
             for i in las_files:
@@ -1167,7 +1188,8 @@ def metaflow(project_name,
                                        metashape_licence_file  = metashape_licence_file,
                                        verbose                 = verbose,
                                        iteration               = 0,
-                                       cleanup                 = cleanup)
+                                       cleanup                 = cleanup,
+                                       overwrite            = overwrite)
 
         bundle_adjusted_metadata_file,\
         ba_CE90,\
@@ -1199,7 +1221,8 @@ def metaflow(project_name,
                                                    metashape_licence_file  = metashape_licence_file,
                                                    verbose                 = verbose,
                                                    iteration               = i,
-                                                   cleanup                 = cleanup)
+                                                   cleanup                 = cleanup,
+                                                   overwrite            = overwrite)
 
                     bundle_adjusted_metadata_file,\
                     ba_CE90,\
@@ -1228,10 +1251,17 @@ def batch_process(project_name,
                   verbose                 = True,
                   cleanup                 = True,
                   attempts_to_adjust_cams = 2,
-                  check_subsets           = True):
+                  check_subsets           = True,
+                  overwrite               = False):
     
     output_directory = os.path.join(input_directory, project_name, 'input_data')
     
+    if os.path.isdir(output_directory):
+        pass
+    else:
+        print("\nCan't find directory",output_directory)
+        sys.exit(0) 
+        
     image_files = os.path.join(output_directory,'*','*','*','*cropped_images','*.tif')
     image_files = sorted(glob.glob(image_files))
     
@@ -1248,18 +1278,19 @@ def batch_process(project_name,
     else:
         print("\nCan't find reference DEM at",output_path)
         sys.exit(0) 
-        
     for i in batches:
+        
+        ## TODO add better logging here and print the error message
         try:
             print('\n\n'+i)
 
             now = datetime.now()
 
-            cluster_project_name = project_name+'_'+i.split('/')[-1]
+            cluster_project_name = project_name+'_'+os.path.basename(i)
 
             images_metadata_file = os.path.join(i,'metashape_metadata.csv')
             output_path          = os.path.join(i,'metashape')
-             
+
             hsfm.batch.metaflow(cluster_project_name,
                                 image_files,
                                 images_metadata_file,
@@ -1276,7 +1307,8 @@ def batch_process(project_name,
                                 verbose                 = verbose,
                                 cleanup                 = cleanup,
                                 attempts_to_adjust_cams = attempts_to_adjust_cams,
-                                check_subsets           = check_subsets)
+                                check_subsets           = check_subsets,
+                                overwrite               = overwrite)
         except:
             print('FAIL:', i)
 

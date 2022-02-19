@@ -182,8 +182,8 @@ def process_3DEP_laz_to_DEM(
                 shutil.rmtree(output_path_tmp)
                 pass
 
-        tmp = os.path.join(output_path, "*/*dem.tif")
-        output_dem_file = os.path.join(output_path, "output-DEM.tif")
+        tmp = os.path.join(output_path, "*/*"+DEM_file_name)
+        output_dem_file = os.path.join(output_path, DEM_file_name)
         call = [
             "dem_mosaic",
             tmp,
@@ -209,7 +209,7 @@ def process_3DEP_laz_to_DEM(
         return out
 
 
-def divide_bounds_to_tiles(bounds, result_gdf, pad=0.0003, width=0.01, height=0.01):
+def divide_bounds_to_tiles(bounds, result_gdf, pad=0.003, width=0.02, height=0.02):
     xmin, ymin, xmax, ymax = [bounds[2], bounds[1], bounds[0], bounds[3]]
     xmin, ymin, xmax, ymax = xmin - pad, ymin - pad, xmax + pad, ymax + pad
     rows = int(np.ceil((ymax - ymin) / height))

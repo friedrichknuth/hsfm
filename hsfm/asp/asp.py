@@ -340,7 +340,7 @@ def pc_align(input_dem_file,
             return aligned_dem_file, transform
         
         else:
-            return transform
+            return None, transform
         
         
     
@@ -358,8 +358,11 @@ def pc_align_p2p_sp2p(input_dem_file,
     if print_call:
         output_directory_prefix =  os.path.join(output_directory,'pc_align/' + prefix)
         transform = output_directory_prefix+'-transform.txt'
-        
-    transform = hsfm.asp.pc_align(input_dem_file,
+    
+    """
+    Point 2 Plane ICP
+    """
+    aligned_dem_file, transform = hsfm.asp.pc_align(input_dem_file,
                                   reference_dem_file,
                                   output_directory,
                                 '--save-transformed-source-points',
@@ -371,11 +374,18 @@ def pc_align_p2p_sp2p(input_dem_file,
                                   print_call=print_call,
                                   verbose=verbose,
                                   prefix=prefix,
-                                  create_dem=False)
+                                  create_dem=True)
     
+    hsfm.utils.dem_align_custom(reference_dem_file,
+                                aligned_dem_file,
+                                verbose = verbose)
+    
+    """
+    Point 2 Point ICP
+    """
     prefix0 = '-'.join([prefix,prefix])
     
-    transform = hsfm.asp.pc_align(input_dem_file,
+    aligned_dem_file, transform = hsfm.asp.pc_align(input_dem_file,
                                   reference_dem_file,
                                   output_directory,
                                 '--save-transformed-source-points',
@@ -388,7 +398,15 @@ def pc_align_p2p_sp2p(input_dem_file,
                                   print_call=print_call,
                                   verbose=verbose,
                                   prefix=prefix0,
-                                  create_dem=False)
+                                  create_dem=True)
+    
+    hsfm.utils.dem_align_custom(reference_dem_file,
+                                aligned_dem_file,
+                                verbose = verbose)
+    
+    """
+    Point 2 Point ICP with masked reference DEM
+    """
     
     masked_reference_dem_file = hsfm.utils.mask_dem(reference_dem_file)
 
