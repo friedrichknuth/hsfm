@@ -6,6 +6,7 @@ import sys
 from shapely import wkt
 import geopandas as gpd
 import numpy as np
+import shutil
 
 import hsfm
 
@@ -39,7 +40,8 @@ def images2las(project_name,
                keypoint_limit          = 80000,
                tiepoint_limit          = 8000,
                rotation_enabled        = True,
-               export_point_cloud      = True):
+               export_point_cloud      = True,
+               overwrite               = False):
 
     # Levels from https://www.agisoft.com/forum/index.php?topic=11697.msg52455#msg52455
     """
@@ -55,13 +57,15 @@ def images2las(project_name,
     
     # PROJECT SETUP
     
-    # This is desired behaviour. Makes it easy to deleted or rename a single directory
-    # and rerun the top level batch scripts.
-    try:
+    if overwrite:
+        shutil.rmtree(output_path) 
         os.makedirs(output_path)
-    except:
-        print('\nDirectory exists:',output_path, '\nRemove or rename it.\n')
-        sys.exit(0) 
+    else:
+        try:
+            os.makedirs(output_path)
+        except:
+            print('\nDirectory exists:',output_path, '\nPlease remove or rename it.\n')
+            sys.exit(0) 
     
     metashape_project_file = os.path.join(output_path, project_name  + ".psx")
     report_file            = os.path.join(output_path, project_name  + "_report.pdf")
