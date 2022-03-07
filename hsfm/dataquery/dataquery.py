@@ -7,6 +7,7 @@ import shutil
 import sys
 import pathlib
 import subprocess
+from datetime import datetime
 from subprocess import Popen, PIPE, STDOUT
 import pathlib
 import json
@@ -32,18 +33,23 @@ def process_3DEP_laz_to_DEM(
     cleanup=False,
     dem_resolution = 1,
     cache_directory="cache",
+    dry_run=False,
 ):
     """
+    Processes first,only lidar returns to DSM.
+    
     Finds boundary.json files available at http://usgs-lidar-public.s3.amazonaws.com/*/
+    
     Directories that do not have a boundary.json file at the top level are omitted.
     Intersects bounds with boundaries to find directories with available data.
+    
     If multiple directories are available, the program will stop and ask which directory to download from.
+    
     Provides plot with bounds and overlapping boundaries / directory names for reference.
     Grids bounds into 0.01 deg (1 km) tiles with 0.0003 deg (30m) overlap.
-    laz files are downloaded in the appropriate UTM zone.
-    Processes first,only to DSM.
-    No additional horizontal and vertical crs transformations are performed.
+    laz files are downloaded in the corresponding UTM zone.
     
+    No additional horizontal and vertical crs transformations are performed.
     
     bounds = [east, south, west, north]
     
@@ -51,6 +57,8 @@ def process_3DEP_laz_to_DEM(
     print("You can view available data here: https://usgs.entwine.io")
     print("Requested bounds:", bounds)
     print("Should be in order of [east, south, west, north]")
+    
+    start = datetime.now()
 
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
     result_gdf, bounds_gdf = hsfm.dataquery.get_3DEP_lidar_data_dirs(
@@ -73,7 +81,8 @@ def process_3DEP_laz_to_DEM(
                     " ".join(result_gdf["directory"].to_list()),
                 ]
             )
-            sys.exit(message)
+            print(message)
+            return None
 
     hsfm.dataquery.plot_3DEP_bounds(
         result_gdf, bounds_gdf, qc_plot_output_directory=output_path
@@ -125,91 +134,101 @@ def process_3DEP_laz_to_DEM(
             tile_polygons_gdf=tile_polygons_gdf,
             qc_plot_output_directory=output_path,
         )
+        
+        if not dry_run: 
+            print("Processing", len(tiles), "tiles.")
 
-        print("Processing", len(tiles), "tiles.")
-
-        c = 0
-        for tile in tiles:
-            result_gdf, bounds_gdf = hsfm.dataquery.get_3DEP_lidar_data_dirs(
-                tile, cache_directory=cache_directory
-            )
-            try:
-                output_path_tmp = os.path.join(output_path, str(c).zfill(5))
-                pathlib.Path(output_path_tmp).mkdir(parents=True, exist_ok=True)
-
-                (
-                    pipeline_json_file,
-                    output_laz_file,
-                ) = hsfm.dataquery.create_3DEP_pipeline(
-                    bounds_gdf,
-                    aws_3DEP_directory,
-                    epsg_code,
-                    output_path=output_path_tmp,
+            c = 0
+            for tile in tiles:
+                # TODO See if requesting tiles in parallel makes sense. 
+                # PDAL is already parallelized, when operating on a single tile request,
+                # however it might not be adding much speed improvement, so requesting in parallel
+                # with single threaded PDAL calls might be faster.
+                result_gdf, bounds_gdf = hsfm.dataquery.get_3DEP_lidar_data_dirs(
+                    tile, cache_directory=cache_directory
                 )
+                try:
+                    output_path_tmp = os.path.join(output_path, str(c).zfill(5))
+                    pathlib.Path(output_path_tmp).mkdir(parents=True, exist_ok=True)
 
-                hsfm.dataquery.run_3DEP_pdal_pipeline(
-                    pipeline_json_file, verbose=verbose
-                )
-                print(output_laz_file)
+                    (pipeline_json_file,output_laz_file,
+                    ) = hsfm.dataquery.create_3DEP_pipeline(
+                        bounds_gdf,
+                        aws_3DEP_directory,
+                        epsg_code,
+                        output_path=output_path_tmp,
+                    )
 
-#                 output_dem_file = hsfm.dataquery.grid_3DEP_laz(output_laz_file, 
-#                                                                epsg_code, 
-#                                                                dem_resolution=dem_resolution,
-#                                                                verbose=verbose)
-                output_dem_file = grid_3DEP_multi_laz(
-                    output_path_tmp, 
-                    epsg_code, 
-                    dem_resolution=dem_resolution,
-                    verbose=verbose
-                )
+                    hsfm.dataquery.run_3DEP_pdal_pipeline(
+                        pipeline_json_file, verbose=verbose
+                    )
+                    print(output_laz_file)
 
-                out = os.path.join(output_path_tmp, DEM_file_name)
-                os.rename(output_dem_file, out)
+#                     output_dem_file = hsfm.dataquery.grid_3DEP_laz(output_laz_file, 
+#                                                                    epsg_code, 
+#                                                                    dem_resolution=dem_resolution,
+#                                                                    verbose=verbose)
+                    output_dem_file = grid_3DEP_multi_laz(
+                        output_path_tmp, 
+                        epsg_code, 
+                        dem_resolution=dem_resolution,
+                        verbose=verbose
+                    )
 
-                if cleanup == True:
-                    files = glob.glob(os.path.join(output_path_tmp, "*.laz"))
-                    for i in files:
-                        os.remove(i)
-                    os.remove(pipeline_json_file)
-                    files = glob.glob(os.path.join(output_path_tmp, "*log*.txt"))
-                    for i in files:
-                        os.remove(i)
-                    files = glob.glob(os.path.join(output_path_tmp, "output*-DEM.tif"))
-                    for i in files:
-                        os.remove(i)
-                c += 1
-            except:
-                shutil.rmtree(output_path_tmp)
-                pass
+                    out = os.path.join(output_path_tmp, DEM_file_name)
+                    os.rename(output_dem_file, out)
 
-        tmp = os.path.join(output_path, "*/*"+DEM_file_name)
-        output_dem_file = os.path.join(output_path, DEM_file_name)
-        call = [
-            "dem_mosaic",
-            tmp,
-            "--threads",
-            str(psutil.cpu_count(logical=True)),
-            "-o",
-            output_dem_file,
-        ]
-        call = " ".join(call)
-        hsfm.utils.run_command2(call)
-        if cleanup == True:
-            files = glob.glob(tmp)
-            for i in files:
-                dir_path = str(pathlib.Path(i).parent.resolve())
-                shutil.rmtree(dir_path)
-            files = glob.glob(os.path.join(output_path, "*log*.txt"))
-            for i in files:
-                os.remove(i)
-        out = os.path.join(output_path, DEM_file_name)
-        os.rename(output_dem_file, out)
-        print(out)
-        print("DONE")
-        return out
+                    if cleanup == True:
+                        files = glob.glob(os.path.join(output_path_tmp, "*.laz"))
+                        for i in files:
+                            os.remove(i)
+                        os.remove(pipeline_json_file)
+                        files = glob.glob(os.path.join(output_path_tmp, "*log*.txt"))
+                        for i in files:
+                            os.remove(i)
+                        files = glob.glob(os.path.join(output_path_tmp, "output*-DEM.tif"))
+                        for i in files:
+                            os.remove(i)
+                    c += 1
+                except:
+                    c += 1
+#                     shutil.rmtree(output_path_tmp)
+                    pass
+
+            tmp = os.path.join(output_path, "*/*"+DEM_file_name)
+            output_dem_file = os.path.join(output_path, DEM_file_name)
+            
+            #TODO mosaic with gdal instead of ASP dem_mosaic
+            call = [
+                "dem_mosaic",
+                tmp,
+                "--threads",
+                str(psutil.cpu_count(logical=True)),
+                "-o",
+                output_dem_file,
+            ]
+            call = " ".join(call)
+            hsfm.utils.run_command2(call)
+            if cleanup == True:
+                files = glob.glob(tmp)
+                for i in files:
+                    dir_path = str(pathlib.Path(i).parent.resolve())
+                    shutil.rmtree(dir_path)
+                files = glob.glob(os.path.join(output_path, "*log*.txt"))
+                for i in files:
+                    os.remove(i)
+            out = os.path.join(output_path, DEM_file_name)
+            os.rename(output_dem_file, out)
+            print(out)
+            now = datetime.now()
+            dt = now - start
+            print("DONE")
+            print("Elapsed time:", str(dt))
+            print("Elapsed time:", str(dt).split(".")[0])
+            return out
 
 
-def divide_bounds_to_tiles(bounds, result_gdf, pad=0.003, width=0.02, height=0.02):
+def divide_bounds_to_tiles(bounds, result_gdf, pad=0.0003, width=0.01, height=0.01):
     xmin, ymin, xmax, ymax = [bounds[2], bounds[1], bounds[0], bounds[3]]
     xmin, ymin, xmax, ymax = xmin - pad, ymin - pad, xmax + pad, ymax + pad
     rows = int(np.ceil((ymax - ymin) / height))
@@ -318,8 +337,8 @@ def create_3DEP_pipeline(
     epsg_code,
     output_path="./",
     pipeline_json_file="pipeline.json",
-    output_laz_file="output#.laz",
-#     output_laz_file="output#.laz", # use this if using filters.splitter
+#     output_laz_file="output.laz",
+    output_laz_file="output#.laz", # use this if using filters.splitter
 ):
     pipeline_json_file = os.path.join(output_path, pipeline_json_file)
     output_laz_file = os.path.join(output_path, output_laz_file)
@@ -329,8 +348,8 @@ def create_3DEP_pipeline(
     print("Downloading from", filename)
 
     lons, lats = bounds_gdf.to_crs("EPSG:3857").geometry.boundary.loc[0].xy
-    lats = list(set(lats))
-    lons = list(set(lons))
+    lats = sorted(list(set(lats)))
+    lons = sorted(list(set(lons)))
     bounds_str = "(" + str(lons) + "," + str(lats) + ")"
 
     out_srs = "EPSG:" + str(epsg_code)
@@ -344,10 +363,8 @@ def create_3DEP_pipeline(
                 "threads": str(psutil.cpu_count(logical=True)),
             },
             {"type": "filters.returns", "groups": "first,only"},
-            {"type": "filters.reprojection", "out_srs": out_srs},
-            # using the splitter causes noisy data points and requires
-            # filtering which takes more time.
-            # using the splitter doesn't seem to have a speed advantage.
+            {"type": "filters.reprojection", "in_srs": "EPSG:3857", "out_srs": out_srs},
+#             {"type":"filters.range","limits":"Classification![7:7]"},
             #                         {
             #                             "type": "filters.splitter",
             #                             "length": "1000",
@@ -358,10 +375,6 @@ def create_3DEP_pipeline(
             #                             "method":"statistical",
             #                             "mean_k":12,
             #                             "multiplier":2.2
-            #                         },
-            #                         {
-            #                             "type":"filters.range",
-            #                             "limits":"Classification![7:7]"
             #                         },
             output_laz_file,
         ]
@@ -489,7 +502,7 @@ def plot_3DEP_bounds(
         tile_polygons_gdf["coords"] = tile_polygons_gdf["geometry"].apply(
             lambda x: x.representative_point().coords[:]
         )
-        tile_polygons_gdf.plot(ax=ax, edgecolor="black", facecolor="none")
+        tile_polygons_gdf.plot(ax=ax, edgecolor=(0,0,0,1), facecolor=(0,0,1,0.1))
         for idx, row in tile_polygons_gdf.iterrows():
             plt.annotate(s=str(idx), xy=row["coords"][0], horizontalalignment="center")
 
@@ -515,4 +528,5 @@ def plot_3DEP_bounds(
         out = os.path.join(qc_plot_output_directory, "bounds_qc_plot.png")
         plt.tight_layout()
         plt.savefig(out, bbox_inches="tight", pad_inches=0.1)
+        print('See bounds and requested tiles at', out)
 #         plt.close()

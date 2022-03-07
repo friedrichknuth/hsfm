@@ -130,6 +130,8 @@ def bbox_selector(metadata_csv = None,
     ESRIImagery       = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{Z}/{Y}/{X}.jpg'
     Wikimedia         = 'https://maps.wikimedia.org/osm-intl/{Z}/{X}/{Y}@2x.png'
     
+    print('Toggle Box Edit Tool  and hold shift to draw bounding box.')
+    
     if not basemap_url:
         url = GoogleSatellite
         
@@ -137,11 +139,11 @@ def bbox_selector(metadata_csv = None,
         
     if metadata_csv:
         df = pd.read_csv(metadata_csv)
-        df = df.loc[(df['Latitude'] < bounds[3]) &
-                    (df['Latitude'] > bounds[1]) &
-                    (df['Longitude'] > bounds[0]) &
-                    (df['Longitude'] < bounds[2])].reset_index(drop=True)
-        coords = list(zip(df['Longitude'].values,df['Latitude'].values))
+        df = df.loc[(df[metadata_csv_lat_column] < bounds[3]) &
+                    (df[metadata_csv_lat_column] > bounds[1]) &
+                    (df[metadata_csv_lon_column] > bounds[0]) &
+                    (df[metadata_csv_lon_column] < bounds[2])].reset_index(drop=True)
+        coords = list(zip(df[metadata_csv_lon_column].values,df[metadata_csv_lat_column].values))
         points = gv.Points(coords).opts(size=10,frame_height=500)
     else:
         points = gv.Points({}).opts(size=10,frame_height=500)
@@ -398,7 +400,7 @@ def download_3DEP_DTM(bounds,
     out = os.path.join(file_path,file_name)
     call = ["dem_geoid", 
             "--reverse-adjustment", 
-            "--threads",threads,
+            "--threads",str(threads),
             '-o',out, out_put_file]
     subprocess.call(call)
     out = os.path.join(file_path,file_name) + '-adj'+extention
