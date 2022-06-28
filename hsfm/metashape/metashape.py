@@ -58,7 +58,8 @@ def images2las(project_name,
     # PROJECT SETUP
     
     if overwrite:
-        shutil.rmtree(output_path) 
+        if os.path.exists(output_path):
+            shutil.rmtree(output_path) 
         os.makedirs(output_path)
     else:
         try:

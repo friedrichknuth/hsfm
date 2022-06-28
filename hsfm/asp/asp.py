@@ -296,9 +296,9 @@ def pc_align(input_dem_file,
              reference_dem_file,
              output_directory,
              *args,
-             res        = False,
              prefix     = 'run',
              create_dem = True,
+             res        = None,
              print_call = False,
              verbose    = False,
              shell=False):
@@ -327,15 +327,15 @@ def pc_align(input_dem_file,
     
         if create_dem:
             if not res:
-              ds = rasterio.open(input_dem_file)
-              res = ds.res[0]
+                ds = rasterio.open(input_dem_file)
+                res = ds.res[0]
             print('Gridding pc_align outputs to',res)
             output_directory = os.path.split(output_directory_prefix)[0]
             point_cloud_file = output_directory_prefix+'-trans_source.tif'
             epsg_code = 'EPSG:'+ hsfm.geospatial.get_epsg_code(input_dem_file)
             aligned_dem_file = point2dem(point_cloud_file, 
                                          '--t_srs', epsg_code,
-                                         '--tr', res)
+                                         '--tr', str(res))
         
             return aligned_dem_file, transform
         
