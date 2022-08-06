@@ -372,181 +372,6 @@ class TimesiftPipeline:
         )
         return results_report_file
 
-    def create_mosaics(self, nmad_threshold, nmad_source='after_filt', iteration=0):
-        """Create a mosaic orthomosaic, DEM, and DoD, using the files that satisfy the NMAD threshold provided.
-
-        Args:
-            nmad_threshold ([type]): [description]
-            nmad_source (str, optional): [description]. Defaults to 'after_filt'.
-        """
-        mosaic_ortho_files = self.mosaic_orthos(nmad_threshold, nmad_source, iteration)
-        mosaic_dem_files = self.mosaic_dems(nmad_threshold, nmad_source, iteration)
-        mosaic_dod_files = self.mosaic_dods(nmad_threshold, nmad_source, iteration)
-
-        print('Mosaic orthomosaic files:')
-        print(mosaic_ortho_files)
-        print()
-        print('Mosaic DEM files:')
-        print(mosaic_dem_files)
-        print()
-        print('Mosaic DoD files:')
-        print(mosaic_dod_files)
-        print()
-
-    def _get_good_stat_files(self, nmad_threshold, nmad_source='after_filt', iteration=0):
-        import json
-        all_stat_json_files = glob.glob( 
-            os.path.join(self.output_directory, f"individual_clouds/*/cluster*/{iteration}/pc_align/spoint2point_bareground-trans_source-DEM_dem_align/*align_stats.json")
-        )
-        good_stat_json_files = []
-        for f in all_stat_json_files:
-            with open(f) as src:
-                data = json.load(src)
-                if data[nmad_source]['nmad'] <= nmad_threshold:
-                    good_stat_json_files.append(f)
-        return good_stat_json_files
-
-    def mosaic_orthos(self, nmad_threshold, nmad_source='after_filt', iteration=0):
-        """Mosaic orthomosaics from the same year so that one orthomosaic per year is created.
-        Only include datasets with final NMADs below the provided threshold. The "final NMAD"
-        is the NMAD calculated by the nuth alignment routine, after alignment and filtering of Tree and ice/snow pixels.
-
-        Args:
-            nmad_threshold ([float]): all orthomosaics associated with DEMs with nmad below or equal to this threshold will be included in the mosaic
-            nmad_source ([str]): the type of nmad to use. potential keys are the keys in the "...align_stats.json" file output by the Nuth and Kaab alignment routine.
-
-        Returns:
-            [list[str]]: List of mosaiced orthomosaic files created.
-        """
-        # Figure out which dates/clusters have good enough NMAD to be included in the orthomosaic mosaic
-        good_stat_json_files = self._get_good_stat_files(nmad_threshold, nmad_source, iteration)
-        
-        print(f'Found {len(good_stat_json_files)} datasets with NMAD below the provided threshold of {nmad_threshold}')
-
-        # Gather file paths of the orthomosaic files that satisfy the NMAD criteria
-        all_aligned_orthomosaic_files = glob.glob(
-            os.path.join(self.output_directory, f"individual_clouds/**/**/{iteration}/orthomosaic_final.tif")
-        )
-        good_aligned_orthomosaic_files = [
-            f for f in all_aligned_orthomosaic_files if f.split(f"/{iteration}/")[0] in [f.split(f"/{iteration}/")[0] for f in good_stat_json_files]
-        ]
-        assert len(good_aligned_orthomosaic_files) == len(good_stat_json_files)
-
-        # Create dictionary of orthomosaic files by date
-        date_to_ortho_files_dict = {
-            file.split('individual_clouds/')[1].split('/')[0]:[] for file in good_aligned_orthomosaic_files
-        }
-        for file in good_aligned_orthomosaic_files:
-            date_key = file.split('individual_clouds/')[1].split('/')[0]
-            date_to_ortho_files_dict[date_key].append(file)
-        
-        # For each date, create a mosaiced orthomosaic
-        import subprocess
-        for k, ortho_file_list in date_to_ortho_files_dict.items():
-            new_ortho_path = os.path.join(self.output_directory, 'individual_clouds', k, 'orthomosaic.tif')
-            subprocess.call(['gdalbuildvrt', 'MergedImage.vrt'] + ortho_file_list)
-            subprocess.call(['gdal_translate', '-of', 'GTiff', '-co', 'TILED=YES', 'MergedImage.vrt', new_ortho_path])
-            subprocess.call(['gdalwarp', '-r', 'cubic', '-tr', '1', '1', '-co', 'TILED=YES', new_ortho_path, new_ortho_path.replace('.tif', '_lowres.tif')])
-            os.remove('MergedImage.vrt')
-        all_orthomosaic_mosaic_files = glob.glob(
-            os.path.join(self.output_directory, "individual_clouds/**/orthomosaic.tif")
-        )
-        return all_orthomosaic_mosaic_files
-
-    def mosaic_dems(self, nmad_threshold, nmad_source='after_filt', iteration=0):
-        """Mosaic DEMs from the same year so that one DEM per year is created.
-        Only include datasets with final NMADs below the provided threshold. The "final NMAD"
-        is the NMAD calculated by the nuth alignment routine.
-
-        Args:
-            nmad_threshold ([type]): [description]
-
-        Returns:
-            [list[str]]: List of mosaiced DEM files created.
-        """
-        # Figure out which dates/clusters have good enough NMAD to be included in the orthomosaic mosaic
-        good_stat_json_files = self._get_good_stat_files(nmad_threshold, nmad_source, iteration)
-        
-        print(f'Found {len(good_stat_json_files)} datasets with NMAD below the provided threshold of {nmad_threshold}')
-
-        # Gather file paths of the DEM files that satisfy the NMAD criteria
-        all_aligned_dem_files = list(set(glob.glob(
-            os.path.join(self.output_directory, f"individual_clouds/**/**/{iteration}/**/*align.tif"),
-            recursive = True
-        )))
-        good_aligned_dem_files = [
-            f for f in all_aligned_dem_files if f.split(f"/{iteration}/")[0] in [f.split(f"/{iteration}/")[0] for f in good_stat_json_files]
-        ]
-        assert len(good_aligned_dem_files) == len(good_stat_json_files)
-
-        # Create dictionary of DEM files by date
-        date_to_dem_files_dict = {
-            file.split('individual_clouds/')[1].split('/')[0]:[] for file in good_aligned_dem_files
-        }
-        for file in good_aligned_dem_files:
-            date_key = file.split('individual_clouds/')[1].split('/')[0]
-            date_to_dem_files_dict[date_key].append(file)
-
-        #For each date, create an orthomosaiced DOD
-        for k, dem_file_list in date_to_dem_files_dict.items():
-            new_dem_path = os.path.join(self.output_directory, 'individual_clouds', k, 'dem.tif')
-            hsfm.asp.dem_mosaic(
-                new_dem_path,
-                dem_file_list,
-                threads=32
-            )
-        all_dem_mosaic_files = glob.glob(
-            os.path.join(self.output_directory, "individual_clouds/**/dem.tif")
-        )
-        return all_dem_mosaic_files
-    
-    def mosaic_dods(self, nmad_threshold, nmad_source='after_filt', iteration=0):
-        """Mosaic DODs from the same year so that one DOD per year is created.
-        Only include datasets with final NMADs below the provided threshold. The "final NMAD"
-        is the NMAD calculated by the nuth alignment routine.
-
-        Args:
-            nmad_threshold ([type]): [description]
-
-        Returns:
-            [list[str]]: List of mosaiced DOD files created.
-        """
-        # Figure out which dates/clusters have good enough NMAD to be included in the orthomosaic mosaic
-        good_stat_json_files = self._get_good_stat_files(nmad_threshold, nmad_source, iteration)
-        
-        print(f'Found {len(good_stat_json_files)} datasets with NMAD below the provided threshold of {nmad_threshold}')
-
-        # Gather file paths of the DOD files that satisfy the NMAD criteria
-        all_aligned_dod_files = list(set(glob.glob(
-            os.path.join(self.output_directory, f"individual_clouds/**/**/{iteration}/**/*align_diff.tif"),
-            recursive = True
-        )))
-        good_aligned_dod_files = [
-            f for f in all_aligned_dod_files if f.split(f"/{iteration}/")[0] in [f.split(f"/{iteration}/")[0] for f in good_stat_json_files]
-        ]
-        assert len(good_aligned_dod_files) == len(good_stat_json_files)
-
-        # Create dictionary of DOD files by date
-        date_to_dod_files_dict = {
-            file.split('individual_clouds/')[1].split('/')[0]:[] for file in good_aligned_dod_files
-        }
-        for file in good_aligned_dod_files:
-            date_key = file.split('individual_clouds/')[1].split('/')[0]
-            date_to_dod_files_dict[date_key].append(file)
-
-        #For each date, create an orthomosaiced DOD
-        for k, dod_file_list in date_to_dod_files_dict.items():
-            new_dod_path = os.path.join(self.output_directory, 'individual_clouds', k, 'dod.tif')
-            hsfm.asp.dem_mosaic(
-                new_dod_path,
-                dod_file_list,
-                threads=32
-            )
-        all_dod_mosaic_files = glob.glob(
-            os.path.join(self.output_directory, "individual_clouds/**/dod.tif")
-        )
-        return all_dod_mosaic_files
-
     def process_dem_align_all_intermediate_steps(self):
         """
         Run dem_align.py on all intermediate point cloud alignment products (point2plane, spoint2point, spoint2point-bareground).
@@ -564,7 +389,8 @@ class TimesiftPipeline:
         dictionary. The generated files are:
             "final_metashape_metadata.csv" - Camera metadata transformed by the identified (best) PC alignment and by the nuth and kaab alignment
             "**align_orthomosaic.tif" - Orthomosaic output that is aligned by PC alignment transform and the nuth and kaab alignment. This
-                                        orthomosaic is in alignment with the final DEM output by nuth and kaab.
+                                        orthomosaic is in alignment with the final DEM output by nuth and kaab. The filename is similar to the name
+                                        of the aligned dem output file of dem_align.py, but "*align.tif" is replaced with "*align_orthomosaic.tif"
                                             
         For each year-cluster (if included in manually approved list):
         1. Identify the transform file of the selected best pc_align step
@@ -647,14 +473,74 @@ class TimesiftPipeline:
             hsfm.metashape.export_updated_orthomosaic(
                 metashape_project_file,
                 final_aligned_cameras_csv_file,
-                # final_dem_file,
                 final_orthomosaic_file
             )
         return None
+    
+    def mosaic_orthos(self, new_file_path, file_list):
+        import subprocess
+        subprocess.call(['gdalbuildvrt', 'MergedImage.vrt'] + file_list)
+        subprocess.call(['gdal_translate', '-of', 'GTiff', '-co', 'TILED=YES', 'MergedImage.vrt', new_file_path])
+        subprocess.call(['gdal_translate', '-of', 'GTiff', '-tr', '0.000011', '0.000011', '-co', 'TILED=YES', 'MergedImage.vrt', new_file_path.replace('.tif', '_lowres.tif')])
+        os.remove('MergedImage.vrt')
+        return None
+    
+    def mosaic_dems(self, new_file_path, file_list, make_lowres = False, threads = 32):
+        hsfm.asp.dem_mosaic(
+            new_file_path,
+            file_list,
+            threads=32
+        )
+        if make_lowres:
+            import subprocess
+            subprocess.call(['gdalwarp', '-r', 'cubic', '-overwrite', '-tr', '5', '5', '-co', 'TILED=YES', new_file_path, new_file_path.replace('.tif', '_lowres.tif')])
+        return None
 
-    def process_selected_dems_into_mosaics(self):
-        """Create mosaics (DEMs, DoDs, and orthos) for selected DEMs 
+    def process_selected_dems_into_mosaics(self, date_cluster_bests):
+        """Identifies the good DEMs by those that have an accompanied orthomoasic named as in the function above.
         """
+        date_to_files_dict = {
+            file.split('individual_clouds/')[1].split('/')[0]: {
+                'dem' : [],
+                'dod': [],
+                'ortho': []
+            } for file in date_cluster_bests.keys()
+        }
+        for date_cluster, pc_align_prefix in date_cluster_bests.items():
+            date_key = date_cluster.split('individual_clouds/')[1].split('/')[0]
+            
+            ortho_file_path = glob.glob(os.path.join(date_cluster, "**", "*align_orthomosaic.tif"), recursive=True)
+            assert len(ortho_file_path) == 1, f"length was {len(ortho_file_path)}"
+            ortho_file_path = ortho_file_path[0]
+            
+            dem_file_path = ortho_file_path.replace("align_orthomosaic.tif", "align.tif")
+            dod_file_path = ortho_file_path.replace("align_orthomosaic.tif", "align_diff.tif")
+
+            date_to_files_dict[date_key]['dem'].append(dem_file_path)
+            date_to_files_dict[date_key]['dod'].append(dod_file_path)
+            date_to_files_dict[date_key]['ortho'].append(ortho_file_path)
+
+        #For each date, create mosaics for each data type
+        for k, file_list in date_to_files_dict.items():
+            print(f"Mosaicing products for {k}")
+            mosaiced_dem_fn = file_list['dem'][0].split('cluster')[0] + 'dem.tif'
+            mosaiced_dod_fn = file_list['dem'][0].split('cluster')[0] + 'dod.tif'
+            mosaiced_ortho_fn = file_list['dem'][0].split('cluster')[0] + 'orthomosaic.tif'
+            self.mosaic_dems(
+                mosaiced_dem_fn,
+                file_list['dem'],
+                make_lowres=True
+            )
+            self.mosaic_dems(
+                mosaiced_dod_fn, 
+                file_list['dod']
+            )
+            self.mosaic_orthos(
+                mosaiced_ortho_fn,
+                file_list['ortho']    
+            )
+            
+
 
 
 def parse_args():
