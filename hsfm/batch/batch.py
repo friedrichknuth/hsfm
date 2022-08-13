@@ -397,7 +397,7 @@ def EE_pre_process_images(
     ee_results_df = ee_results_df[ee_results_df['project'] == ee_project_name]
     print(f'Images found matching bounds, date range, and project name: {len(ee_results_df)}')
 
-    download_directory = os.path.join(output_directory, f"EE_{year}", str(month), str(day))
+    download_directory = os.path.join(output_directory, f"EE_{year}", str(month).zfill(2), str(day).zfill(2))
 
     # If you do not download the images, you need to generate the name of the directory that holds the raw tif files
     raw_images_directory_name = 'raw_images'
