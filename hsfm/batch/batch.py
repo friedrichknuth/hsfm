@@ -414,19 +414,20 @@ def EE_pre_process_images(
     
     preprocessed_images_directory = raw_images_directory.replace('raw_images', 'cropped_images')
     qc_directory = preprocessed_images_directory.replace("cropped_images", "preprocess_qc")
-
-    hipp.batch.preprocess_with_fiducial_proxies(
-        raw_images_directory,
-        template_parent_dir,
-        output_directory=preprocessed_images_directory,
-        verbose=True,
-        missing_proxy=missing_proxy,
-        threshold_px=threshold_px,
-        qc_df=True,
-        qc_df_output_directory=os.path.join(qc_directory, 'proxy_detection_data_frames'),
-        qc_plots=True,
-        qc_plots_output_directory=os.path.join(qc_directory, 'proxy_detection')
-    )
+    
+    if pathlib.Path(raw_images_directory).is_dir():
+        hipp.batch.preprocess_with_fiducial_proxies(
+            raw_images_directory,
+            template_parent_dir,
+            output_directory=preprocessed_images_directory,
+            verbose=True,
+            missing_proxy=missing_proxy,
+            threshold_px=threshold_px,
+            qc_df=True,
+            qc_df_output_directory=os.path.join(qc_directory, 'proxy_detection_data_frames'),
+            qc_plots=True,
+            qc_plots_output_directory=os.path.join(qc_directory, 'proxy_detection')
+        )
 
         # Generate metashape_metadata.csv file for all images
 
