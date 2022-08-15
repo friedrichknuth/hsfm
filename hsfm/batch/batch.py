@@ -340,7 +340,7 @@ def EE_pre_process_images(
         year,
         month,
         day,
-        pixel_pitch = 0.025,
+        pixel_pitch         = 0.025,
         buffer_m            = 2000,
         threshold_px        = 50,
         missing_proxy       = None,
@@ -415,7 +415,7 @@ def EE_pre_process_images(
     preprocessed_images_directory = raw_images_directory.replace('raw_images', 'cropped_images')
     qc_directory = preprocessed_images_directory.replace("cropped_images", "preprocess_qc")
     
-    if pathlib.Path(raw_images_directory).is_dir():
+    if pathlib.Path(raw_images_directory).is_dir() and download_images:
         hipp.batch.preprocess_with_fiducial_proxies(
             raw_images_directory,
             template_parent_dir,
@@ -508,6 +508,7 @@ def EE_pre_process_images(
     # Feed in our calculation of image foot print
     hsfm.core.determine_image_clusters(
         metashape_metadata_df,
+        pixel_pitch = pixel_pitch,
         output_directory = raw_images_directory.replace("raw_images", "sfm"),
         buffer_m         = estimated_max_image_footprint_length,
         image_file_name_column= 'image_file_name',
@@ -526,7 +527,7 @@ def NAGAP_pre_process_images(project_name,
                              year                = None,
                              month               = None,
                              day                 = None,
-                             pixel_pitch         = None,
+                             pixel_pitch         = 0.02,
                              focal_length        = None,
                              buffer_m            = 2000,
                              threshold_px        = 50,
@@ -763,7 +764,7 @@ def run_metashape(project_name,
                   pixel_pitch,
                   focal_length            = None,
                   plot_LE90_CE90          = True,
-                  camera_model_xml_file   = None,
+                  camera_model_xml_files  = None,
                   image_matching_accuracy = 1,
                   densecloud_quality      = 1,
                   output_DEM_resolution   = None,
@@ -806,7 +807,7 @@ def run_metashape(project_name,
                                     output_path,
                                     focal_length            = focal_length,
                                     pixel_pitch             = pixel_pitch,
-                                    camera_model_xml_file   = camera_model_xml_file,
+                                    camera_model_xml_files  = camera_model_xml_files,
                                     image_matching_accuracy = image_matching_accuracy,
                                     densecloud_quality      = densecloud_quality,
                                     rotation_enabled        = rotation_enabled,
@@ -944,7 +945,7 @@ def metaflow(project_name,
              pixel_pitch,
              focal_length            = None,
              plot_LE90_CE90          = True,
-             camera_model_xml_file   = None,
+             camera_model_xml_files  = None,
              image_matching_accuracy = 1,
              densecloud_quality      = 2,
              output_DEM_resolution   = None,
@@ -961,7 +962,7 @@ def metaflow(project_name,
         hsfm.metashape.authentication(metashape_licence_file)
         
     # read from metadata file if not specified
-    if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_file, type(None)):
+    if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_files, type(None)):
         try:
             df_tmp        = pd.read_csv(images_metadata_file)
             focal_lengths = df_tmp['focal_length'].values
@@ -976,7 +977,7 @@ def metaflow(project_name,
         except:
             print('No focal length specified in metadata csv file.')
             pass
-    if isinstance(pixel_pitch, type(None)) and isinstance(camera_model_xml_file, type(None)):
+    if isinstance(pixel_pitch, type(None)) and isinstance(camera_model_xml_files, type(None)):
         try:
             df_tmp        = pd.read_csv(images_metadata_file)
             pixel_pitches = df_tmp['pixel_pitch'].values
@@ -1001,7 +1002,7 @@ def metaflow(project_name,
                                                                          output_path,
                                                                          focal_length            = focal_length,
                                                                          pixel_pitch             = pixel_pitch,
-                                                                         camera_model_xml_file   = camera_model_xml_file,
+                                                                         camera_model_xml_files  = camera_model_xml_files,
                                                                          image_matching_accuracy = 2,
                                                                          densecloud_quality      = 4,
                                                                          keypoint_limit          = 80000,
@@ -1047,7 +1048,7 @@ def metaflow(project_name,
                                     pixel_pitch,
                                     focal_length            = focal_length,
                                     plot_LE90_CE90          = plot_LE90_CE90,
-                                    camera_model_xml_file   = camera_model_xml_file,
+                                    camera_model_xml_files  = camera_model_xml_files,
                                     image_matching_accuracy = image_matching_accuracy,
                                     densecloud_quality      = densecloud_quality,
                                     output_DEM_resolution   = output_DEM_resolution,
@@ -1074,7 +1075,7 @@ def metaflow(project_name,
                                            pixel_pitch,
                                            focal_length            = focal_length,
                                            plot_LE90_CE90          = plot_LE90_CE90,
-                                           camera_model_xml_file   = camera_model_xml_file,
+                                           camera_model_xml_files  = camera_model_xml_files,
                                            image_matching_accuracy = image_matching_accuracy,
                                            densecloud_quality      = densecloud_quality,
                                            output_DEM_resolution   = output_DEM_resolution,
@@ -1107,7 +1108,7 @@ def metaflow(project_name,
                                                        pixel_pitch,
                                                        focal_length            = focal_length,
                                                        plot_LE90_CE90          = plot_LE90_CE90,
-                                                       camera_model_xml_file   = camera_model_xml_file,
+                                                       camera_model_xml_files  = camera_model_xml_files,
                                                        image_matching_accuracy = image_matching_accuracy,
                                                        densecloud_quality      = densecloud_quality,
                                                        output_DEM_resolution   = output_DEM_resolution,
@@ -1153,7 +1154,7 @@ def metaflow(project_name,
                                 pixel_pitch,
                                 focal_length            = focal_length,
                                 plot_LE90_CE90          = plot_LE90_CE90,
-                                camera_model_xml_file   = camera_model_xml_file,
+                                camera_model_xml_files  = camera_model_xml_files,
                                 image_matching_accuracy = image_matching_accuracy,
                                 densecloud_quality      = densecloud_quality,
                                 output_DEM_resolution   = output_DEM_resolution,
@@ -1179,7 +1180,7 @@ def metaflow(project_name,
                                        pixel_pitch,
                                        focal_length            = focal_length,
                                        plot_LE90_CE90          = plot_LE90_CE90,
-                                       camera_model_xml_file   = camera_model_xml_file,
+                                       camera_model_xml_files  = camera_model_xml_files,
                                        image_matching_accuracy = image_matching_accuracy,
                                        densecloud_quality      = densecloud_quality,
                                        output_DEM_resolution   = output_DEM_resolution,
@@ -1212,7 +1213,7 @@ def metaflow(project_name,
                                                    pixel_pitch,
                                                    focal_length            = focal_length,
                                                    plot_LE90_CE90          = plot_LE90_CE90,
-                                                   camera_model_xml_file   = camera_model_xml_file,
+                                                   camera_model_xml_files  = camera_model_xml_files,
                                                    image_matching_accuracy = image_matching_accuracy,
                                                    densecloud_quality      = densecloud_quality,
                                                    output_DEM_resolution   = output_DEM_resolution,
@@ -1268,11 +1269,11 @@ def batch_process(project_name,
     
     input_directories = os.path.join(output_directory,'*','*','*','sfm/cl*')
     batches = sorted(glob.glob(input_directories))
-    camera_models = sorted(glob.glob(os.path.join(output_directory,'camera_models','*.xml')))
-    if len(camera_models) ==0:
+    camera_model_xml_files = sorted(glob.glob(os.path.join(output_directory,'camera_models','*.xml')))
+    if len(camera_model_xml_files) ==0:
         print('No camera models found in ', os.path.join(output_directory,'camera_models'))
         print('Proceeding without them...')
-        camera_models = None
+        camera_model_xml_files = None
     
     if os.path.exists(reference_dem):
         pass
@@ -1298,7 +1299,7 @@ def batch_process(project_name,
                                 reference_dem,
                                 output_path,
                                 pixel_pitch,
-                                camera_model_xml_file   = camera_models,
+                                camera_model_xml_files  = camera_model_xml_files,
                                 output_DEM_resolution   = output_DEM_resolution,
                                 generate_ortho          = generate_ortho,
                                 dem_align_all           = dem_align_all,

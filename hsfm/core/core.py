@@ -1085,6 +1085,7 @@ def prepare_metashape_metadata(camera_positions_file_name,
                                flight_altitude_above_ground_m = 1500,
                                flight_altitude_m = None,
                                focal_length = None,
+                               pixel_pitch = None,
                                # The following names are NAGAP source metadata convention. Could change this.
                                image_file_name_column = 'fileName', 
                                image_metadata_longitude_column = 'Longitude',
@@ -1155,23 +1156,28 @@ def prepare_metashape_metadata(camera_positions_file_name,
     df['pitch_acc']       = 20
     df['roll_acc']        = 20
 
+    core_columns = ['image_file_name',
+                 'lon',
+                 'lat',
+                 'alt',
+                 'lon_acc',
+                 'lat_acc',
+                 'alt_acc',
+                 'yaw',
+                 'pitch',
+                 'roll',
+                 'yaw_acc',
+                 'pitch_acc',
+                 'roll_acc',]
+                    
     if not isinstance(focal_length, type(None)):
         df['focal_length'] = focal_length
-
-    df = df[['image_file_name',
-             'lon',
-             'lat',
-             'alt',
-             'lon_acc',
-             'lat_acc',
-             'alt_acc',
-             'yaw',
-             'pitch',
-             'roll',
-             'yaw_acc',
-             'pitch_acc',
-             'roll_acc',
-             'focal_length']]
+        core_columns.append('focal_length')
+    if not isinstance(pixel_pitch, type(None)):
+        df['pixel_pitch'] = pixel_pitch
+        core_columns.append('pixel_pitch')
+    
+    df = df[core_columns]
     
     out = os.path.join(output_directory,'metashape_metadata.csv')
     df.to_csv(out,index=False)
@@ -1460,6 +1466,7 @@ def determine_image_clusters(image_metadata,
                                                  output_directory=outdir,
 #                                                  flight_altitude_above_ground_m = flight_altitude_above_ground_m,
                                                  focal_length=focal_length,
+                                                 pixel_pitch= pixel_pitch,
                                                  image_file_name_column = image_file_name_column,
                                                 image_metadata_longitude_column = image_metadata_longitude_column,
                                                 image_metadata_latitude_column = image_metadata_latitude_column,

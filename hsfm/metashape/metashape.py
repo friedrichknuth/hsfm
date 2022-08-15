@@ -33,7 +33,7 @@ def images2las(project_name,
                output_path,
                focal_length            = None,
                pixel_pitch             = None,
-               camera_model_xml_file   = None,
+               camera_model_xml_files  = None,
                crs                     = 'EPSG::4326',
                image_matching_accuracy = 1,
                densecloud_quality      = 2,
@@ -112,8 +112,7 @@ def images2las(project_name,
         v.reference.rotation_enabled = rotation_enabled
         
     # DEFINE INTRINSICS
-    if isinstance(camera_model_xml_file, type(None)) and isinstance(focal_length, type(None)):
-        # try to grab a focal length for every camera from metadata in case run on mix of cameras
+    if not focal_length:
         try:
             df_tmp        = pd.read_csv(images_metadata_file)
             focal_lengths = df_tmp['focal_length'].values
@@ -125,14 +124,13 @@ def images2las(project_name,
             print('No focal length specified nor found in metadata csv file.')
             pass
         
-    elif not isinstance(focal_length, type(None)):
+    elif focal_length:
         print('Focal length:', focal_length)
         for i,v in enumerate(chunk.cameras):
             v.sensor.focal_length = focal_length
 #             v.sensor.fixed_params = ['F']
 
-    if isinstance(camera_model_xml_file, type(None)) and isinstance(pixel_pitch, type(None)):
-        # try to grab a pixel pitch for every camera from metadata in case run on mix of cameras
+    if not pixel_pitch:
         try:
             df_tmp        = pd.read_csv(images_metadata_file)
             pixel_pitches = df_tmp['pixel_pitch'].values
@@ -144,7 +142,7 @@ def images2las(project_name,
         except:
             print('No pixel pitch found in metadata csv file.')
             pass
-    elif not isinstance(pixel_pitch, type(None)):
+    elif pixel_pitch:
         print('Pixel pitch provided as:', pixel_pitch)
         for i,v in enumerate(chunk.cameras):
             v.sensor.pixel_height = pixel_pitch
@@ -153,10 +151,9 @@ def images2las(project_name,
         print('Please specify pixel pitch.')
         sys.exit()
 
-    if not isinstance(camera_model_xml_file, type(None)):
-        camera_models = camera_model_xml_file
+    if not isinstance(camera_model_xml_files, type(None)):
         for cam in chunk.cameras:
-            for camera_model in camera_models:
+            for camera_model in camera_model_xml_files:
                 if pathlib.Path(camera_model).stem in cam.label:
                     calib = Metashape.Calibration()
                     calib.load(camera_model)
