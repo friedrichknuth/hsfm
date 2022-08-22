@@ -455,11 +455,13 @@ def update_ba_camera_metadata(metashape_project_file,
     unaligned_cameras_file_names = ba_cameras_df[ba_cameras_df.isnull().any(axis=1)]['image_file_name'].values
     ba_cameras_df = ba_cameras_df.dropna().reset_index(drop=True) # drop unaligned images from set of bundle adjusted cameras
     
-    try:
+    #try:
         # pull focal lengths if they were provided in input csv
-        ba_cameras_df['focal_length'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['focal_length'])
-    except:
-        pass
+    ba_cameras_df['focal_length'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['focal_length'])
+    ba_cameras_df['pixel_pitch'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['pixel_pitch'])
+    ba_cameras_df['pixel_date'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['date'])
+    #except:
+    #    pass
     
     unaligned_cameras_df = metashape_metadata_df[metashape_metadata_df['image_file_name'].isin(unaligned_cameras_file_names)]
     unaligned_cameras_df = unaligned_cameras_df.reset_index(drop=True)
