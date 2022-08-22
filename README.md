@@ -51,7 +51,7 @@ See [notebooks](./examples/) for processing examples.
 ```
 $ git clone https://github.com/friedrichknuth/hsfm.git
 $ cd ./hsfm
-$ conda create -f environment.yml
+$ conda env create -f environment.yml
 $ conda activate hsfm
 $ pip install -e .
 ```
