@@ -459,7 +459,7 @@ def update_ba_camera_metadata(metashape_project_file,
         # pull focal lengths if they were provided in input csv
     ba_cameras_df['focal_length'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['focal_length'])
     ba_cameras_df['pixel_pitch'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['pixel_pitch'])
-    ba_cameras_df['pixel_date'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['date'])
+#     ba_cameras_df['pixel_date'] = ba_cameras_df['image_file_name'].map(metashape_metadata_df.set_index('image_file_name')['date']) #TODO add field during preprocessing
     #except:
     #    pass
     
