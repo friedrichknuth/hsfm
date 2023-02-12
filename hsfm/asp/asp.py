@@ -310,7 +310,8 @@ def pc_align(input_dem_file,
     args = list(args)
     call = ['pc_align', '--threads', str(psutil.cpu_count(logical=False))]
     if create_dem:
-        call.extend(['--save-transformed-source-points',])
+        if '--save-transformed-source-points' not in args:
+            call.extend(['--save-transformed-source-points',])
     call.extend(args)
     call.extend([reference_dem_file,
                  input_dem_file,
@@ -376,9 +377,9 @@ def pc_align_p2p_sp2p(input_dem_file,
                                   prefix=prefix,
                                   create_dem=True)
     
-    hsfm.utils.dem_align_custom(reference_dem_file,
-                                aligned_dem_file,
-                                verbose = verbose)
+#     hsfm.utils.dem_align_custom(reference_dem_file,
+#                                 aligned_dem_file,
+#                                 verbose = verbose)
     
     """
     Point 2 Point ICP
@@ -400,9 +401,9 @@ def pc_align_p2p_sp2p(input_dem_file,
                                   prefix=prefix0,
                                   create_dem=True)
     
-    hsfm.utils.dem_align_custom(reference_dem_file,
-                                aligned_dem_file,
-                                verbose = verbose)
+#     hsfm.utils.dem_align_custom(reference_dem_file,
+#                                 aligned_dem_file,
+#                                 verbose = verbose)
     
     """
     Point 2 Point ICP with masked reference DEM
