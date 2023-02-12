@@ -130,7 +130,7 @@ def bbox_selector(metadata_csv = None,
     ESRIImagery       = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{Z}/{Y}/{X}.jpg'
     Wikimedia         = 'https://maps.wikimedia.org/osm-intl/{Z}/{X}/{Y}@2x.png'
     
-    print('Toggle Box Edit Tool  and hold shift to draw bounding box.')
+    print('Toggle Box Edit Tool and hold shift to draw bounding box.')
     
     if not basemap_url:
         url = GoogleSatellite

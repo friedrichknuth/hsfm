@@ -98,6 +98,7 @@ def process_3DEP_laz_to_DEM(
             output_path,
             "directory for coverage.",
         )
+        return result_gdf
 
     else:
         aws_3DEP_directory = result_gdf["directory"].loc[0]
@@ -431,7 +432,8 @@ def get_3DEP_lidar_data_dirs(bounds, cache_directory="cache"):
                     url = os.path.join(dir_url, "boundary.json")
                     gdf = gpd.read_file(fs.open(url, "rb"))
                     gdf["directory"] = directory.split("/")[-1]
-                    df = df.append(gdf)
+                    df = gpd.pd.concat([df,gdf], ignore_index=True)
+#                     df = df.append(gdf)
                 except FileNotFoundError:
                     # not doing anything with this but could log
                     data_dirs_without_boundary_file.append(directory)
