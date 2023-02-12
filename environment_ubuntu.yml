@@ -1,4 +1,4 @@
-name: hsfm
+name: hsfm_base
 channels:
   - conda-forge
 dependencies:
