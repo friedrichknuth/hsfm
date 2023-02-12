@@ -340,15 +340,19 @@ def EE_pre_process_images(
         year,
         month,
         day,
-        pixel_pitch         = 0.025,
-        buffer_m            = 2000,
-        threshold_px        = 50,
-        missing_proxy       = None,
-        download_images     = True,
-        template_parent_dir = None,
-        output_directory    = '../',
-        ee_query_max_results   = 50000,
-        ee_query_label = 'test_download'
+#         pixel_pitch               = 0.025,
+        buffer_m                  = None,
+        threshold_px              = 50,
+        missing_proxy             = None,
+        download_images           = True,
+        preprocess_images         = True,
+        template_parent_dir       = None,
+        output_directory          = '../',
+        ee_query_max_results      = 50000,
+        ee_query_label            = 'test_download',
+        EE_find_matching_template = False,
+        invert_color=False,
+        overwrite = False,
     ):
     """
     Download and preprocess images from the EE archive.
@@ -377,6 +381,11 @@ def EE_pre_process_images(
         skip_download (bool, optional): Skip download step of this process. Useful if you have called this function before (with the same arguments) and something bad happened. Defaults to False
     """
 
+    print('\n')
+    print('EE Project ID:',ee_project_name)
+    print('Date:', '-'.join([str(year),
+                             str(month).zfill(2),
+                             str(day).zfill(2)]))
     output_directory = os.path.join(output_directory, project_name, 'input_data')
 
     #ToDo fix behavior of this query - you can get more than the maxResults parameter returned
@@ -392,132 +401,140 @@ def EE_pre_process_images(
         endDate = f"{year}-{month}-{day}",
         maxResults   = ee_query_max_results
     ).head(ee_query_max_results)
-    print(f'Images found matching bounds and date range: {len(ee_results_df)}')
 
     ee_results_df = ee_results_df[ee_results_df['project'] == ee_project_name]
-    print(f'Images found matching bounds, date range, and project name: {len(ee_results_df)}')
-
-    download_directory = os.path.join(output_directory, f"EE_{year}", str(month).zfill(2), str(day).zfill(2))
-
-    # If you do not download the images, you need to generate the name of the directory that holds the raw tif files
-    raw_images_directory_name = 'raw_images'
-    if download_images:
-        raw_images_directory, calibration_reports_directory = hipp.dataquery.EE_download_images_to_disk(
-            apiKey,
-            ee_results_df['entityId'].tolist(),
-            ee_query_label,
-            download_directory,
-            images_directory_suffix=raw_images_directory_name
-        )
-    else:
-        raw_images_directory = os.path.join(download_directory, raw_images_directory_name)
     
-    preprocessed_images_directory = raw_images_directory.replace('raw_images', 'cropped_images')
-    qc_directory = preprocessed_images_directory.replace("cropped_images", "preprocess_qc")
-    
-    if pathlib.Path(raw_images_directory).is_dir() and download_images:
-        hipp.batch.preprocess_with_fiducial_proxies(
-            raw_images_directory,
-            template_parent_dir,
-            output_directory=preprocessed_images_directory,
-            verbose=True,
-            missing_proxy=missing_proxy,
-            threshold_px=threshold_px,
-            qc_df=True,
-            qc_df_output_directory=os.path.join(qc_directory, 'proxy_detection_data_frames'),
-            qc_plots=True,
-            qc_plots_output_directory=os.path.join(qc_directory, 'proxy_detection')
-        )
+    if len(ee_results_df['entityId'].tolist()) == 1:
+          print('Skipping record with only 1 image')
+    elif len(ee_results_df['entityId'].tolist()) > 1:
+        download_directory = os.path.join(output_directory, 
+                                          f"EE_{year}", 
+                                          str(month).zfill(2), str(day).zfill(2))
 
-        # Generate metashape_metadata.csv file for all images
+        # If you do not download the images, 
+        # you need to generate the name of the directory that holds the raw tif files
+        raw_images_directory_name = 'raw_images'
+        if download_images:
+            r = hipp.dataquery.EE_download_images_to_disk(
+                apiKey,
+                ee_results_df['entityId'].tolist(),
+                ee_query_label,
+                download_directory,
+                images_directory_suffix=raw_images_directory_name,
+                invert_color=invert_color,
+                overwrite = overwrite,
+            )
+            raw_images_directory, calibration_reports_directory, pixel_pitch = r
+        else:
+            raw_images_directory = os.path.join(download_directory, raw_images_directory_name)
 
-    metashape_metadata_df = ee_results_df[[
-        'entityId',
-        'centerLon',
-        'centerLat',
-        'altitudesFeet', #needs conversion to meters
-        'focalLength'
-    ]]
+        if raw_images_directory:
+            preprocessed_images_directory = raw_images_directory.replace('raw_images', 'cropped_images')
+            qc_directory = preprocessed_images_directory.replace("cropped_images", "preprocess_qc")
 
-    convert_column_names = {
-        'entityId': 'image_file_name',
-        'centerLon': 'lon',
-        'centerLat': 'lat',
-        'altitudesFeet': 'alt',
-        'focalLength': 'focal_length'
-    }
+            if pathlib.Path(raw_images_directory).is_dir() and preprocess_images:
+                hipp.batch.preprocess_with_fiducial_proxies(
+                    raw_images_directory,
+                    template_parent_dir,
+                    output_directory=preprocessed_images_directory,
+                    verbose=True,
+                    missing_proxy=missing_proxy,
+                    threshold_px=threshold_px,
+                    qc_df=True,
+                    qc_df_output_directory=os.path.join(qc_directory, 'proxy_detection_data_frames'),
+                    qc_plots=True,
+                    qc_plots_output_directory=os.path.join(qc_directory, 'proxy_detection'),
+                    EE_find_matching_template = EE_find_matching_template
+                )
 
-    metashape_metadata_df = metashape_metadata_df.rename(convert_column_names, axis=1)
+                # Generate metashape_metadata.csv file for all images
 
-    #convert feet to meters
-    FEET_IN_1_METER = 3.28084
-    metashape_metadata_df['alt'] = metashape_metadata_df['alt'] / FEET_IN_1_METER
+            metashape_metadata_df = ee_results_df[[
+                'entityId',
+                'centerLon',
+                'centerLat',
+                'altitudesFeet', #needs conversion to meters
+                'focalLength'
+            ]]
 
-    # Add default values
-    metashape_metadata_df['lon_acc'] = 1000
-    metashape_metadata_df['lat_acc'] = 1000
-    metashape_metadata_df['alt_acc'] = 1000
-    metashape_metadata_df['yaw'] = 0
-    metashape_metadata_df['pitch'] = 0 
-    metashape_metadata_df['roll'] = 0
-    metashape_metadata_df['yaw_acc'] = 180
-    metashape_metadata_df['pitch_acc'] = 20
-    metashape_metadata_df['roll_acc'] = 20
-    metashape_metadata_df['pixel_pitch'] = pixel_pitch
-    
-    target_column_names_in_order = [
-        'image_file_name',
-        'lon',
-        'lat',
-        'alt',
-        'lon_acc', #default 1000
-        'lat_acc', #default 1000
-        'alt_acc', #default 1000
-        'yaw', #default 0
-        'pitch', #default 0
-        'roll', #default 0
-        'yaw_acc', #default 180
-        'pitch_acc', #default 20
-        'roll_acc', #default 20
-        'focal_length',
-        'pixel_pitch'
-    ]
-    
-    #order the columns appropriately
-    metashape_metadata_df = metashape_metadata_df[target_column_names_in_order]
-    
-    
+            convert_column_names = {
+                'entityId': 'image_file_name',
+                'centerLon': 'lon',
+                'centerLat': 'lat',
+                'altitudesFeet': 'alt',
+                'focalLength': 'focal_length'
+            }
 
-    #Crude function to estimate length of an image footprint using EE metadata. This is our best guess
-    # without running SfM
-    
-    def estimate_image_footprint_from_ee_results(df, arcsecond_to_meters=111111):
-        points1 = gpd.points_from_xy(x=df['NElon'], y=df['NElat'])
-        points2 = gpd.points_from_xy(x=df['NWlon'], y=df['NWlat'])
-        lat_distances = points1.distance(points2)
-        
-        points1 = gpd.points_from_xy(x=df['NElon'], y=df['NElat'])
-        points2 = gpd.points_from_xy(x=df['SElon'], y=df['SElat'])
-        lon_distances = points1.distance(points2)
-        max_edge_length = np.concatenate([lat_distances, lon_distances]).max()
-        return max_edge_length * arcsecond_to_meters
+            metashape_metadata_df = metashape_metadata_df.rename(convert_column_names, axis=1)
 
-    estimated_max_image_footprint_length = estimate_image_footprint_from_ee_results(ee_results_df)
-    
-    # Run a clustering detection algorithm
-    # Feed in our calculation of image foot print
-    hsfm.core.determine_image_clusters(
-        metashape_metadata_df,
-        pixel_pitch = pixel_pitch,
-        output_directory = raw_images_directory.replace("raw_images", "sfm"),
-        buffer_m         = estimated_max_image_footprint_length,
-        image_file_name_column= 'image_file_name',
-        image_metadata_longitude_column = 'lon',
-        image_metadata_latitude_column = 'lat',
-        image_metadata_altitude_column = 'alt',
-    )
+            #convert feet to meters
+            FEET_IN_1_METER = 3.28084
+            metashape_metadata_df['alt'] = metashape_metadata_df['alt'] / FEET_IN_1_METER
 
-    
+            # Add default values
+            metashape_metadata_df['lon_acc'] = 1000
+            metashape_metadata_df['lat_acc'] = 1000
+            metashape_metadata_df['alt_acc'] = 1000
+            metashape_metadata_df['yaw'] = 0
+            metashape_metadata_df['pitch'] = 0 
+            metashape_metadata_df['roll'] = 0
+            metashape_metadata_df['yaw_acc'] = 180
+            metashape_metadata_df['pitch_acc'] = 20
+            metashape_metadata_df['roll_acc'] = 20
+            metashape_metadata_df['pixel_pitch'] = pixel_pitch
+
+            target_column_names_in_order = [
+                'image_file_name',
+                'lon',
+                'lat',
+                'alt',
+                'lon_acc', #default 1000
+                'lat_acc', #default 1000
+                'alt_acc', #default 1000
+                'yaw', #default 0
+                'pitch', #default 0
+                'roll', #default 0
+                'yaw_acc', #default 180
+                'pitch_acc', #default 20
+                'roll_acc', #default 20
+                'focal_length',
+                'pixel_pitch'
+            ]
+
+            #order the columns appropriately
+            metashape_metadata_df = metashape_metadata_df[target_column_names_in_order]
+
+
+            def estimate_image_footprint_from_ee_results(df, arcsecond_to_meters=111111):
+                points1 = gpd.points_from_xy(x=df['NElon'], y=df['NElat'])
+                points2 = gpd.points_from_xy(x=df['NWlon'], y=df['NWlat'])
+                lat_distances = points1.distance(points2)
+
+                points1 = gpd.points_from_xy(x=df['NElon'], y=df['NElat'])
+                points2 = gpd.points_from_xy(x=df['SElon'], y=df['SElat'])
+                lon_distances = points1.distance(points2)
+                max_edge_length = np.concatenate([lat_distances, lon_distances]).max()
+                return max_edge_length * arcsecond_to_meters
+
+            qc = False
+            if not buffer_m:
+                qc = True
+                buffer_m = estimate_image_footprint_from_ee_results(ee_results_df)
+
+            # Run crude cluster detection 
+            hsfm.core.determine_image_clusters(
+                metashape_metadata_df,
+                pixel_pitch = pixel_pitch,
+                output_directory = raw_images_directory.replace("raw_images", "sfm"),
+                buffer_m         = buffer_m,
+                image_file_name_column= 'image_file_name',
+                qc=qc,
+                image_metadata_longitude_column = 'lon',
+                image_metadata_latitude_column = 'lat',
+                image_metadata_altitude_column = 'alt',
+            )
+
+
     
 
 
@@ -783,23 +800,14 @@ def run_metashape(project_name,
     bundle_adjusted_metadata_file = os.path.join(output_path,"bundle_adjusted_metadata.csv")
     aligned_bundle_adjusted_metadata_file = os.path.join(output_path,"aligned_bundle_adjusted_metadata.csv")
     
+    if os.path.exists(reference_dem):
+        pass
+    else:
+        print("\nCan't find reference DEM at",output_path)
+        sys.exit(0) 
+    
     if not isinstance(metashape_licence_file, type(None)):
         hsfm.metashape.authentication(metashape_licence_file)
-        
-    if isinstance(output_DEM_resolution, type(None)) and not isinstance(focal_length, type(None)):
-        print('No DEM output resolution specified.')
-        print('Using Ground Sample Distance from mean camera altitude above ground to estimate.') 
-        output_DEM_resolution = hsfm.core.estimate_DEM_resolution_from_GSD(images_metadata_file, 
-                                                                           pixel_pitch,
-                                                                           focal_length)
-        
-        output_DEM_resolution = densecloud_quality * output_DEM_resolution
-        print('DEM resolution factored by densecloud quality setting:',output_DEM_resolution)
-    elif isinstance(output_DEM_resolution, type(None)) and isinstance(focal_length, type(None)):
-        print('No DEM output resolution specified. No focal length specified.')
-        print('Cannot compute GSD to estimate an optimal DEM resolution without a focal length.')
-        print('Setting output DEM resolution to 10 m. You can regrid the las file to a higher resolution as desired.')
-        output_DEM_resolution = 10
         
     out = hsfm.metashape.images2las(project_name,
                                     images_path,
@@ -834,12 +842,27 @@ def run_metashape(project_name,
                                title = 'Initial vs Bundle Adjusted',
                                plot_file_name = os.path.join(output_path, 'qc_ba_ce90le90.png'))
 
-
-    if os.path.exists(reference_dem):
-        pass
-    else:
-        print("\nCan't find reference DEM at",output_path)
-        sys.exit(0) 
+    if isinstance(output_DEM_resolution, type(None)):
+        print('No DEM output resolution specified.')
+        print('Using Ground Sample Distance from metashape report.') 
+        metashape_report = metashape_project_file.replace('.psx','_report.pdf')
+        output_DEM_resolution = hsfm.core.get_DEM_resolution_from_report_GSD(metashape_report)
+    
+    elif isinstance(output_DEM_resolution, type(None)) and not isinstance(focal_length, type(None)):
+        print('No DEM output resolution specified.')
+        print('Using Ground Sample Distance from mean camera altitude above ground to estimate.') 
+        output_DEM_resolution = hsfm.core.estimate_DEM_resolution_from_GSD(images_metadata_file, 
+                                                                           pixel_pitch,
+                                                                           focal_length)
+        
+        output_DEM_resolution = densecloud_quality * output_DEM_resolution
+        print('DEM resolution factored by densecloud quality setting:',output_DEM_resolution)
+    elif isinstance(output_DEM_resolution, type(None)) and isinstance(focal_length, type(None)):
+        print('No DEM output resolution specified. No focal length specified.')
+        print('Cannot compute GSD to estimate an optimal DEM resolution without a focal length.')
+        print('Setting output DEM resolution to 10 m. You can regrid the las file to a higher resolution as desired.')
+        output_DEM_resolution = 10
+        
     epsg_code = 'EPSG:'+ hsfm.geospatial.get_epsg_code(reference_dem)
     dem = hsfm.asp.point2dem(point_cloud_file,
                              '--nodata-value','-9999',
@@ -1292,6 +1315,10 @@ def batch_process(project_name,
 
             images_metadata_file = os.path.join(i,'metashape_metadata.csv')
             output_path          = os.path.join(i,'metashape')
+            
+            if not os.path.isfile(images_metadata_file):
+                raise FileNotFoundError(images_metadata_file,' not found.\nSkipping')
+
 
             hsfm.batch.metaflow(cluster_project_name,
                                 image_files,
