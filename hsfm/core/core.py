@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib._color_data as mcd
 import contextily as ctx
 import time
+import PyPDF2
 cycle = list(mcd.XKCD_COLORS.values())
 
 import hsfm
@@ -1231,6 +1232,15 @@ def metadata_transform(metadata_file,
                                                  'pitch_acc', 
                                                  'roll_acc']]
     
+    # pull focal lengths if they were provided in input csv
+    try: 
+        transformed_metadata['focal_length'] = transformed_metadata['image_file_name'].map(metadata_df.set_index('image_file_name')['focal_length'])
+        transformed_metadata['pixel_pitch'] = transformed_metadata['image_file_name'].map(metadata_df.set_index('image_file_name')['pixel_pitch'])
+        #TODO add field during preprocessing
+        #transformed_metadata['pixel_date'] = transformed_metadata['image_file_name'].map(metadata_df.set_index('image_file_name')['date']) 
+    except:
+        pass
+    
     transformed_metadata = transformed_metadata.sort_values(by=['image_file_name'], ascending=True)
     
     if not isinstance(output_file_name, type(None)):
@@ -1559,6 +1569,24 @@ def estimate_DEM_resolution_from_GSD(images_metadata_file,
     DEM_res = round(factor * GSD,2)
     print('DEM resolution:', DEM_res)
     return DEM_res
+
+def get_DEM_resolution_from_report_GSD(metashape_report_pdf,
+                                       factor = 2.5):
+    pdfFileObj = open(metashape_report_pdf, 'rb')
+    pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
+    pageObj = pdfReader.getPage(1)
+    res_with_units = pageObj.extractText().split("Ground resolution:")[1].split('/')[0]
+    print("GSD:", res_with_units)
+    print("GSD multiplication factor:", factor)
+
+    if 'cm' in res_with_units:
+        res = float(res_with_units.split(' ')[0])/100
+    else:
+        res = float(res_with_units.split(' ')[0])
+
+    DEM_res = round(res*factor,1)
+    print("DEM resolution:", DEM_res)
+    return float(DEM_res)
 
 def select_strings_with_sub_strings(strings_list, sub_strings_list):
     subset = []
