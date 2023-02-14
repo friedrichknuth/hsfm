@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+import matplotlib.cbook as cbook
+import matplotlib.colors as mpl_colors
 import numpy as np
 import pandas as pd
 import os
@@ -12,6 +14,12 @@ import hsfm.geospatial
 """
 Functions to plot various products.
 """
+
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+    new_cmap = mpl_colors.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+        cmap(np.linspace(minval, maxval, n)))
+    return new_cmap
 
 def plot_image_histogram(image_array, 
                          image_base_name,
