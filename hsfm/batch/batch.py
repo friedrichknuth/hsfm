@@ -351,8 +351,8 @@ def EE_pre_process_images(
         ee_query_max_results      = 50000,
         ee_query_label            = 'test_download',
         EE_find_matching_template = False,
-        invert_color=False,
-        overwrite = False,
+        invert_color              = False,
+#         overwrite                 = False,
     ):
     """
     Download and preprocess images from the EE archive.
@@ -412,21 +412,18 @@ def EE_pre_process_images(
                                           str(month).zfill(2), str(day).zfill(2))
 
         # If you do not download the images, 
-        # you need to generate the name of the directory that holds the raw tif files
+        # you still need to retrieve the directories and pixel_pitch
         raw_images_directory_name = 'raw_images'
-        if download_images:
-            r = hipp.dataquery.EE_download_images_to_disk(
-                apiKey,
-                ee_results_df['entityId'].tolist(),
-                ee_query_label,
-                download_directory,
-                images_directory_suffix=raw_images_directory_name,
-                invert_color=invert_color,
-                overwrite = overwrite,
-            )
-            raw_images_directory, calibration_reports_directory, pixel_pitch = r
-        else:
-            raw_images_directory = os.path.join(download_directory, raw_images_directory_name)
+        r = hipp.dataquery.EE_download_images_to_disk(
+            apiKey,
+            ee_results_df['entityId'].tolist(),
+            ee_query_label,
+            download_directory,
+            images_directory_suffix=raw_images_directory_name,
+            invert_color=invert_color,
+            overwrite = download_images,
+        )
+        raw_images_directory, calibration_reports_directory, pixel_pitch = r
 
         if raw_images_directory:
             preprocessed_images_directory = raw_images_directory.replace('raw_images', 'cropped_images')
