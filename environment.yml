@@ -1,4 +1,4 @@
-name: hsfmtest
+name: hsfm
 channels:
   - conda-forge
 dependencies:
