@@ -352,6 +352,7 @@ def EE_pre_process_images(
         ee_query_label            = 'test_download',
         EE_find_matching_template = False,
         invert_color              = False,
+        prime_for_download_later = False,
 #         overwrite                 = False,
     ):
     """
@@ -422,9 +423,14 @@ def EE_pre_process_images(
             images_directory_suffix=raw_images_directory_name,
             invert_color=invert_color,
             overwrite = download_images,
+            prime_for_download_later = prime_for_download_later,
         )
         raw_images_directory, calibration_reports_directory, pixel_pitch = r
 
+        if prime_for_download_later:
+            print('Requests primed for download later')
+            return None
+        
         if raw_images_directory:
             preprocessed_images_directory = raw_images_directory.replace('raw_images', 'cropped_images')
             qc_directory = preprocessed_images_directory.replace("cropped_images", "preprocess_qc")
@@ -530,6 +536,7 @@ def EE_pre_process_images(
                 image_metadata_latitude_column = 'lat',
                 image_metadata_altitude_column = 'alt',
             )
+            return None
 
 
     
