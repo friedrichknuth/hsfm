@@ -2,6 +2,7 @@ name: hsfm
 channels:
   - conda-forge
 dependencies:
+  - python=3.10
   - numpy
   - matplotlib
   - geopandas
@@ -9,7 +10,7 @@ dependencies:
   - shapely
   - contextily
   - xmltodict
-  - bokeh=1.3.4
+  - bokeh
   - pip
   - gdal
   - scipy
@@ -30,6 +31,7 @@ dependencies:
   - s3fs
   - pdal
   - py3dep
+  - pypdf2
   - pip:
     - elevation
     - "--editable=git+https://github.com/dshean/pygeotools.git#egg=pygeotools"
