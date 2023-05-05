@@ -13,6 +13,7 @@ import pathlib
 import shutil
 import time
 import geopandas as gpd
+import traceback
 
 import hipp
 import hsfm
@@ -1342,10 +1343,10 @@ def batch_process(project_name,
                                 attempts_to_adjust_cams = attempts_to_adjust_cams,
                                 check_subsets           = check_subsets,
                                 overwrite               = overwrite)
-        except:
-            print('FAIL:', i)
+        except Exception as e:
+            print('FAIL:', i,'\n')
+            print(traceback.format_exc())
 
-        print('\n\n'+i)
-        print("Elapsed time", str(datetime.now() - now), '\n\n')
+        print("Elapsed time", str(datetime.now() - now), '\n')
         print("DONE")
 

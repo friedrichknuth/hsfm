@@ -1205,7 +1205,7 @@ def metadata_transform(metadata_file,
         row.x,row.y,row.z = hsfm.core.apply_position_transform(C, C_translation, R_transform)
 
         row = row.drop(['geometry'])
-        df_tmp = df_tmp.append(row)
+        df_tmp = pd.concat([df_tmp, pd.DataFrame([row])])
         
     transformed_metadata = hsfm.geospatial.df_xyz_coords_to_gdf(df_tmp, 
                                                                 lon='x', 
