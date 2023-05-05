@@ -71,8 +71,7 @@ Download and install the [Agisoft Metashape Python API](https://agisoft.freshdes
 
 Check your installation
 ```
-$ conda activate hsfm
-$ cd ./hsfm/examples/scripts
+$ cd ./examples/scripts
 $ python -u batch_pipeline.py
 ```
 
