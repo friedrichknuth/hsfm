@@ -48,17 +48,33 @@ Automated SfM processing of historical aerial photographs for land surface eleva
 See [notebooks](./examples/) for processing examples.
 
 ### Installation
+
+Download and install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)  
+
+After installing Miniconda set up [Mamba](https://mamba.readthedocs.io/en/latest/installation.html) (optional but recommended)
+```
+$ conda install mamba -n base -c conda-forge
+```
+Clone the repo and set up the conda environment  
+
 ```
 $ git clone https://github.com/friedrichknuth/hsfm.git
 $ cd ./hsfm
-$ conda env create -f environment.yml
+$ mamba env create -f environment.yml
 $ conda activate hsfm
 $ pip install -e .
 ```
 
-Download and install the [NASA AMes Stereo Pipeline](https://ti.arc.nasa.gov/tech/asr/groups/intelligent-robotics/ngt/stereo/)
+Download and install the [NASA AMes Stereo Pipeline](https://stereopipeline.readthedocs.io/en/latest/installation.html)
 
 Download and install the [Agisoft Metashape Python API](https://agisoft.freshdesk.com/support/solutions/articles/31000148930-how-to-install-metashape-stand-alone-python-module)
+
+Check your installation
+```
+$ conda activate hsfm
+$ cd ./hsfm/examples/scripts
+$ python -u batch_pipeline.py
+```
 
 ### Contributing
 
