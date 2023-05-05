@@ -1,12 +1,12 @@
 #! /usr/bin/env python
 
 import hsfm
-import driveanon as da
+import gdown
 
 project_name = 'easton'
 out_dir      = './'
 nagap_metadata_csv  = 'https://github.com/friedrichknuth/hipp/raw/master/examples/fiducial_proxy_detection/input_data/nagap_image_metadata.csv'
-template_parent_dir = '../../../hipp/examples/fiducial_proxy_detection/input_data/fiducials/nagap'
+template_parent_dir = '../../src/hipp/examples/fiducial_proxy_detection/input_data/fiducials/nagap'
 
 
 bounds              = (-121.846, 48.76, -121.823, 48.70) # easton
@@ -23,14 +23,17 @@ hsfm.batch.NAGAP_pre_process_images(project_name,
                                     month = 9,
                                     output_directory=out_dir)
 
-reference_dem           = './baker.tif'
-da.save('1ObQyjhYB_fjhvqtBq-vK3CdPoQ1Iauyd', filename=reference_dem)
+# reference_dem = './baker.tif'
+# gdown.download(id='1ObQyjhYB_fjhvqtBq-vK3CdPoQ1Iauyd', output=reference_dem, quiet=False)
+
+reference_dem = './easton.tif'
+gdown.download(id='1YBDJIoC1gyfP2U58WMVrSoKm2-xFVxse', output=reference_dem, quiet=False)
 
 output_DEM_resolution   = 1
 image_matching_accuracy = 1
 densecloud_quality      = 2
 dem_align_all           = True
-metashape_licence_file  = '/mnt/Backups/knuth/sw/metashape-pro/uw_agisoft.lic'
+metashape_licence_file  = '/mnt/working/knuth/sw/metashape-pro/uw_agisoft.lic'
 
 
 hsfm.batch.batch_process(project_name,
