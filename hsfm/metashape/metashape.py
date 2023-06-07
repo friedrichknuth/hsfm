@@ -1,7 +1,7 @@
 import os
 import glob
 import pandas as pd
-import pathlib
+from pathlib import Path
 import sys
 from shapely import wkt
 import geopandas as gpd
@@ -20,12 +20,9 @@ Agisoft Metashape processing pipeline.
 # TODO handle import Metashape with class structure
 
 def authentication(METASHAPE_LICENCE_FILE):
-    metashape_licence_file_symlink = os.path.join(os.getcwd(),
-                                                  os.path.basename(METASHAPE_LICENCE_FILE))
-    if not os.path.exists(metashape_licence_file_symlink):
-        os.symlink(METASHAPE_LICENCE_FILE,
-                   metashape_licence_file_symlink)
-
+    metashape_licence_file_symlink = Path(Path.cwd(), Path(METASHAPE_LICENCE_FILE).name)
+    if not metashape_licence_file_symlink.exists():
+        Path(metashape_licence_file_symlink).symlink_to(Path(METASHAPE_LICENCE_FILE))
 
 def images2las(project_name,
                images_path,
@@ -154,7 +151,7 @@ def images2las(project_name,
     if not isinstance(camera_model_xml_files, type(None)):
         for cam in chunk.cameras:
             for camera_model in camera_model_xml_files:
-                if pathlib.Path(camera_model).stem in cam.label:
+                if Path(camera_model).stem in cam.label:
                     calib = Metashape.Calibration()
                     calib.load(camera_model)
                     cam.sensor.user_calib  = calib
