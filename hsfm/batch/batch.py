@@ -342,7 +342,7 @@ def EE_pre_process_images(
         month,
         day,
 #         pixel_pitch               = 0.025,
-        buffer_m                  = None,
+        buffer_m                  = 40000,
         threshold_px              = 50,
         missing_proxy             = None,
         download_images           = True,
@@ -525,7 +525,7 @@ def EE_pre_process_images(
                 qc = True
                 buffer_m = estimate_image_footprint_from_ee_results(ee_results_df)
 
-            # Run crude cluster detection 
+            # Run coarse (crude) regional cluster detection 
             hsfm.core.determine_image_clusters(
                 metashape_metadata_df,
                 pixel_pitch = pixel_pitch,
@@ -551,7 +551,7 @@ def NAGAP_pre_process_images(project_name,
                              day                 = None,
                              pixel_pitch         = 0.02,
                              focal_length        = None,
-                             buffer_m            = 2000,
+                             buffer_m            = 40000,
                              threshold_px        = 50,
                              missing_proxy       = None,
                              keep_raw            = True,
@@ -670,7 +670,7 @@ def NAGAP_pre_process_set(df,
                           pixel_pitch         = None,
                           focal_length        = None,
                           missing_proxy       = None,
-                          buffer_m            = 2000,
+                          buffer_m            = 40000,
                           threshold_px        = 50,
                           keep_raw            = True,
                           download_images     = True,
@@ -715,12 +715,18 @@ def NAGAP_pre_process_set(df,
 
                     if isinstance(focal_length, type(None)):
                         focal_length = df_tmp['focal_length'].values[0]
+                        
+                    qc = False
+                    if buffer_m != 40000: #always run qc if non default value used
+                        qc = True
+                    # Run coarse (crude) regional cluster detection 
                     hsfm.core.determine_image_clusters(df_tmp,
     #                                                    image_square_dim = image_square_dim,
                                                        pixel_pitch      = pixel_pitch,
                                                        focal_length     = focal_length,
                                                        output_directory = os.path.join(output_directory,'sfm'),
-                                                       buffer_m         = buffer_m)
+                                                       buffer_m         = buffer_m,
+                                                       qc = qc)
                 else:
                     print("Only",str(len(df_tmp)),'images found. Skipping.')
                 
