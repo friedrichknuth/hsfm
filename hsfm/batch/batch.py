@@ -152,11 +152,12 @@ def batch_generate_cameras(image_directory,
     """
     
     # TODO
-    # - Embed hsfm.utils.pick_headings() within calculate_heading_from_metadata() and launch for            images where the heading could not be determined with high confidence (e.g. if image
+    # - Embed hsfm.utils.pick_headings() within calculate_heading_from_metadata() and launch for
+    #   images where the heading could not be determined with high confidence (e.g. if image
     #   potentially part of another flight line, or at the end of current flight line with no
     #   subsequent image to determine flight line from.)
     # - provide principal_point_px to hsfm.core.initialize_cameras on a per image basis
-    # put gcp generation in a seperate batch routine
+    #   put gcp generation in a seperate batch routine
     
     image_list = sorted(glob.glob(os.path.join(image_directory, '*.tif')))
     image_list = hsfm.core.subset_input_image_list(image_list, subset=subset)
@@ -224,7 +225,6 @@ def calculate_heading_from_metadata(df,
                                     latitude_column                = 'Latitude'):
     # TODO
     # - Add flightline seperation function
-    # - Generalize beyond NAGAP keys
     if not isinstance(df, type(pd.DataFrame())):
         df = pd.read_csv(df)
         
@@ -390,7 +390,7 @@ def EE_pre_process_images(
                              str(day).zfill(2)]))
     output_directory = os.path.join(output_directory, project_name, 'input_data')
 
-    #ToDo fix behavior of this query - you can get more than the maxResults parameter returned
+    #TODO fix behavior of this query - you can get more than the maxResults parameter returned
     # Also remove the head() hack that fixes the issue
     ULLON, ULLAT, LRLON, LRLAT = bounds
     ee_results_df = hipp.dataquery.EE_pre_select_images(
@@ -557,12 +557,12 @@ def NAGAP_pre_process_images(project_name,
                              keep_raw            = True,
                              download_images     = True,
                              image_square_dim    = None,
+                             stretch_histogram   = True,
+                             clahe_enhancement   = True,
                              template_parent_dir = '../input_data/fiducials/nagap',
                              nagap_metadata_csv  = '../input_data/nagap_image_metadata.csv',
                              output_directory    = '../'):
-    
-    # TODO Generalize to input EarthExplorer. Standardize metadata sourced from EE to match nagap_image_metadata.csv
-    
+        
     output_directory = os.path.join(output_directory, project_name, 'input_data')
     
     template_dirs = sorted(glob.glob(os.path.join(template_parent_dir, '*')))
@@ -616,7 +616,10 @@ def NAGAP_pre_process_images(project_name,
                                                          threshold_px    = threshold_px,
                                                          keep_raw        = keep_raw,
                                                          download_images = download_images,
-                                                         image_square_dim = image_square_dim)
+                                                         image_square_dim = image_square_dim,
+                                                         stretch_histogram = stretch_histogram,
+                                                         clahe_enhancement = clahe_enhancement,
+                                                        )
                 
                 # in case no day specified in metadata
                 else:
@@ -635,7 +638,10 @@ def NAGAP_pre_process_images(project_name,
                                                      threshold_px  = threshold_px,
                                                      keep_raw      = keep_raw,
                                                      download_images = download_images,
-                                                     image_square_dim = image_square_dim)
+                                                     image_square_dim = image_square_dim,
+                                                     stretch_histogram = stretch_histogram,
+                                                     clahe_enhancement = clahe_enhancement,
+                                                    )
         # in case no month specified in metadata                
         else:
             out_dir_roll = os.path.join(output_directory,roll,'mm','dd')
@@ -650,7 +656,10 @@ def NAGAP_pre_process_images(project_name,
                                              threshold_px  = threshold_px,
                                              keep_raw      = keep_raw,
                                              download_images = download_images,
-                                             image_square_dim = image_square_dim)
+                                             image_square_dim = image_square_dim,
+                                             stretch_histogram = stretch_histogram,
+                                             clahe_enhancement = clahe_enhancement,
+                                            )
                     
 
                     
@@ -665,7 +674,9 @@ def NAGAP_pre_process_set(df,
                           threshold_px        = 50,
                           keep_raw            = True,
                           download_images     = True,
-                          image_square_dim    = None):
+                          image_square_dim    = None,
+                          stretch_histogram   = True,
+                          clahe_enhancement   = True):
     
     # TODO
     # check if image directory already contains raw images, else skip
@@ -690,9 +701,15 @@ def NAGAP_pre_process_set(df,
                                                       missing_proxy = missing_proxy,
 
                                                       qc_df_output_directory=os.path.join(output_directory,
-                                                                                          'qc', v+'_proxy_detection_data_frames'),
+                                                                                          'qc',
+                                                                                          v+'_proxy_detection_data_frames'),
                                                       qc_plots_output_directory=os.path.join(output_directory,
-                                                                                             'qc', v+'_proxy_detection_plots'))
+                                                                                             'qc', 
+                                                                                             v+'_proxy_detection_plots'),
+                                                      stretch_histogram = stretch_histogram,
+                                                      clahe_enhancement = clahe_enhancement,
+                            
+                        )
                         if keep_raw == False:
                             shutil.rmtree(image_directory)
 
