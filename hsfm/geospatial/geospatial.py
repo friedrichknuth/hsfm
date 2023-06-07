@@ -11,6 +11,7 @@ import numpy as np
 import os
 from osgeo import gdal
 import pyproj
+from pyproj import CRS, Transformer
 import pandas as pd
 import panel as pn
 import requests
@@ -430,21 +431,26 @@ def USGS_elevation_function(lats_list, lons_list):
     """
     Query USGS Elevation Point Service using lat, lon lists. Return elevations as list.
     """
+    transformer_3d = Transformer.from_crs(CRS("EPSG:5498").to_3d(), 
+                                          CRS("EPSG:4326").to_3d(),
+                                          always_xy=True,)
     print('Requesting elevations from USGS Elevation Point Service...')
-    url = r'https://nationalmap.gov/epqs/pqs.php?'
+    url = 'https://epqs.nationalmap.gov/v1/json?'
     elevations = []
     for lat, lon in zip(lats_list, lons_list):
         params = {
             'output': 'json',
             'x': lon,
             'y': lat,
-            'units': 'Meters'
+            'units': 'Meters',
+            'wkid' : '4326'
         }
         c = 0
         while(c < 5):
             try:
                 result = requests.get((url + urllib.parse.urlencode(params)))
-                elevations.append(result.json()['USGS_Elevation_Point_Query_Service']['Elevation_Query']['Elevation'])
+                elev = float(result.json()['value'])
+                elevations.append(transformer_3d.transform(lon, lat, elev)[2])
                 break
             except:
                 print('Waiting on 200 response from USGS Elevation Point Service...')

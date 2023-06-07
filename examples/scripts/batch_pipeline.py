@@ -3,7 +3,7 @@
 import hsfm
 import gdown
 
-project_name = 'easton'
+project_name = 'Easton_NAGAP'
 out_dir      = './'
 nagap_metadata_csv  = 'https://github.com/friedrichknuth/hipp/raw/master/examples/fiducial_proxy_detection/input_data/nagap_image_metadata.csv'
 template_parent_dir = '../../src/hipp/examples/fiducial_proxy_detection/input_data/fiducials/nagap'
@@ -19,9 +19,12 @@ hsfm.batch.NAGAP_pre_process_images(project_name,
                                     nagap_metadata_csv=nagap_metadata_csv,
                                     template_parent_dir = template_parent_dir,
                                     year = 77,
-                                    day = 27,
                                     month = 9,
-                                    output_directory=out_dir)
+                                    day = 27,
+                                    output_directory=out_dir,
+                                    stretch_histogram = True,
+                                    clahe_enhancement = True,
+                                   )
 
 # reference_dem = './baker.tif'
 # gdown.download(id='1ObQyjhYB_fjhvqtBq-vK3CdPoQ1Iauyd', output=reference_dem, quiet=False)
