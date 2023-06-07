@@ -1325,7 +1325,7 @@ def determine_image_clusters(image_metadata,
                              pixel_pitch                    = None,
                              focal_length                   = None,
                              image_directory                = None,
-                             buffer_m                       = 1200,
+                             buffer_m                       = 40000,
 #                              flight_altitude_above_ground_m = 1500,
                              output_directory               = None,
                              image_extension                = '.tif',
@@ -1341,6 +1341,8 @@ def determine_image_clusters(image_metadata,
     buffer_m = Approximate image footprint diameter in meters.
     move_images = True # images are moved instead of copied.
     """
+    
+    # TODO clean this up
     
     if not isinstance(image_metadata, type(pd.DataFrame())):
         df = pd.read_csv(image_metadata)
@@ -1373,7 +1375,7 @@ def determine_image_clusters(image_metadata,
 #     return gdf
     
     # approximate circular image foot print
-    print('Estimated footprint diameter:', buffer_m)
+    print('Estimated regional footprint diameter:', buffer_m)
     radius_m = buffer_m/2
     gdf['polygon'] = gdf.geometry.buffer(radius_m)
 
@@ -1401,8 +1403,8 @@ def determine_image_clusters(image_metadata,
     unmatched_files = hsfm.core.diff_lists(matched_files, file_names)
 
     # expand footprint radius for single images until the belong to a set
-    while len(unmatched_files) > 0 and radius_m < 10000:
-        print('Images not part of a cluster:', *unmatched_files, sep = "\n")
+    while len(unmatched_files) > 0 and radius_m < 40000:
+        print('Images not part of regional cluster:', *unmatched_files, sep = "\n")
         radius_m = radius_m + 500
         print('Increasing estimated footprint diameter to:', int(2*radius_m))
         gdf.loc[gdf[image_file_name_column].isin(unmatched_files),'polygon'] = \
@@ -1430,10 +1432,10 @@ def determine_image_clusters(image_metadata,
         unmatched_files = hsfm.core.diff_lists(matched_files, file_names)
             
     if len(unmatched_files) > 0:
-        print('WARNING: The following images are more than 10,000 m away from the nearest image.')
+        print('WARNING: The following images are more than 40 km away from the nearest image.')
         print(unmatched_files)
     else:
-        print('All images are part of a cluster.')
+        print('All images are part of a regional cluster.')
 
     clusters = hsfm.core.find_sets(matches)
     
