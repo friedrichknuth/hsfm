@@ -2,11 +2,14 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 import matplotlib.cbook as cbook
 import matplotlib.colors as mpl_colors
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib
 import numpy as np
 import pandas as pd
 import os
 from osgeo import gdal
 import rasterio
+from rasterio.plot import show
 
 import hsfm.io
 import hsfm.geospatial
@@ -122,7 +125,8 @@ def plot_dem_difference_map(masked_array,
         im = ax.imshow(masked_array,
                        cmap=cmap,
                        clim=(-spread, spread),
-                       extent=extent)
+                       extent=extent, 
+                       interpolation='none')
 
         return im
     
@@ -132,7 +136,8 @@ def plot_dem_difference_map(masked_array,
         im = ax.imshow(masked_array,
                        cmap=cmap,
                        clim=(-spread, spread),
-                       extent=extent)
+                       extent=extent, 
+                       interpolation='none')
 
         fig.colorbar(im,extend='both')
 
@@ -142,41 +147,56 @@ def plot_dem_difference_map(masked_array,
         else:
             fig.savefig(output_file_name, dpi=300)
         
-def plot_dem_difference_from_file_name(dem_difference_file_name,
-                                       output_file_name=None,
-                                       cmap='RdBu',
-                                       percentile_min=1,
-                                       percentile_max=99,
-                                       spread=None,
-                                       extent=None,
-                                       mask_glacier=False,
-                                       ax=None):
+def plot_dem_difference_from_file(dem_difference_file_name,
+                                  cmap='RdBu',
+                                  figsize= (5,5),
+                                  vmin = -2,
+                                  vmax = 2,
+                                  alpha=1,
+                                  output_file_name=None,
+                                  title = None,
+                                  ticks_off = False,
+                                 ):
                       
     """
     Function to plot difference map between two DEMs from file.
     """
-                                       
-    from demcoreg import dem_mask
+    src = rasterio.open(dem_difference_file_name,masked=True)
     
-    rasterio_dataset = rasterio.open(dem_difference_file_name)
-    array = rasterio_dataset.read(1)
-    nodata_value = rasterio_dataset.nodata
-    masked_array = hsfm.geospatial.mask_array_with_nan(array,
-                                                       nodata_value)
+    if not vmin or not vmax:
+        arr = src.read(1)
+        arr =hsfm.utils.replace_and_fill_nodata_value(arr, src.nodata, np.nan)
+        lowerbound, upperbound = np.nanpercentile(arr,[1,99])
+        spread = max([abs(lowerbound), abs(upperbound)])
+        vmin,vmax = -spread,spread
     
-    if mask_glacier == True:
-        ds = gdal.Open(dem_difference_file_name)
-        mask = dem_mask.get_icemask(ds)
-        masked_array = np.ma.array(masked_array,mask=~mask)
-        
-    plot_dem_difference_map(masked_array,
-                            output_file_name=output_file_name,
-                            cmap=cmap,
-                            percentile_min=percentile_min,
-                            percentile_max=percentile_max,
-                            spread=spread,
-                            extent=extent,
-                            ax=ax)
+    fig,ax = plt.subplots(figsize=figsize)
+    
+    ax.set(facecolor = 'black')
+    
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    cmap = plt.cm.get_cmap(cmap)
+    norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
+    cbar = matplotlib.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm, extend="both", alpha=alpha)
+    cbar.set_label(label='Elevation difference (m)', size=12)
+    
+    show(src,
+         ax=ax, 
+         vmin = vmin, 
+         vmax=2, 
+         cmap=cmap,
+         interpolation='none')
+    if ticks_off:
+        ax.set_xticks(())
+        ax.set_yticks(())
+    
+    if title:
+        ax.set_title(title)
+    if output_file_name == None:
+        plt.show()
+    else:
+        fig.savefig(output_file_name, dpi=300)
         
 def plot_dem_with_hillshade(masked_array,
                             output_file_name=None,
