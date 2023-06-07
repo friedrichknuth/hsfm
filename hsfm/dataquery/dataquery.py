@@ -16,11 +16,79 @@ import matplotlib.pyplot as plt
 import psutil
 import numpy as np
 import hsfm
+import pystac
+from pystac_client import Client
+import planetary_computer
+import rioxarray
 
 
-##### 3DEP AWS lidar #####
-# TODO
-# - make this a class to reduce passing redundant inputs
+def download_planetary_3DEP_DSM(time_range = "2000-12-01/2020-12-31",
+                                bbox = [-121.846, 48.7, -121.823, 48.76],
+                                output_folder = 'input_data',
+                                dsm_file_name = None,
+                                verbose=False
+                                ):
+    
+    # TODO add vertical crs transformation from NAD 83 to WGS 84 using geoutils
+    # ds = ds.rio.reproject(ds.rio.estimate_utm_crs()) does not adjust the vertical datum
+    
+    pathlib.Path(output_folder).mkdir(parents=True,
+                                      exist_ok=True)
+    
+    base_url = 'https://planetarycomputer.microsoft.com/api/stac/v1'
+    collection = '3dep-lidar-dsm'
+    if not dsm_file_name:
+        catalog = Client.open(base_url)
+        search = catalog.search(collections=[collection], bbox=bbox, datetime=time_range)
+        items = search.get_all_items()
+        if len(items) > 1:
+            print(len(items), 'DSMs found')
+            print('Please specify one of the following DSM file names')
+            for i in items:
+                url = i.assets['data'].href
+                dsm_file_name = url.split('/')[-1]
+                print(dsm_file_name)
+        else:
+            url = items[0].assets['data'].href
+            dsm_file_name = url.split('/')[-1]
+        
+    out = pathlib.Path(output_folder,dsm_file_name).as_posix()
+    item = pystac.Item.from_file('/'.join([base_url, 
+                                           'collections', 
+                                           collection, 
+                                           'items', 
+                                           dsm_file_name.split('.')[0]]))
+    
+    signed_item = planetary_computer.sign(item)
+    signed_item_url = signed_item.assets["data"].href
+    
+    ds = rioxarray.open_rasterio(signed_item_url)
+    
+    ds.rio.to_raster(out, compress='lzw')
+    
+
+    out_tmp = pathlib.Path(out).with_suffix('').as_posix()
+    
+    call = ['dem_geoid',
+            '--reverse-adjustment',
+            out, 
+            '-o', 
+            out_tmp]
+    hsfm.utils.run_command(call, verbose=verbose)
+    
+    out_tmp = pathlib.Path(out).with_suffix('').as_posix() + '-adj.tif'
+    
+    utm_epgs = ds.rio.estimate_utm_crs().to_epsg()
+    call = ['gdal_edit.py','-a_srs', 'EPSG:'+str(utm_epgs), out_tmp]
+    hsfm.utils.run_command(call, verbose=verbose)
+    
+    shutil.move(out_tmp, out)
+    
+    for i in list(pathlib.Path(out_tmp).parent.glob('*log-dem_geoid*.txt')):
+        i.unlink()
+
+    return out
+
 
 
 def process_3DEP_laz_to_DEM(

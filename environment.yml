@@ -33,6 +33,8 @@ dependencies:
   - py3dep
   - pypdf2
   - gdown
+  - pystac-client
+  - planetary-computer
   - pip:
     - elevation
     - "--editable=git+https://github.com/dshean/pygeotools.git#egg=pygeotools"

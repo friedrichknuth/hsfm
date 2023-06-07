@@ -824,7 +824,7 @@ def run_metashape(project_name,
                                     image_matching_accuracy = image_matching_accuracy,
                                     densecloud_quality      = densecloud_quality,
                                     rotation_enabled        = rotation_enabled,
-                                    overwrite            = overwrite)
+                                    overwrite               = overwrite)
     
     metashape_project_file, point_cloud_file = out
     
