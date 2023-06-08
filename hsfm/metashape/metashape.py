@@ -521,3 +521,52 @@ def determine_clusters(metashape_project_file):
     
     subsets = hsfm.core.find_sets(m)
     return subsets
+
+def combine_metadata_for_4D_SfM(output_path,
+                                project_name,
+                                rename_input_csvs = True,
+                                pattern='.csv',
+                                new_pattern='_initial.csv'
+                                ):
+    
+    out_dir = Path(output_path,
+                   project_name,
+                   'input_data/0000/00/00/sfm/cluster_000/')
+    print('creating 4D SfM directory\n'+out_dir.as_posix())
+    out_dir.mkdir(parents=True,
+                  exist_ok=True)
+    out_fn = Path(out_dir,'metashape_metadata.csv')
+    
+    inital_metadata_files = sorted(Path(output_path,
+                                    project_name).glob(
+                                    'input_data/[!0]*/*/*/sfm/cl*/metashape_metadata.csv'))
+    if inital_metadata_files:
+    
+        dfs = [pd.read_csv(i, dtype=object) for i in inital_metadata_files]
+        df = pd.concat(dfs).sort_values(by=['image_file_name']).reset_index(drop=True)
+
+        print('writing\n'+out_fn.as_posix())
+        df.to_csv(out_fn, index = False)
+
+        if rename_input_csvs:
+
+            msg = '\n'.join(['renaming input csv files with suffix ' +new_pattern,
+                   'only files names metashape_metadata.csv will be used for SfM processing.'])
+            print(msg)
+            rename_files(inital_metadata_files,
+                         pattern=pattern,
+                         new_pattern=new_pattern)
+
+    else:
+        print('no files found to rename matching input pattern',pattern)
+    
+def rename_files(files,
+                 pattern = '',
+                 new_pattern='',):
+    
+    for i in list(files):
+        tmp = Path(i).as_posix()
+        tmp = tmp.replace(pattern, new_pattern)    
+        shutil.move(i, tmp)
+        
+        
