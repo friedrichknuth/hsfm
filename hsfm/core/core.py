@@ -1638,18 +1638,19 @@ def check_image_dims(output_path,
             if ds.height != ds.width:
                 problematic_images.append((str(c),ds.height,ds.width))
         all_attributes = sorted(set(all_attributes))
-#         for i in all_attributes:
-#             print(*i)
         dates = sorted(set(dates))
         dims = sorted(set(dims))
         rolls = sorted(set(rolls))
         print(date, ' ', len(images), ' ', dims, rolls)
 
-    msg = '\n'.join(['The following images do not have square dimensions and must be reprocessed.',
+    if problematic_images:
+        msg = '\n'.join(['The following images do not have square dimensions and must be reprocessed.',
                      'See preprocessing qc plots for:'])
-    print(msg)
-    for i in problematic_images:
-        print(i)
+        print(msg)
+        for i in problematic_images:
+            print(i)
+    return problematic_images
+        
          
 def parse_date_from_path(path):
     base = '-'.join(str(path).split('input_data/')[-1].split('/')[:3])
