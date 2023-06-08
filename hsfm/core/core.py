@@ -6,13 +6,14 @@ from urllib.request import urlopen
 import cv2
 from skimage import exposure
 import shapely
+import rasterio
 import glob
 import os
 from osgeo import gdal
 import utm
 import itertools
 import geopandas as gpd
-import pathlib
+from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib._color_data as mcd
 import contextily as ctx
@@ -1463,14 +1464,14 @@ def determine_image_clusters(image_metadata,
         
         if isinstance(output_directory, type(str())):
             qc_output_directory = os.path.join(output_directory,'qc')
-            p = pathlib.Path(qc_output_directory)
+            p = Path(qc_output_directory)
             p.mkdir(parents=True, exist_ok=True)
             plt.savefig(os.path.join(qc_output_directory,'image_clusters.png'))
         
     if isinstance(output_directory, type(str())):
         for i,v in enumerate(clusters):
             outdir = os.path.join(output_directory, 'cluster_' + str(i).zfill(3))
-            p = pathlib.Path(outdir)
+            p = Path(outdir)
             p.mkdir(parents=True, exist_ok=True)
 
             tmp = gdf[gdf[image_file_name_column].isin(v)].copy()
@@ -1491,7 +1492,7 @@ def determine_image_clusters(image_metadata,
                 for i in tmp[image_file_name_column].values:
                     images.append(os.path.join(image_directory,i+'.tif'))
 
-                p = pathlib.Path(os.path.join(outdir,'images'))
+                p = Path(os.path.join(outdir,'images'))
                 p.mkdir(parents=True, exist_ok=True)
 
                 for i in images:
@@ -1600,3 +1601,64 @@ def select_strings_with_sub_strings(strings_list, sub_strings_list):
 
 def diff_lists(list1, list2):
     return (list(list(set(list1)-set(list2)) + list(set(list2)-set(list1))))
+
+def check_image_dims(output_path,
+                     project_name,
+                    ):
+    
+    cropped_images = sorted(Path(output_path,
+                                 project_name).glob('input_data/*/*/*/*cropped*/*.tif'))
+    
+    cropped_image_dirs = sorted(Path(output_path,
+                                     project_name).glob('input_data/*/*/*/*cropped*/'))
+    
+    dates = []
+    problematic_images = []
+    print('date', 'image_ct', 'square_dim', 'roll')
+
+    for d in cropped_image_dirs:
+        all_attributes = []
+        images = sorted(Path(d).glob('*.tif'))
+        dims = []
+        rolls = []
+        for c in images:
+            date = parse_date_from_path(c)
+#             print(date)
+            ds = rasterio.open(c)
+            base = Path(c).stem
+            roll = '_'.join(base.split('_')[:2])
+            
+            all_attributes.append((date, 
+                                   len(images),
+                                   ds.width,
+                                   roll))
+            rolls.append(roll)
+            dates.append(date)
+            dims.append(ds.width)
+            if ds.height != ds.width:
+                problematic_images.append((str(c),ds.height,ds.width))
+        all_attributes = sorted(set(all_attributes))
+#         for i in all_attributes:
+#             print(*i)
+        dates = sorted(set(dates))
+        dims = sorted(set(dims))
+        rolls = sorted(set(rolls))
+        print(date, ' ', len(images), ' ', dims, rolls)
+
+    msg = '\n'.join(['The following images do not have square dimensions and must be reprocessed.',
+                     'See preprocessing qc plots for:'])
+    print(msg)
+    for i in problematic_images:
+        print(i)
+         
+def parse_date_from_path(path):
+    base = '-'.join(str(path).split('input_data/')[-1].split('/')[:3])
+    if 'V' in base:
+        year = '19' + base.split('V')[0]
+    if 'A' in base:
+        year = '19' + base.split('AP')[1].split('V')[0]
+    elif 'EE' in base:
+        year = base.split('EE_')[1].split('-')[0]
+    month_day = base.split('-',1)[-1]
+    date = year+'-'+month_day
+    return date
