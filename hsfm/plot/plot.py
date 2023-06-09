@@ -318,8 +318,7 @@ def plot_offsets(LE90,
     plt.suptitle(title,size=20)
     plt.tight_layout()
     plt.subplots_adjust(top=0.85)
-    if not isinstance(plot_file_name, type(None)):
+    if plot_file_name:
         plt.savefig(plot_file_name, bbox_inches='tight', pad_inches=0,dpi=300)
     
-    else:
-        plt.show()
+    plt.close()

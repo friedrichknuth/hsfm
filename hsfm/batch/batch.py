@@ -556,6 +556,7 @@ def NAGAP_pre_process_images(project_name,
                              missing_proxy       = None,
                              keep_raw            = True,
                              download_images     = True,
+                             preprocess_images   = True,
                              image_square_dim    = None,
                              stretch_histogram   = True,
                              clahe_enhancement   = True,
@@ -616,6 +617,7 @@ def NAGAP_pre_process_images(project_name,
                                                          threshold_px    = threshold_px,
                                                          keep_raw        = keep_raw,
                                                          download_images = download_images,
+                                                         preprocess_images = preprocess_images,
                                                          image_square_dim = image_square_dim,
                                                          stretch_histogram = stretch_histogram,
                                                          clahe_enhancement = clahe_enhancement,
@@ -638,6 +640,7 @@ def NAGAP_pre_process_images(project_name,
                                                      threshold_px  = threshold_px,
                                                      keep_raw      = keep_raw,
                                                      download_images = download_images,
+                                                     preprocess_images = preprocess_images,
                                                      image_square_dim = image_square_dim,
                                                      stretch_histogram = stretch_histogram,
                                                      clahe_enhancement = clahe_enhancement,
@@ -656,6 +659,7 @@ def NAGAP_pre_process_images(project_name,
                                              threshold_px  = threshold_px,
                                              keep_raw      = keep_raw,
                                              download_images = download_images,
+                                             preprocess_images = preprocess_images,
                                              image_square_dim = image_square_dim,
                                              stretch_histogram = stretch_histogram,
                                              clahe_enhancement = clahe_enhancement,
@@ -674,6 +678,7 @@ def NAGAP_pre_process_set(df,
                           threshold_px        = 50,
                           keep_raw            = True,
                           download_images     = True,
+                          preprocess_images   = True,
                           image_square_dim    = None,
                           stretch_histogram   = True,
                           clahe_enhancement   = True):
@@ -684,11 +689,13 @@ def NAGAP_pre_process_set(df,
         for i,v in enumerate(template_types):
             df_tmp = df[df['fiducial_proxy_type']  == v].copy()
             if not df_tmp.empty and len(df_tmp.index) > 2:
-                if download_images == True :
-                    image_directory = hipp.dataquery.NAGAP_download_images_to_disk(
-                                                     df_tmp,
-                                                     output_directory=os.path.join(output_directory,
-                                                                                   v+'_raw_images'))
+                print(str(len(df_tmp)),'images found with marker type',v)
+                image_directory = os.path.join(output_directory,v+'_raw_images')
+                if download_images:
+                    hipp.dataquery.NAGAP_download_images_to_disk(
+                        df_tmp,
+                        output_directory=image_directory)
+                if preprocess_images:
                     template_directory = template_dirs[i]
                     image_square_dim = hipp.batch.preprocess_with_fiducial_proxies(
                                                   image_directory,
@@ -709,10 +716,10 @@ def NAGAP_pre_process_set(df,
                                                   clahe_enhancement = clahe_enhancement,
 
                     )
-                    if keep_raw == False:
-                        shutil.rmtree(image_directory)
+                if not keep_raw:
+                    shutil.rmtree(image_directory)
 
-                if isinstance(focal_length, type(None)):
+                if not focal_length:
                     focal_length = df_tmp['focal_length'].values[0]
                 hsfm.core.determine_image_clusters(df_tmp,
 #                                                    image_square_dim = image_square_dim,
@@ -720,7 +727,7 @@ def NAGAP_pre_process_set(df,
                                                    focal_length     = focal_length,
                                                    output_directory = os.path.join(output_directory,'sfm'),
                                                    buffer_m         = buffer_m)
-            elif len(df_tmp.index) <= 2:
+            elif len(df_tmp.index) <= 2 and len(df_tmp.index) !=0:
                 print("Only",str(len(df_tmp)),'images found. Skipping.')
                 
 
@@ -999,7 +1006,7 @@ def metaflow(project_name,
              verbose                 = False,
              cleanup                 = False,
              check_subsets           = True,
-             attempts_to_adjust_cams = 2,
+             attempts_to_adjust_cams = 0,
              overwrite               = False):
 
     if not isinstance(metashape_licence_file, type(None)):
@@ -1296,7 +1303,7 @@ def batch_process(project_name,
                   metashape_licence_file  = '/opt/metashape-pro/uw_agisoft.lic',
                   verbose                 = True,
                   cleanup                 = True,
-                  attempts_to_adjust_cams = 2,
+                  attempts_to_adjust_cams = 0,
                   check_subsets           = True,
                   overwrite               = False):
     
