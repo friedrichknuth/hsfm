@@ -1448,7 +1448,7 @@ def determine_image_clusters(image_metadata,
             c.plot(ax=ax,alpha=0.5,color=cycle[i])
             
             # label cluster
-            p = gpd.GeoSeries(shapely.ops.cascaded_union(c['polygon']))
+            p = gpd.GeoSeries(shapely.ops.unary_union(c['polygon']))
             p = (p.representative_point().x[0], p.representative_point().y[0])
             ax.annotate(str(i).zfill(3),
                         xy=p,
@@ -1466,7 +1466,9 @@ def determine_image_clusters(image_metadata,
             qc_output_directory = os.path.join(output_directory,'qc')
             p = Path(qc_output_directory)
             p.mkdir(parents=True, exist_ok=True)
-            plt.savefig(os.path.join(qc_output_directory,'image_clusters.png'))
+            
+            plt.savefig(os.path.join(qc_output_directory,'regional_image_clusters.png'))
+        plt.close()
         
     if isinstance(output_directory, type(str())):
         for i,v in enumerate(clusters):
@@ -1583,11 +1585,12 @@ def get_DEM_resolution_from_report_GSD(metashape_report_pdf,
     print("GSD multiplication factor:", factor)
 
     if 'cm' in res_with_units:
-        res = float(res_with_units.split(' ')[0])/100
+        res_cm = hsfm.io.find_number_in_string(res_with_units)[0]
+        res_m = res_cm/100
     else:
-        res = float(res_with_units.split(' ')[0])
+        res_m = hsfm.io.find_number_in_string(res_with_units)[0]
 
-    DEM_res = round(res*factor,1)
+    DEM_res = round(res_m*factor,1)
     print("DEM resolution:", DEM_res)
     return float(DEM_res)
 
@@ -1612,44 +1615,48 @@ def check_image_dims(output_path,
     cropped_image_dirs = sorted(Path(output_path,
                                      project_name).glob('input_data/*/*/*/*cropped*/'))
     
-    dates = []
+    dates_all = []
+    img_count_all = []
+    dims_all = []
+    rolls_all = []
+    
     problematic_images = []
-    print('date', 'image_ct', 'square_dim', 'roll')
+    problematic_image_dirs = []
 
     for d in cropped_image_dirs:
-        all_attributes = []
         images = sorted(Path(d).glob('*.tif'))
+        dates = []
         dims = []
         rolls = []
         for c in images:
             date = parse_date_from_path(c)
-#             print(date)
             ds = rasterio.open(c)
             base = Path(c).stem
             roll = '_'.join(base.split('_')[:2])
-            
-            all_attributes.append((date, 
-                                   len(images),
-                                   ds.width,
-                                   roll))
             rolls.append(roll)
             dates.append(date)
             dims.append(ds.width)
             if ds.height != ds.width:
                 problematic_images.append((str(c),ds.height,ds.width))
-        all_attributes = sorted(set(all_attributes))
-        dates = sorted(set(dates))
-        dims = sorted(set(dims))
-        rolls = sorted(set(rolls))
-        print(date, ' ', len(images), ' ', dims, rolls)
+        dates_all.append(sorted(set(dates)))
+        img_count_all.append(len(images))
+        dims_all.append(sorted(set(dims)))
+        rolls_all.append(sorted(set(rolls)))
 
+    df = pd.DataFrame({'date': dates_all, 
+                       'image_count': img_count_all, 
+                       'image_square_dims': dims_all, 
+                       'roll': rolls_all
+                      })
+    
     if problematic_images:
-        msg = '\n'.join(['The following images do not have square dimensions and must be reprocessed.',
+        problematic_image_dirs = sorted(set([Path(i[0]).parent.parent.as_posix() for i in problematic_images]))
+        msg = '\n'.join(['WARNING: The following images do not have square dimensions and must be reprocessed.',
                      'See preprocessing qc plots for:'])
         print(msg)
         for i in problematic_images:
             print(i)
-    return problematic_images
+    return problematic_image_dirs, df
         
          
 def parse_date_from_path(path):
