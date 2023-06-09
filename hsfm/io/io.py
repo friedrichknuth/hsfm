@@ -1,5 +1,7 @@
 import os
 import glob
+from pathlib import Path
+import re
 import shutil
 from  contextlib import contextmanager,redirect_stderr,redirect_stdout
 
@@ -17,6 +19,9 @@ def redirect_stdout_stderr(stdout_fn=None,
     Writes stdout and/or stderr to file.
     Use os.devnull as the file name to silence entirely.
     '''
+    Path(stdout_fn).parent.mkdir(parents=True, exist_ok=True)
+    Path(stderr_fn).parent.mkdir(parents=True, exist_ok=True)
+    
     if stdout_fn and stderr_fn:
         with open(stdout_fn, 'w') as stdout, open(stderr_fn, 'w') as stderr:
             with redirect_stdout(stdout) as out, redirect_stderr(stderr) as err:
@@ -132,3 +137,6 @@ def retrieve_match(pattern, file_list):
     for i in file_list:
         if pattern in i:
             return i
+def find_number_in_string(string):
+    numbers = [float(n) for n in re.findall(r"[-+]?\d*\.?\d+|[-+]?\d+",string)]
+    return numbers
