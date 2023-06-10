@@ -3,7 +3,7 @@ import glob
 from pathlib import Path
 import re
 import shutil
-from  contextlib import contextmanager,redirect_stderr,redirect_stdout
+from contextlib import contextmanager,redirect_stderr,redirect_stdout
 
 """
 Basic io functions.

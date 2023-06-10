@@ -7,6 +7,7 @@ from shapely import wkt
 import geopandas as gpd
 import numpy as np
 import shutil
+import traceback
 
 import hsfm
 
@@ -48,9 +49,9 @@ def images2las(project_name,
 
     try:
         import Metashape
-    except:
+    except Exception as e:
         print('\nCould not import Metashape python library. Check your licence and installation.\n')
-        sys.exit(0)
+        print(traceback.format_exc())
     
     # PROJECT SETUP
     
@@ -61,9 +62,9 @@ def images2las(project_name,
     else:
         try:
             os.makedirs(output_path)
-        except:
+        except Exception as e:
             print('\nDirectory exists:',output_path, '\nPlease remove or rename it.\n')
-            sys.exit(0) 
+            print(traceback.format_exc())
     
     metashape_project_file = os.path.join(output_path, project_name  + ".psx")
     report_file            = os.path.join(output_path, project_name  + "_report.pdf")
@@ -255,7 +256,11 @@ def oc32dem(project_name,
             split_in_blocks = False,
             resolution = 2):
             
-    import Metashape
+    try:
+        import Metashape
+    except Exception as e:
+        print('\nCould not import Metashape python library. Check your licence and installation.\n')
+        print(traceback.format_exc())
 
     doc = Metashape.Document()
     doc.open(output_path + project_name + ".psx")
@@ -284,7 +289,11 @@ def images2ortho(project_name,
                  split_in_blocks = False,
                  iteration       = 0):
                  
-    import Metashape
+    try:
+        import Metashape
+    except Exception as e:
+        print('\nCould not import Metashape python library. Check your licence and installation.\n')
+        print(traceback.format_exc())
     
     ortho_file = os.path.join(output_path, project_name  +"_orthomosaic.tif")
 
@@ -367,7 +376,11 @@ def image_footprints_from_project(project_file_path, points_per_side = 25):
 
 def get_estimated_camera_centers(metashape_project_file):
     
-    import Metashape
+    try:
+        import Metashape
+    except Exception as e:
+        print('\nCould not import Metashape python library. Check your licence and installation.\n')
+        print(traceback.format_exc())
     
     doc = Metashape.Document()
     doc.open(metashape_project_file)
@@ -467,7 +480,12 @@ def update_ba_camera_metadata(metashape_project_file,
     return ba_cameras_df, unaligned_cameras_df
 
 def determine_clusters(metashape_project_file):
-    import Metashape
+    
+    try:
+        import Metashape
+    except Exception as e:
+        print('\nCould not import Metashape python library. Check your licence and installation.\n')
+        print(traceback.format_exc())
     
     print('Determining if seperate image cluster subsets present.')
     
@@ -562,11 +580,85 @@ def combine_metadata_for_4D_SfM(output_path,
     
 def rename_files(files,
                  pattern = '',
-                 new_pattern='',):
+                 new_pattern='',
+                 copy = False):
     
     for i in list(files):
         tmp = Path(i).as_posix()
         tmp = tmp.replace(pattern, new_pattern)    
-        shutil.move(i, tmp)
+        if copy:
+            shutil.copy2(i, tmp)
+        else:
+            shutil.move(i, tmp)
         
+def update_camera_postion_metadata_after_4D_SfM(updated_cameras_csv,
+                                                inital_cameras_csvs,
+                                                pattern = '_initial.csv',
+                                                new_pattern='_4D.csv',
+                                                verbose = False):
+    if verbose:
+        print('Writing updated metadata files:')
         
+    unaligned_images = []
+    df_good_cams = pd.read_csv(updated_cameras_csv, dtype=object)
+    for m in inital_cameras_csvs:
+
+        df = pd.read_csv(m, dtype=object)
+
+        image_file_names = df['image_file_name'].str.split('.').str[0]
+#         print(df.iloc[0].alt)
+#         print(len(df))
+
+        for fn in image_file_names:
+            try:
+                df.loc[df['image_file_name'].str.split('.').str[0] == fn, 'lon'] = \
+                df_good_cams.loc[df_good_cams['image_file_name'].str.split('.').str[0] == fn, 'lon'].values
+
+                df.loc[df['image_file_name'].str.split('.').str[0] == fn, 'alt'] = \
+                df_good_cams.loc[df_good_cams['image_file_name'].str.split('.').str[0] == fn, 'alt'].values
+
+                df.loc[df['image_file_name'].str.split('.').str[0] == fn, 'lat'] = \
+                df_good_cams.loc[df_good_cams['image_file_name'].str.split('.').str[0] == fn, 'lat'].values
+
+            except:
+                unaligned_images.append(fn)
+                continue
+
+#         print(df.iloc[0].alt)
+#         print(len(df))
+
+        out = str(m).replace(pattern, new_pattern)
+        if verbose:
+            print(out)
+        df.to_csv(out,index=False)
+    if verbose:
+        print('The following images were not aligned during multitemporal bundle adjustment')
+        for i in unaligned_images:
+            print(i)
+        print('Their positions are unchanged')
+        
+def export_camera_models(metashape_4D_SfM_project_file,
+                         camera_models_dir,
+                         verbose=True):
+    
+    camera_models_dir = Path(camera_models_dir)
+    camera_models_dir.mkdir(parents=True, exist_ok=True)
+    if verbose:
+        print('Exporting camera models to')
+    
+    try:
+        import Metashape
+    except Exception as e:
+        print('\nCould not import Metashape python library. Check your licence and installation.\n')
+        print(traceback.format_exc())
+        
+    doc = Metashape.Document()
+    doc.open(str(metashape_4D_SfM_project_file))
+    doc.read_only = False
+
+    chunk = doc.chunk
+
+    for cam in chunk.cameras:
+        out = Path(camera_models_dir, cam.label +'.xml')
+        cam.sensor.calibration.save(str(out))
+        print(out)
