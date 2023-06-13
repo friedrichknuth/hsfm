@@ -283,11 +283,10 @@ def oc32dem(project_name,
                        split_in_blocks = split_in_blocks,
                        resolution=resolution)
 
-def images2ortho(project_name,
-                 output_path,
+def images2ortho(project_file,
+                 ortho_file      = None,
                  build_dem       = True,
-                 split_in_blocks = False,
-                 iteration       = 0):
+                 split_in_blocks = False):
                  
     try:
         import Metashape
@@ -295,10 +294,11 @@ def images2ortho(project_name,
         print('\nCould not import Metashape python library. Check your licence and installation.\n')
         print(traceback.format_exc())
     
-    ortho_file = os.path.join(output_path, project_name  +"_orthomosaic.tif")
+    if not ortho_file:
+        ortho_file = Path(project_file).with_suffix('').as_posix()+'_orthomosaic.tif'
 
     doc = Metashape.Document()
-    doc.open(output_path + project_name + ".psx")
+    doc.open(project_file)
     doc.read_only = False
 
     chunk = doc.chunk
@@ -313,6 +313,7 @@ def images2ortho(project_name,
     chunk.exportRaster(ortho_file,
                        source_data= Metashape.OrthomosaicData,
                        split_in_blocks = split_in_blocks)
+    return ortho_file
     
 def generate_points_along_border(sensor, steps=10):
     top_side_coords = [ 
@@ -337,7 +338,12 @@ def image_footprints_from_project(project_file_path, points_per_side = 25):
         [DataFrame]: Columns include image file name (without the .tif extension) and a 
         geometry representing the image footprint on the SfM surface.
     """
-    import Metashape
+    try:
+        import Metashape
+    except Exception as e:
+        print('\nCould not import Metashape python library. Check your licence and installation.\n')
+        print(traceback.format_exc())
+    
     doc = Metashape.Document()
     doc.open(project_file_path)
     chunk = doc.chunk
@@ -434,7 +440,8 @@ def get_estimated_camera_centers(metashape_project_file):
 
 def update_ba_camera_metadata(metashape_project_file, 
                               metashape_metadata_csv,
-                              image_file_extension = '.tif'):
+                              image_file_extension = '.tif',
+                              bundle_adjusted_metadata_file = None):
     '''
     Returns dataframe with bundle adjusted camera positions and camera positions for cameras
     that were not able to be aligned.
@@ -476,6 +483,9 @@ def update_ba_camera_metadata(metashape_project_file,
     
     unaligned_cameras_df = metashape_metadata_df[metashape_metadata_df['image_file_name'].isin(unaligned_cameras_file_names)]
     unaligned_cameras_df = unaligned_cameras_df.reset_index(drop=True)
+    
+    if bundle_adjusted_metadata_file:
+        ba_cameras_df.to_csv(bundle_adjusted_metadata_file, index = False)
     
     return ba_cameras_df, unaligned_cameras_df
 
@@ -662,3 +672,30 @@ def export_camera_models(metashape_4D_SfM_project_file,
         out = Path(camera_models_dir, cam.label +'.xml')
         cam.sensor.calibration.save(str(out))
         print(out)
+        
+def update_metashape_cameras_after_transform(project_file,
+                                             updated_camera_positions_csv):
+
+    try:
+        import Metashape
+    except Exception as e:
+        print('\nCould not import Metashape python library. Check your licence and installation.\n')
+        print(traceback.format_exc())
+        
+    doc = Metashape.Document()
+    doc.open(project_file)
+    doc.read_only = False
+
+    chunk = doc.chunk
+
+    chunk.importReference(updated_camera_positions_csv,
+                          columns="nxyzXYZabcABC", # from metashape py api docs
+                          delimiter=',',
+                          format=Metashape.ReferenceFormatCSV)
+
+    chunk.updateTransform()
+
+    chunk.dense_cloud.crs = chunk.crs
+    chunk.dense_cloud.transform = chunk.transform.matrix
+    
+    doc.save()

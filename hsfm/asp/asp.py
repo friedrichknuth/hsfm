@@ -176,29 +176,20 @@ def parallel_stereo_custom(first_image,
         print('Parallel stereo results saved in', stereo_output_directory)
         return stereo_output_directory
     
-def dem_mosaic_custom(output_directory,
-                      verbose=False,
-                      print_asp_call=False):
+def dem_mosaic_custom(dem_file_paths,
+                      mosaic_output_file,
+                      verbose=False):
     """
     Function to run ASP dem_mosaic.
     """
-    output_file = os.path.join(output_directory,'mosaic.tif')
-    
-    stereo_output_directory = os.path.join(output_directory, 'stereo/stereo_run')
-    
-    dems = glob.glob(os.path.join(stereo_output_directory,'*','*-DEM.tif'))
     
     call = ['dem_mosaic']
-    call.extend(dems)
-    call.extend(['-o', output_file])
+    call.extend(dem_file_paths)
+    call.extend(['-o', mosaic_output_file])
 
-    if print_asp_call==True:
-        print(*call)
-        
-    else:
-        hsfm.utils.run_command(call, verbose=verbose)
-        
-        return output_file
+    hsfm.utils.run_command(call, verbose=verbose)
+    
+    return mosaic_output_file,
 
 def generate_match_points(image_directory,
                           camera_directory,
