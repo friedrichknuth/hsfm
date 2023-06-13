@@ -727,6 +727,18 @@ def NAGAP_pre_process_set(df,
                                                    focal_length     = focal_length,
                                                    output_directory = os.path.join(output_directory,'sfm'),
                                                    buffer_m         = buffer_m)
+              
+              ## TODO make regional cluster detection optional
+#             hsfm.core.prepare_metashape_metadata(df_tmp,
+#                                                  output_directory                = os.path.join(output_directory,'sfm'),
+#                                                  focal_length                    = focal_length,
+#                                                  pixel_pitch                     = pixel_pitch,
+#                                                  image_file_name_column          = 'fileName',
+#                                                  image_metadata_longitude_column = 'Longitude',
+#                                                  image_metadata_latitude_column  = 'Latitude',
+#                                                  image_metadata_altitude_column  = 'Altitude',
+#             )
+
             elif len(df_tmp.index) <= 2 and len(df_tmp.index) !=0:
                 print("Only",str(len(df_tmp)),'images found. Skipping.')
                 
@@ -825,8 +837,8 @@ def run_metashape(project_name,
     now = datetime.now()
     
     output_path = output_path.rstrip('/') + str(iteration)
-    bundle_adjusted_metadata_file = os.path.join(output_path,"bundle_adjusted_metadata.csv")
-    aligned_bundle_adjusted_metadata_file = os.path.join(output_path,"aligned_bundle_adjusted_metadata.csv")
+    bundle_adjusted_metadata_file = Path(output_path,"bundle_adjusted_metadata.csv").as_posix()
+    aligned_bundle_adjusted_metadata_file = Path(output_path,"aligned_bundle_adjusted_metadata.csv").as_posix()
     
     if os.path.exists(reference_dem):
         pass
@@ -852,8 +864,8 @@ def run_metashape(project_name,
     metashape_project_file, point_cloud_file = out
     
     ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file,
-                                                                                   images_metadata_file)
-    ba_cameras_df.to_csv(bundle_adjusted_metadata_file, index = False)
+                                                                                   images_metadata_file,
+                                                                                   bundle_adjusted_metadata_file)
 
     x_offset, y_offset, z_offset = hsfm.core.compute_point_offsets(images_metadata_file, 
                                                                    bundle_adjusted_metadata_file)
@@ -870,13 +882,13 @@ def run_metashape(project_name,
                                title = 'Initial vs Bundle Adjusted',
                                plot_file_name = os.path.join(output_path, 'qc_ba_ce90le90.png'))
 
-    if isinstance(output_DEM_resolution, type(None)):
+    if not output_DEM_resolution:
         print('No DEM output resolution specified.')
         print('Using Ground Sample Distance from metashape report.') 
         metashape_report = metashape_project_file.replace('.psx','_report.pdf')
         output_DEM_resolution = hsfm.core.get_DEM_resolution_from_report_GSD(metashape_report)
     
-    elif isinstance(output_DEM_resolution, type(None)) and not isinstance(focal_length, type(None)):
+    elif not output_DEM_resolution and focal_length:
         print('No DEM output resolution specified.')
         print('Using Ground Sample Distance from mean camera altitude above ground to estimate.') 
         output_DEM_resolution = hsfm.core.estimate_DEM_resolution_from_GSD(images_metadata_file, 
@@ -885,7 +897,7 @@ def run_metashape(project_name,
         
         output_DEM_resolution = densecloud_quality * output_DEM_resolution
         print('DEM resolution factored by densecloud quality setting:',output_DEM_resolution)
-    elif isinstance(output_DEM_resolution, type(None)) and isinstance(focal_length, type(None)):
+    elif not output_DEM_resolution and not focal_length:
         print('No DEM output resolution specified. No focal length specified.')
         print('Cannot compute GSD to estimate an optimal DEM resolution without a focal length.')
         print('Setting output DEM resolution to 10 m. You can regrid the las file to a higher resolution as desired.')
@@ -954,9 +966,9 @@ def run_metashape(project_name,
         
         if dem_align_all:
             dem_align_output_path,_,_ = hsfm.io.split_file(aligned_dem_file)
-            hsfm.utils.dem_align_custom(reference_dem,
-                                        aligned_dem_file,
-                                        verbose = verbose)
+            dem_difference_file , aligned_dem_file = hsfm.utils.dem_align_custom(reference_dem,
+                                                                                 aligned_dem_file,
+                                                                                 verbose = verbose)
         
         return output
 
@@ -964,14 +976,13 @@ def run_metashape(project_name,
 
     else:
         dem_align_output_path,_,_ = hsfm.io.split_file(dem)
-        hsfm.utils.dem_align_custom(reference_dem,
-                                    dem,
-                                    verbose = verbose)
+        dem_difference_file , aligned_dem_file = hsfm.utils.dem_align_custom(reference_dem,
+                                                                             dem,
+                                                                             verbose = verbose)
         if generate_ortho:
             ortho_output_path,_,_ = hsfm.io.split_file(dem)
-
-            hsfm.metashape.images2ortho(project_name,
-                                        ortho_output_path)
+            project_file = ortho_output_path + project_name + ".psx"
+            hsfm.metashape.images2ortho(project_file)
         
         output = [bundle_adjusted_metadata_file, 
                   ba_CE90, 
@@ -993,7 +1004,7 @@ def metaflow(project_name,
              images_metadata_file,
              reference_dem,
              output_path,
-             pixel_pitch,
+             pixel_pitch             = None,
              focal_length            = None,
              plot_LE90_CE90          = True,
              camera_model_xml_files  = None,
@@ -1013,7 +1024,7 @@ def metaflow(project_name,
         hsfm.metashape.authentication(metashape_licence_file)
         
     # read from metadata file if not specified
-    if isinstance(focal_length, type(None)) and isinstance(camera_model_xml_files, type(None)):
+    if not focal_length and not camera_model_xml_files:
         try:
             df_tmp        = pd.read_csv(images_metadata_file)
             focal_lengths = df_tmp['focal_length'].values
@@ -1028,7 +1039,7 @@ def metaflow(project_name,
         except:
             print('No focal length specified in metadata csv file.')
             pass
-    if isinstance(pixel_pitch, type(None)) and isinstance(camera_model_xml_files, type(None)):
+    if not pixel_pitch and not camera_model_xml_files:
         try:
             df_tmp        = pd.read_csv(images_metadata_file)
             pixel_pitches = df_tmp['pixel_pitch'].values
@@ -1318,7 +1329,7 @@ def batch_process(project_name,
     image_files = os.path.join(output_directory,'*','*','*','*cropped_images','*.tif')
     image_files = sorted(glob.glob(image_files))
     
-    input_directories = os.path.join(output_directory,'*','*','*','sfm/cl*')
+    input_directories = os.path.join(output_directory,'*','*','*','sfm/regional_cl*')
     batches = sorted(glob.glob(input_directories))
     camera_model_xml_files = sorted(glob.glob(os.path.join(output_directory,'camera_models','*.xml')))
     if len(camera_model_xml_files) ==0:
