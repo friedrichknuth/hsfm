@@ -178,13 +178,16 @@ def parallel_stereo_custom(first_image,
     
 def dem_mosaic_custom(dem_file_paths,
                       mosaic_output_file,
-                      verbose=False):
+                      verbose=False,
+                      args = None):
     """
     Function to run ASP dem_mosaic.
     """
     
     call = ['dem_mosaic']
     call.extend(dem_file_paths)
+    if args:
+        call.extend(list(args))
     call.extend(['-o', mosaic_output_file])
 
     hsfm.utils.run_command(call, verbose=verbose)
