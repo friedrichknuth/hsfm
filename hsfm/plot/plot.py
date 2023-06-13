@@ -148,28 +148,35 @@ def plot_dem_difference_map(masked_array,
         else:
             fig.savefig(output_file_name, dpi=300)
         
-def plot_dem_difference_from_file(dem_difference_file_name,
-                                  cmap='RdBu',
-                                  figsize= (5,5),
-                                  vmin = -2,
-                                  vmax = 2,
-                                  alpha=1,
-                                  output_file_name=None,
-                                  title = None,
-                                  ticks_off = False,
-                                 ):
+def plot_tif_from_file(tif_file_name,
+                       label = 'Variable (units)',
+                       cmap='viridis',
+                       figsize= (5,5),
+                       vmin = None,
+                       vmax = None,
+                       difference_map = False,
+                       extend = 'both',
+                       alpha=1,
+                       output_file_name=None,
+                       title = None,
+                       ticks_off = True,
+                     ):
                       
     """
     Function to plot difference map between two DEMs from file.
     """
-    src = rasterio.open(dem_difference_file_name,masked=True)
+    src = rasterio.open(tif_file_name,masked=True)
     
-    if not vmin or not vmax:
+    if not vmin and not vmax:
         arr = src.read(1)
-        arr =hsfm.utils.replace_and_fill_nodata_value(arr, src.nodata, np.nan)
-        lowerbound, upperbound = np.nanpercentile(arr,[1,99])
-        spread = max([abs(lowerbound), abs(upperbound)])
-        vmin,vmax = -spread,spread
+        arr = np.ma.masked_where(arr == src.nodata, arr).compressed()
+#             arr = hsfm.utils.replace_and_fill_nodata_value(arr, src.nodata, np.nan)
+        vmin,vmax = np.nanpercentile(arr,[1,99])
+        if difference_map:
+            spread = max([abs(vmin), abs(vmax)])
+            vmin,vmax = -spread,spread
+#         print('vmin:',vmin)
+#         print('vmax:',vmax)
     
     fig,ax = plt.subplots(figsize=figsize)
     
@@ -179,8 +186,8 @@ def plot_dem_difference_from_file(dem_difference_file_name,
     cax = divider.append_axes("right", size="5%", pad=0.05)
     cmap = plt.cm.get_cmap(cmap)
     norm = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax)
-    cbar = matplotlib.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm, extend="both", alpha=alpha)
-    cbar.set_label(label='Elevation difference (m)', size=12)
+    cbar = matplotlib.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm, extend=extend, alpha=alpha)
+    cbar.set_label(label= label, size=12)
     
     show(src,
          ax=ax, 
