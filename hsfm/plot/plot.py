@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 from matplotlib.patches import Ellipse
 import matplotlib.cbook as cbook
 import matplotlib.colors as mpl_colors
@@ -184,8 +185,8 @@ def plot_dem_difference_from_file(dem_difference_file_name,
     show(src,
          ax=ax, 
          vmin = vmin, 
-         vmax=2, 
-         cmap=cmap,
+         vmax = vmax, 
+         cmap = cmap,
          interpolation='none')
     if ticks_off:
         ax.set_xticks(())
@@ -322,3 +323,18 @@ def plot_offsets(LE90,
         plt.savefig(plot_file_name, bbox_inches='tight', pad_inches=0,dpi=300)
     
     plt.close()
+
+def plot_image_from_file(file_path,
+                         figsize=(20,10)):
+    '''
+    Helper function to plot large image files.
+    Matplotlib automatically resamples for display.
+    This reduces document file size and git overhead.
+    '''
+    img = mpimg.imread(file_path)
+    
+    fig,ax = plt.subplots(figsize=figsize)
+    ax.imshow(img,)
+    ax.axis('off')
+                         
+                         
