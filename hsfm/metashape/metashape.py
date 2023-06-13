@@ -284,9 +284,15 @@ def oc32dem(project_name,
                        resolution=resolution)
 
 def images2ortho(project_file,
+                 epsg_code,
                  ortho_file      = None,
                  build_dem       = True,
-                 split_in_blocks = False):
+                 build_ortho     = True,
+                 export_ortho    = True,
+                 split_in_blocks = False,
+                 cleanup         = False,
+                 overwrite       = False,
+                 verbose         = False):
                  
     try:
         import Metashape
@@ -296,6 +302,18 @@ def images2ortho(project_file,
     
     if not ortho_file:
         ortho_file = Path(project_file).with_suffix('').as_posix()+'_orthomosaic.tif'
+        
+    ortho_utm_out = Path(project_file).with_suffix('').as_posix()+'_orthomosaic_utm.tif'
+    ortho_utm_b1_out = Path(project_file).with_suffix('').as_posix()+'_orthomosaic_utm_b1.tif'
+    tmp_dir = Path(Path(project_file).parent, 'ortho_blocks')
+        
+    if overwrite:
+        Path(ortho_file).unlink(missing_ok=True)
+        Path(ortho_utm_out).unlink(missing_ok=True)
+        Path(ortho_utm_b1_out).unlink(missing_ok=True)
+        [x.unlink(missing_ok=True) for x in sorted(Path(ortho_utm_out).parent.glob('*ortho*.txt'))]
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+    
 
     doc = Metashape.Document()
     doc.open(project_file)
@@ -306,13 +324,66 @@ def images2ortho(project_file,
     if build_dem:
         chunk.buildDem(source_data=Metashape.DenseCloudData)
     
-    chunk.buildOrthomosaic(surface_data=Metashape.ElevationData)
+    if build_ortho:
+        chunk.buildOrthomosaic(surface_data=Metashape.ElevationData)
 
-    doc.save()
-
-    chunk.exportRaster(ortho_file,
-                       source_data= Metashape.OrthomosaicData,
-                       split_in_blocks = split_in_blocks)
+        doc.save()
+        
+    if export_ortho:
+        if not split_in_blocks:
+            chunk.exportRaster(ortho_file,
+                               source_data= Metashape.OrthomosaicData,
+                               split_in_blocks = False)
+        
+        elif split_in_blocks:
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+            ortho_blocks_base = Path(tmp_dir,'orthomosaic.tif').as_posix()
+            chunk.exportRaster(ortho_blocks_base,
+                               source_data= Metashape.OrthomosaicData,
+                               split_in_blocks = True)
+            
+            ortho_blocks = [x.as_posix() for x in sorted(tmp_dir.glob('*.tif'))]
+            
+            hsfm.asp.dem_mosaic_custom(ortho_blocks,
+                                       mosaic_output_file = ortho_file,
+                                       verbose=verbose,
+                                       args = ['--ot', 'Byte',
+                                               '--output-nodata-value', '255',])
+            
+    ## reproject and set nodata
+    call = ['gdalwarp',
+            '-co', 'COMPRESS=LZW',
+            '-co', 'TILED=YES',
+            '-co','BIGTIFF=IF_SAFER',
+            '-dstnodata', '0',
+            '-r', 'cubic',
+            '-t_srs','EPSG:'+epsg_code]
+    
+    
+    call.extend([ortho_file, ortho_utm_out])
+    hsfm.utils.run_command(call, verbose=verbose)
+    
+    ## drop alpha band
+    call = ['gdal_translate',
+        '-b','1',
+        '-co',
+        'TILED=YES',
+        '-co','COMPRESS=LZW',
+        '-co','BIGTIFF=IF_SAFER']
+    
+    
+    call.extend([ortho_utm_out, ortho_utm_b1_out])
+    hsfm.utils.run_command(call, verbose=verbose)
+    
+    shutil.move(ortho_utm_b1_out, ortho_file)
+    
+    if cleanup:
+        Path(ortho_utm_out).unlink(missing_ok=True)
+        Path(ortho_utm_b1_out).unlink(missing_ok=True)
+        [x.unlink(missing_ok=True) for x in sorted(Path(ortho_utm_out).parent.glob('*ortho*.txt'))]
+        if split_in_blocks:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+    
     return ortho_file
     
 def generate_points_along_border(sensor, steps=10):
