@@ -1670,3 +1670,49 @@ def parse_date_from_path(path):
     month_day = base.split('-',1)[-1]
     date = year+'-'+month_day
     return date
+
+def update_cameras_post_icp(icp_aligned_metadata_csv_file,
+                            nuth_and_kaab_json_file,
+                            epsg_code = '32610',
+                           ):
+    '''
+    The final camera position accuracy is set to 0.01 m so that they barely move
+    if bundle adjusted with other, less accurate, cameras.
+    '''
+    metadata_df = pd.read_csv(icp_aligned_metadata_csv_file)
+    df = hsfm.geospatial.df_xyz_coords_to_gdf(metadata_df, z='alt')
+    df = df.to_crs('epsg:'+epsg_code)
+    hsfm.geospatial.extract_gpd_geometry(df)
+
+    results = hsfm.utils.parse_dem_align_json(nuth_and_kaab_json_file, km=True)
+    shift_x = results[2]
+    shift_y = results[3]
+    shift_z = results[4]
+
+    df['x'] = df['x'] + shift_x
+    df['y'] = df['y'] + shift_y
+    df['z'] = df['z'] + shift_z
+
+    transformed_metadata = hsfm.geospatial.df_xyz_coords_to_gdf(df, 
+                                                                lon='x', 
+                                                                lat= 'y', 
+                                                                z='z',
+                                                                epsg_code=epsg_code)
+
+    transformed_metadata = transformed_metadata.to_crs('epsg:4326')
+    hsfm.geospatial.extract_gpd_geometry(transformed_metadata)
+
+    df[['lon', 'lat','alt']] = transformed_metadata[['x', 'y','z']]
+    df['lon_acc'] = 0.01
+    df['lat_acc'] = 0.01
+    df['alt_acc'] = 0.01
+
+    for k in ['geometry','x','y','z']:
+        del df[k]
+
+    out_dir = Path(icp_aligned_metadata_csv_file).parent.as_posix()
+    out_fn = Path(icp_aligned_metadata_csv_file).name
+    out = Path(out_dir,'coreg_'+out_fn)
+
+    df.to_csv(out,index=False)
+    return out
