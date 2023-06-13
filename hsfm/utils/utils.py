@@ -810,10 +810,11 @@ def pick_fiducials(image_file_name):
     
 ## TODO move to hsfm.io and add docs
 def run_command(command, verbose=False, log_directory=None, shell=False):
-    if isinstance(command, type(str())):
-        print(command)
-    else:
-        print(*command)
+    if verbose:
+        if isinstance(command, type(str())):
+            print(command)
+        else:
+            print(*command)
     
     p = Popen(command,
               stdout=PIPE,
@@ -840,10 +841,11 @@ def run_command(command, verbose=False, log_directory=None, shell=False):
                 print(line)
                 
 def run_command2(command, verbose=False, log=False):
-    if isinstance(command, type(str())):
-        print(command)
-    else:
-        print(*command)
+    if verbose:
+        if isinstance(command, type(str())):
+            print(command)
+        else:
+            print(*command)
                   
     
     log_directory='logs'
