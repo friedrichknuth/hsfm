@@ -638,7 +638,7 @@ def combine_metadata_for_4D_SfM(output_path,
     
     inital_metadata_files = sorted(Path(output_path,
                                     project_name).glob(
-                                    'input_data/[!0]*/*/*/sfm/cl*/metashape_metadata.csv'))
+                                    'input_data/[!0]*/*/*/sfm/*/metashape_metadata.csv'))
     if inital_metadata_files:
     
         dfs = [pd.read_csv(i, dtype=object) for i in inital_metadata_files]

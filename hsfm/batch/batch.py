@@ -14,6 +14,7 @@ import shutil
 import time
 import geopandas as gpd
 import traceback
+from pathlib import Path
 
 import hipp
 import hsfm
@@ -865,7 +866,7 @@ def run_metashape(project_name,
     
     ba_cameras_df, unaligned_cameras_df = hsfm.metashape.update_ba_camera_metadata(metashape_project_file,
                                                                                    images_metadata_file,
-                                                                                   bundle_adjusted_metadata_file)
+                                                                                   bundle_adjusted_metadata_file=bundle_adjusted_metadata_file)
 
     x_offset, y_offset, z_offset = hsfm.core.compute_point_offsets(images_metadata_file, 
                                                                    bundle_adjusted_metadata_file)
@@ -1344,21 +1345,20 @@ def batch_process(project_name,
         sys.exit(0) 
     for i in batches:
         
-        ## TODO add better logging here and print the error message
         try:
             print('\n\n'+i)
-
+    
             now = datetime.now()
-
+    
             cluster_project_name = project_name+'_'+os.path.basename(i)
-
+    
             images_metadata_file = os.path.join(i,'metashape_metadata.csv')
             output_path          = os.path.join(i,'metashape')
             
             if not os.path.isfile(images_metadata_file):
                 raise FileNotFoundError(images_metadata_file,' not found.\nSkipping')
-
-
+    
+    
             hsfm.batch.metaflow(cluster_project_name,
                                 image_files,
                                 images_metadata_file,
