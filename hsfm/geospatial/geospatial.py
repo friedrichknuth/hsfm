@@ -20,12 +20,52 @@ import rasterio
 from shapely.geometry import Point, Polygon, LineString, mapping
 import utm
 import time
+import folium
+from folium.plugins import Draw
 
 import hsfm
 
 """
 Geospatial data processing functions.
 """
+
+def bounds2polygon(xmin, ymin, xmax, ymax, crs='epsg:4236'):
+    """
+    Function to return rectangle polygon as GeoDataFrame
+    """
+
+    vertices = [(xmin, ymax), (xmax, ymax), (xmax, ymin), (xmin, ymin)]
+    polygon = Polygon(vertices)
+    polygon_gdf = gpd.GeoDataFrame(
+        gpd.GeoSeries(polygon), columns=["geometry"], crs=crs
+    )
+    return polygon_gdf
+
+def select_features_on_map(gdf,
+                           output_file_name = 'vectors.geojson'):
+    
+    m = gdf.explore(tiles=None,
+                    style_kwds=dict(fillOpacity=0),
+                    name="input vectors")
+    
+    folium.TileLayer(
+        "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        attr='Google',
+        opacity=0.8,
+        name='Google basemap',
+    ).add_to(m)
+    
+
+    Draw(export=True,
+         filename=output_file_name,
+         position = 'topleft').add_to(m)
+    
+    folium.LayerControl(collapsed=True).add_to(m)
+    
+    minimap = folium.plugins.MiniMap(position="bottomleft",)
+    m.add_child(minimap)
+
+    return m
 
 def compare_footprints(gdf1, gdf2):
     intersection = gpd.overlay(gdf1, gdf2, how='intersection')

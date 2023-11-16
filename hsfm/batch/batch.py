@@ -1330,7 +1330,8 @@ def batch_process(project_name,
     image_files = os.path.join(output_directory,'*','*','*','*cropped_images','*.tif')
     image_files = sorted(glob.glob(image_files))
     
-    input_directories = os.path.join(output_directory,'*','*','*','sfm/regional_cl*')
+    
+    input_directories = os.path.join(output_directory,'*','*','*','sfm/cl*')
     batches = sorted(glob.glob(input_directories))
     camera_model_xml_files = sorted(glob.glob(os.path.join(output_directory,'camera_models','*.xml')))
     if len(camera_model_xml_files) ==0:
