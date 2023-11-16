@@ -85,11 +85,13 @@ For contribution guidelines and high-level TODO list please click [here](./CONTR
 
 [Historical Image Pre-Processing (HIPP)](https://github.com/friedrichknuth/hipp) [![DOI](https://zenodo.org/badge/287390486.svg)](https://zenodo.org/badge/latestdoi/287390486)
 
+[NASA Ames Stereo Pipeline](https://stereopipeline.readthedocs.io/en/latest/introduction.html) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1345235.svg)](https://doi.org/10.5281/zenodo.1345235)
+
 ### References
 
 Knuth, F., Shean, D., Bhushan, S., Schwat, E., Alexandrov, O., McNeil, C., Dehecq, A., Florentine, C. and O’Neel, S., 2023. Historical Structure from Motion (HSfM): Automated processing of historical aerial photographs for long-term topographic change analysis. Remote Sensing of Environment, 285, p.113379. [https://doi.org/10.1016/j.rse.2022.113379](https://doi.org/10.1016/j.rse.2022.113379)
 
-NASA Ames Stereo Pipeline [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1345235.svg)](https://doi.org/10.5281/zenodo.1345235)
+
  
 Beyer, Ross A., Oleg Alexandrov, and Scott McMichael. "The Ames Stereo Pipeline: NASA's open source software for deriving and processing terrain data." Earth and Space Science 5.9 (2018): 537-548.
 
