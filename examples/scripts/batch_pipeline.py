@@ -27,10 +27,10 @@ hsfm.batch.NAGAP_pre_process_images(project_name,
                                    )
 
 # reference_dem = './baker.tif'
-# gdown.download(id='1ObQyjhYB_fjhvqtBq-vK3CdPoQ1Iauyd', output=reference_dem, quiet=False)
+# gdown.download(id='1NDdHnOdQOP697l0SdmEeDrb9Pa1_QDfZ', output=reference_dem, quiet=False)
 
 reference_dem = './easton.tif'
-gdown.download(id='1YBDJIoC1gyfP2U58WMVrSoKm2-xFVxse', output=reference_dem, quiet=False)
+gdown.download(id='16t7TpWbqk7eDEen6c-yb2p__J3wppmvu', output=reference_dem, quiet=False)
 
 output_DEM_resolution   = 1
 image_matching_accuracy = 1
