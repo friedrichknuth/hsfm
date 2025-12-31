@@ -1,19 +1,16 @@
-name: hsfm
+name: hsfm_test
 channels:
+  - nasa-ames-stereo-pipeline
+  - usgs-astrogeology
   - conda-forge
 dependencies:
-  - python=3.10
-  - numpy
-  - matplotlib
-  - geopandas
+  - stereo-pipeline
+  - xdem  # brings: numpy, scipy, rasterio, xarray, matplotlib, gdal
+  - geopandas  # brings: shapely, pandas
   - descartes
-  - shapely
   - contextily
   - xmltodict
   - bokeh
-  - pip
-  - gdal
-  - scipy
   - haversine
   - utm
   - panel
@@ -23,11 +20,8 @@ dependencies:
   - opencv
   - rasterstats
   - hvplot
-  - rasterio
   - scikit-image
-  - xarray
   - datashader
-  - pandas
   - s3fs
   - pdal
   - py3dep
@@ -36,10 +30,12 @@ dependencies:
   - pystac-client
   - planetary-computer
   - tree
+  - pip
   - pip:
     - elevation
-    - "--editable=git+https://github.com/dshean/pygeotools.git#egg=pygeotools"
-    - "--editable=git+https://github.com/friedrichknuth/demcoreg.git#egg=demcoreg" #scripts enabled by default on this fork
-    - "--editable=git+https://github.com/dshean/imview.git#egg=imview"
-    - "--editable=git+https://github.com/friedrichknuth/bare.git#egg=bare"
-    - "--editable=git+https://github.com/friedrichknuth/hipp.git#egg=hipp"
+    - pygeotools @ git+https://github.com/dshean/pygeotools.git
+    - demcoreg @ git+https://github.com/friedrichknuth/demcoreg.git  # scripts enabled by default on this fork
+    - imview @ git+https://github.com/dshean/imview.git
+    - bare @ git+https://github.com/friedrichknuth/bare.git
+    - hipp @ git+https://github.com/friedrichknuth/hipp.git
+    - -e .  # Install hsfm package in editable mode

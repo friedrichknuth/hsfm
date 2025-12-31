@@ -242,11 +242,11 @@ def images2las(project_name,
     
     # EXPORT
     
-    chunk.exportReport(report_file)
+    chunk.exportReport(str(report_file))
     if export_point_cloud:
-        chunk.exportPoints(path=point_cloud_file,
-                           format=Metashape.PointsFormatLAS, 
-                           crs=chunk.crs)
+        chunk.exportPointCloud(path=point_cloud_file,
+                               format=Metashape.PointCloudFormatLAS, 
+                               crs=chunk.crs)
 
     return metashape_project_file, point_cloud_file
 
@@ -268,13 +268,13 @@ def oc32dem(project_name,
 
     chunk = doc.chunk
 
-    chunk.buildDem(source_data=Metashape.DenseCloudData, 
+    chunk.buildDem(source_data=Metashape.DataSource.PointCloudData, 
                    interpolation=Metashape.DisabledInterpolation)
 
     doc.save()
 
-    chunk.exportRaster(output_path + project_name + "_DEM.tif", 
-                       source_data= Metashape.ElevationData,
+    chunk.exportRaster(path=output_path + project_name + "_DEM.tif", 
+                       source_data=Metashape.DataSource.ElevationData,
                        image_format=Metashape.ImageFormatTIFF, 
                        format=Metashape.RasterFormatTiles, 
                        nodata_value=-32767, 
@@ -322,24 +322,24 @@ def images2ortho(project_file,
     chunk = doc.chunk
     
     if build_dem:
-        chunk.buildDem(source_data=Metashape.DenseCloudData)
+        chunk.buildDem(source_data=Metashape.DataSource.PointCloudData)
     
     if build_ortho:
-        chunk.buildOrthomosaic(surface_data=Metashape.ElevationData)
+        chunk.buildOrthomosaic(surface_data=Metashape.DataSource.ElevationData)
 
         doc.save()
         
     if export_ortho:
         if not split_in_blocks:
-            chunk.exportRaster(ortho_file,
-                               source_data= Metashape.OrthomosaicData,
+            chunk.exportRaster(path=ortho_file,
+                               source_data=Metashape.DataSource.OrthomosaicData,
                                split_in_blocks = False)
         
         elif split_in_blocks:
             tmp_dir.mkdir(parents=True, exist_ok=True)
             ortho_blocks_base = Path(tmp_dir,'orthomosaic.tif').as_posix()
-            chunk.exportRaster(ortho_blocks_base,
-                               source_data= Metashape.OrthomosaicData,
+            chunk.exportRaster(path=ortho_blocks_base,
+                               source_data=Metashape.DataSource.OrthomosaicData,
                                split_in_blocks = True)
             
             ortho_blocks = [x.as_posix() for x in sorted(tmp_dir.glob('*.tif'))]
