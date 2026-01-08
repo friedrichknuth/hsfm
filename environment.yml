@@ -4,6 +4,7 @@ channels:
   - usgs-astrogeology
   - conda-forge
 dependencies:
+  - python=3.11
   - stereo-pipeline
   - xdem  # brings: numpy, scipy, rasterio, xarray, matplotlib, gdal
   - geopandas  # brings: shapely, pandas

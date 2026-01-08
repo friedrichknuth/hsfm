@@ -1578,9 +1578,9 @@ def estimate_DEM_resolution_from_GSD(images_metadata_file,
 def get_DEM_resolution_from_report_GSD(metashape_report_pdf,
                                        factor = 2.5):
     pdfFileObj = open(metashape_report_pdf, 'rb')
-    pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
-    pageObj = pdfReader.getPage(1)
-    res_with_units = pageObj.extractText().split("Ground resolution:")[1].split('/')[0]
+    pdfReader = PyPDF2.PdfReader(pdfFileObj)
+    pageObj = pdfReader.pages[1]
+    res_with_units = pageObj.extract_text().split("Ground resolution:")[1].split('/')[0]
     print("GSD:", res_with_units)
     print("GSD multiplication factor:", factor)
 
@@ -1679,6 +1679,10 @@ def update_cameras_post_icp(icp_aligned_metadata_csv_file,
     The final camera position accuracy is set to 0.01 m so that they barely move
     if bundle adjusted with other, less accurate, cameras.
     '''
+    # Check that a valid EPSG code string is provided
+    if not isinstance(epsg_code, str) or not epsg_code.isdigit():
+        raise ValueError("A valid EPSG code string (e.g., '32612') must be provided for 'epsg_code'.")
+        
     metadata_df = pd.read_csv(icp_aligned_metadata_csv_file)
     df = hsfm.geospatial.df_xyz_coords_to_gdf(metadata_df, z='alt')
     df = df.to_crs('epsg:'+epsg_code)
