@@ -164,7 +164,7 @@ def dem_align_custom(reference_dem,
                      verbose=False,
                      print_call=False):
     
-    call = ['dem_align.py',reference_dem,
+    call = ['dem_align',reference_dem,
             dem_to_be_aligned,
             '-max_offset',str(max_offset),
             '-mode', mode,
@@ -193,7 +193,7 @@ def mask_dem(dem,
     if output_directory == None:
         output_directory = path
     
-    call = ['dem_mask.py', '--outdir']
+    call = ['dem_mask', '--outdir']
     call.extend([output_directory])
     call.extend(masks)
     call.extend([dem])
