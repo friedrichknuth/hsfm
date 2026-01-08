@@ -39,7 +39,9 @@ def images2las(project_name,
                tiepoint_limit          = 8000,
                rotation_enabled        = True,
                export_point_cloud      = True,
-               overwrite               = False):
+               overwrite               = False,
+               gcp_file                = None,
+               ):
 
     # Levels from https://www.agisoft.com/forum/index.php?topic=11697.msg52455#msg52455
     """
@@ -49,6 +51,7 @@ def images2las(project_name,
 
     try:
         import Metashape
+        globals()['Metashape'] = Metashape
     except Exception as e:
         print('\nCould not import Metashape python library. Check your licence and installation.\n')
         print(traceback.format_exc())
@@ -105,7 +108,11 @@ def images2las(project_name,
 
     chunk.crs = crs
     chunk.updateTransform()
-    
+
+    if gcp_file:
+        import_gcp(gcp_file, chunk)
+        print('Imported GCPs from', gcp_file)
+
     for i,v in enumerate(chunk.cameras):
         v.reference.rotation_enabled = rotation_enabled
         
@@ -117,7 +124,8 @@ def images2las(project_name,
             print('Assigning focal length for each camera specified in metadata csv file.')
             for i,v in enumerate(chunk.cameras):
                     v.sensor.focal_length = focal_lengths[i]
-#                     v.sensor.fixed_params = ['F']
+                    # v.sensor.fixed_params = ['F']
+                    # print('Focal length fixed')
         except:
             print('No focal length specified nor found in metadata csv file.')
             pass
@@ -126,7 +134,8 @@ def images2las(project_name,
         print('Focal length:', focal_length)
         for i,v in enumerate(chunk.cameras):
             v.sensor.focal_length = focal_length
-#             v.sensor.fixed_params = ['F']
+            # v.sensor.fixed_params = ['F']
+            # print('Focal length fixed')
 
     if not pixel_pitch:
         try:
@@ -148,6 +157,12 @@ def images2las(project_name,
     else:
         print('Please specify pixel pitch.')
         sys.exit()
+
+    for cam in chunk.cameras:
+        cam.sensor.fixed_params = ['F']
+    #     cam.sensor.fixed_params = ['F', 'K2', 'K3', 'P1', 'P2']
+        # cam.sensor.fixed_params = ['F', 'K3', 'P1', 'P2']
+        print('Fixed camera parameters', cam.sensor.fixed_params)
 
     if not isinstance(camera_model_xml_files, type(None)):
         for cam in chunk.cameras:
@@ -195,7 +210,11 @@ def images2las(project_name,
                       tiepoint_limit=tiepoint_limit)
     
     chunk.alignCameras()
-    
+
+    # chunk.optimizeCameras(adaptive_fitting=True)
+    # for cam in chunk.cameras:
+    #     print(f"After optimisation fixed params → {cam.sensor.fixed_params}")
+
 #     chunk.optimizeCameras(fit_f=False, 
 #                           fit_k1=True, 
 #                           fit_k2=True, 
@@ -237,9 +256,10 @@ def images2las(project_name,
 
     chunk.buildDepthMaps(downscale=densecloud_quality,
                          filter_mode=Metashape.AggressiveFiltering)
-    chunk.buildDenseCloud()
+    # chunk.buildDepthMaps(downscale=densecloud_quality,
+    #                      filter_mode=Metashape.MildFiltering)
+    chunk.buildPointCloud(point_colors=True,keep_depth=True)
     doc.save()
-    
     # EXPORT
     
     chunk.exportReport(str(report_file))
@@ -249,6 +269,66 @@ def images2las(project_name,
                                crs=chunk.crs)
 
     return metashape_project_file, point_cloud_file
+
+def import_gcp(gcp_file, chunk):
+    """
+    Imports Ground Control Points (GCPs) from a CSV file and adds them as markers to the given Metashape chunk.
+    
+    The CSV file must contain the following columns:
+        ['gcp_label', 'image_file_name', 'x', 'y', 'lon', 'lat', 'elev',
+         'lon_acc', 'lat_acc', 'elev_acc']
+    
+    Each row represents a GCP observation in a specific image, with pixel coordinates (x, y)
+    and georeferenced coordinates (lon, lat, elev) and their respective accuracies.
+    
+    Args:
+        gcp_file (str or Path): Path to the GCP CSV file.
+        chunk (Metashape.Chunk): The Metashape chunk to which markers will be added.
+    
+    Returns:
+        None
+    """
+    import Metashape
+
+    required_columns = [
+        'gcp_label', 'image_file_name', 'x', 'y', 'lon', 'lat', 'elev',
+        'lon_acc', 'lat_acc', 'elev_acc'
+    ]
+    df = pd.read_csv(gcp_file)
+    missing = set(required_columns) - set(df.columns)
+    if missing:
+        raise ValueError(f"GCP file is missing required columns: {missing}")
+
+    for row in df.itertuples(index=False):
+        label = str(row.gcp_label)
+        camera_label = row.image_file_name
+        x = row.x
+        y = row.y
+        lat = row.lat
+        lon = row.lon
+        alt = row.elev
+        lat_acc = row.lat_acc
+        lon_acc = row.lon_acc
+        elev_acc = row.elev_acc
+
+        # Find or create marker
+        marker = next((m for m in chunk.markers if m.label == label), None)
+        if marker is None:
+            marker = chunk.addMarker()
+            marker.label = label
+            marker.reference.location = Metashape.Vector([lon, lat, alt])
+            marker.reference.accuracy = Metashape.Vector([lon_acc, lat_acc, elev_acc])
+        marker.reference.enabled = True 
+
+        # Find camera
+        camera = next((cam for cam in chunk.cameras if cam.label == Path(camera_label).stem), None)
+        if camera is None:
+            print(f"Camera {camera_label} not found in chunk.cameras")
+            continue
+
+        coord = Metashape.Vector([x, y])
+        marker.projections[camera] = Metashape.Marker.Projection(coord, True)
+    return
 
 
 def oc32dem(project_name,
