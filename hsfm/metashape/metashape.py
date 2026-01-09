@@ -68,6 +68,7 @@ def images2las(project_name,
         except Exception as e:
             print('\nDirectory exists:',output_path, '\nPlease remove or rename it.\n')
             print(traceback.format_exc())
+            return
     
     metashape_project_file = os.path.join(output_path, project_name  + ".psx")
     report_file            = os.path.join(output_path, project_name  + "_report.pdf")
