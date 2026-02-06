@@ -847,7 +847,7 @@ def update_metashape_cameras_after_transform(project_file,
 
     chunk.updateTransform()
 
-    chunk.dense_cloud.crs = chunk.crs
-    chunk.dense_cloud.transform = chunk.transform.matrix
+    chunk.point_cloud.crs = chunk.crs
+    chunk.point_cloud.transform = chunk.transform.matrix
     
     doc.save()
