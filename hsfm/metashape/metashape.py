@@ -185,6 +185,7 @@ def images2las(project_name,
 #             v.sensor.fixed_params=['F','K1','K2','K3']
 #             v.sensor.fixed_params=['F','Cx','Cy','K1','K2','K3','P1','P2']
         
+## ASSIGN CAMERA GROUPS
 # #   Assign seperate camera model to each image
 #     for i,v in enumerate(chunk.cameras):
 #         sensor = chunk.addSensor()
@@ -196,6 +197,83 @@ def images2las(project_name,
 #         v.sensor.focal_length = focal_length
 #         v.sensor.pixel_height = pixel_pitch
 #         v.sensor.pixel_width  = pixel_pitch
+    params_groups = {}
+    df_tmp = pd.read_csv(images_metadata_file)
+    if 'camera_group' in df_tmp.keys():
+        print("Grouping cameras based on 'camera_group' column...")
+        full_name_map = {}
+        stem_map = {}
+        for fname, group in zip(df_tmp['image_file_name'], df_tmp['camera_group']):
+            full_name_map[fname] = group
+            stem_key = Path(fname).stem
+            if stem_key not in stem_map:
+                stem_map[stem_key] = group
+        for cam in chunk.cameras:
+            group_name = None
+            if cam.label in full_name_map:
+                group_name = full_name_map[cam.label]
+            if not group_name:
+                label_stem = Path(cam.label).stem
+                if label_stem in stem_map:
+                    group_name = stem_map[label_stem]
+            if group_name:
+                if group_name in params_groups:
+                    cam.sensor = params_groups[group_name]
+                else:
+                    old_sensor = cam.sensor
+                    new_sensor = chunk.addSensor()
+                    new_sensor.label = group_name
+                    new_sensor.type = old_sensor.type
+                    new_sensor.width = old_sensor.width
+                    new_sensor.height = old_sensor.height
+                    new_sensor.pixel_height = old_sensor.pixel_height
+                    new_sensor.pixel_width = old_sensor.pixel_width
+                    new_sensor.focal_length = old_sensor.focal_length
+                    new_sensor.fixed_params = old_sensor.fixed_params
+                    if old_sensor.user_calib:
+                        new_sensor.user_calib = old_sensor.user_calib
+                    cam.sensor = new_sensor
+                    params_groups[group_name] = new_sensor
+            else:
+                print(f"Warning: No group found in CSV for camera {cam.label}")
+
+        print("\n" + "="*60)
+        print("CAMERA GROUPING REPORT")
+        print("="*60)
+    
+        if params_groups:
+            print(f"Created {len(params_groups)} camera groups:")
+            for group_name, sensor in sorted(params_groups.items()):
+                img_count = sum(1 for c in chunk.cameras if c.sensor.key == sensor.key)
+                fixed_p = sensor.fixed_params if sensor.fixed_params else "None"
+                print(f"\nGroup: '{group_name}'")
+                print(f"  • Image Count : {img_count}")
+                print(f"  • Resolution  : {sensor.width} x {sensor.height}")
+                print(f"  • Pixel Pitch : {sensor.pixel_width:.4f}")
+                print(f"  • Focal Length: {sensor.focal_length}")
+                print(f"  • Fixed Params: {fixed_p}")
+        else:
+            print("No camera groups were created.")
+    
+        # Check for ungrouped images
+        custom_sensor_keys = set(s.key for s in params_groups.values())
+        ungrouped_cameras = [c.label for c in chunk.cameras if c.sensor.key not in custom_sensor_keys]
+        if ungrouped_cameras:
+            print("-" * 60)
+            print(f"WARNING: {len(ungrouped_cameras)} images were not assigned to a group:")
+
+            for label in ungrouped_cameras[:10]:
+                print(f"  [!] {label}")
+            if len(ungrouped_cameras) > 10:
+                print(f"  ... and {len(ungrouped_cameras) - 10} more.")
+        else:
+            print("-" * 60)
+            print("All cameras assigned to a group.")
+            
+        print("="*60 + "\n")
+    
+    else:
+        print("Column 'camera_group' not found in metadata. Skipping custom grouping.")
 
     doc.save()
     
