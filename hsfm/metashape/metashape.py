@@ -41,6 +41,7 @@ def images2las(project_name,
                export_point_cloud      = True,
                overwrite               = False,
                gcp_file                = None,
+               fixed_cam_params        = None, # ['F', 'Cx', 'Cy', 'K1', 'K2', 'K3', 'P1', 'P2']
                ):
 
     # Levels from https://www.agisoft.com/forum/index.php?topic=11697.msg52455#msg52455
@@ -159,11 +160,13 @@ def images2las(project_name,
         print('Please specify pixel pitch.')
         sys.exit()
 
-    for cam in chunk.cameras:
-        cam.sensor.fixed_params = ['F']
-    #     cam.sensor.fixed_params = ['F', 'K2', 'K3', 'P1', 'P2']
-        # cam.sensor.fixed_params = ['F', 'K3', 'P1', 'P2']
-        print('Fixed camera parameters', cam.sensor.fixed_params)
+    # if fixed_cam_params:  
+    #     for cam in chunk.cameras:
+    #         cam.sensor.fixed_params = fixed_cam_params
+    #         print('Fixed camera parameters', cam.sensor.fixed_params)
+    # for cam in chunk.cameras:
+    #     cam.sensor.fixed_params = ['F', 'Cx', 'Cy', 'K1', 'K2', 'K3', 'P1', 'P2']
+    #     print('Fixed camera parameters', cam.sensor.fixed_params)
 
     if not isinstance(camera_model_xml_files, type(None)):
         for cam in chunk.cameras:
